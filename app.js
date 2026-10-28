@@ -11,7 +11,6 @@ function validateForm() {
     const boVal = baseBoSelect.value;
     const phaseVal = targetPhaseInput.value.trim();
 
-    // すべて入力/選択されている場合のみ描画ボタンを有効化
     if (wVal && lVal && boVal && phaseVal !== '') {
         generateBtn.disabled = false;
         generateBtn.classList.remove('bg-gray-300', 'text-gray-500', 'cursor-not-allowed');
@@ -28,7 +27,6 @@ losersAdvanceCount.addEventListener('change', validateForm);
 baseBoSelect.addEventListener('change', validateForm);
 targetPhaseInput.addEventListener('input', validateForm);
 
-// 初期チェック
 validateForm();
 
 // === 手順3のロジック (基本Bo設定と奇数チェック) ===
@@ -40,7 +38,7 @@ const customBoConfirmText = document.getElementById('custom-bo-confirm-text');
 const customBoConfirmYes = document.getElementById('custom-bo-confirm-yes');
 const customBoConfirmNo = document.getElementById('custom-bo-confirm-no');
 
-let baseBoValue = '5'; // デフォルトBo5
+let baseBoValue = '5';
 
 baseBoSelect.addEventListener('change', (e) => {
     if (e.target.value === 'custom') {
@@ -92,7 +90,7 @@ customBoConfirmNo.addEventListener('click', () => {
     customBoInput.focus();
 });
 
-// === 手順4のロジック (変更する/変更しないスイッチとラウンド以降一括適用) ===
+// === 手順4のロジック ===
 const changeModeRadios = document.querySelectorAll('input[name="change-mode"]');
 const roundChangeContainer = document.getElementById('round-change-container');
 const winnersRoundSelect = document.getElementById('winners-round-select');
@@ -196,17 +194,17 @@ function getRoundBo(roundBaseName, bracketType) {
     return baseBoValue;
 }
 
-// === アコーディオン開閉の制御 ===
+// === アコーディオン開閉の制御（style.displayによる確実な切替） ===
 document.querySelectorAll('.accordion-toggle').forEach(button => {
     button.addEventListener('click', () => {
         const content = button.nextElementSibling;
         const arrow = button.querySelector('span:last-child');
         
-        if (content.classList.contains('hidden')) {
-            content.classList.remove('hidden');
+        if (content.style.display === 'none' || content.style.display === '') {
+            content.style.display = 'flex';
             arrow.style.transform = 'rotate(180deg)';
         } else {
-            content.classList.add('hidden');
+            content.style.display = 'none';
             arrow.style.transform = 'rotate(0deg)';
         }
     });
@@ -334,7 +332,6 @@ generateBtn.addEventListener('click', () => {
     const wCount = winnersAdvanceCount.value;
     const lCount = losersAdvanceCount.value;
 
-    // プレースホルダーを隠してヘッダーを表示
     document.getElementById('preview-placeholder').classList.add('hidden');
     document.getElementById('preview-header').classList.remove('hidden');
 
