@@ -252,11 +252,11 @@
     </style>
 </head>
 <body class="bg-gray-200 h-screen flex overflow-hidden">
-    <!-- 左側：スクロール可能な操作パネル（flex-shrinkを外し、内部コンテンツの高さが正しくスクロールに反映されるよう調整） -->
+    <!-- 左側：スクロール可能な操作パネル -->
     <div class="w-80 bg-white p-5 shadow-lg flex flex-col gap-4 overflow-y-auto z-20 h-full">
         <h1 class="text-2xl font-bold text-gray-800">Bracket Printer</h1>
         
-        <!-- 手順1: CSV読み込み -->
+        <!-- 手順1 -->
         <div>
             <label class="block text-xs font-bold text-gray-700 mb-1">1. CSVファイル読み込み (スキップ中)</label>
             <input type="file" id="csv-upload" accept=".csv" class="block w-full text-xs text-gray-500 file:mr-2 file:py-1.5 file:px-2.5 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer border border-gray-300 rounded">
@@ -264,13 +264,13 @@
 
         <hr class="border-gray-200">
 
-        <!-- 手順2: 通過人数指定 -->
+        <!-- 手順2 -->
         <div class="flex flex-col gap-2 text-xs">
             <label class="font-bold text-gray-700">2. フェーズ通過人数を指定</label>
             <div class="grid grid-cols-2 gap-2">
                 <div>
                     <span class="text-[11px] text-gray-500 block mb-0.5">勝者側 (Winners)</span>
-                    <select id="winners-advance-count" class="w-full border border-gray-300 rounded p-1 bg-white validation-target">
+                    <select id="winners-advance-count" class="w-full border border-gray-300 rounded p-1 bg-white">
                         <option value="" disabled selected>選択してください</option>
                         <option value="1">1人</option>
                         <option value="2">2人</option>
@@ -282,7 +282,7 @@
                 </div>
                 <div>
                     <span class="text-[11px] text-gray-500 block mb-0.5">敗者側 (Losers)</span>
-                    <select id="losers-advance-count" class="w-full border border-gray-300 rounded p-1 bg-white validation-target">
+                    <select id="losers-advance-count" class="w-full border border-gray-300 rounded p-1 bg-white">
                         <option value="" disabled selected>選択してください</option>
                         <option value="1">1人</option>
                         <option value="2">2人</option>
@@ -295,10 +295,10 @@
             </div>
         </div>
 
-        <!-- 手順3: 最大セット数指定 -->
+        <!-- 手順3 -->
         <div class="flex flex-col gap-2 text-xs">
             <label class="font-bold text-gray-700">3. 基本最大セット数を指定 (奇数のみ)</label>
-            <select id="base-bo-select" class="w-full border border-gray-300 rounded p-1.5 bg-white validation-target">
+            <select id="base-bo-select" class="w-full border border-gray-300 rounded p-1.5 bg-white">
                 <option value="" disabled selected>選択してください</option>
                 <option value="5">Bo5 / 3本先取</option>
                 <option value="3">Bo3 / 2本先取</option>
@@ -321,7 +321,7 @@
             </div>
         </div>
 
-        <!-- 手順4: 途中で最大セット数を変更 -->
+        <!-- 手順4 -->
         <div class="flex flex-col gap-2 text-xs">
             <label class="font-bold text-gray-700">4. 途中で最大セット数を変更</label>
             <div class="flex gap-4">
@@ -377,26 +377,26 @@
             </div>
         </div>
 
-        <!-- 手順5: 通水のフェーズ名を入力 -->
+        <!-- 手順5 -->
         <div class="flex flex-col gap-1 text-xs">
             <label class="font-bold text-gray-700">5. 通過先のフェーズ名を入力</label>
-            <input type="text" id="target-phase-input" value="" placeholder="例: Day2 / TOP192" class="border border-gray-300 rounded p-1.5 text-xs validation-target">
+            <input type="text" id="target-phase-input" value="" placeholder="例: Day2 / TOP192" class="border border-gray-300 rounded p-1.5 text-xs">
         </div>
 
-        <!-- ブラケットを描画ボタン（初期状態はグレーアウト・バリデーション連動） -->
+        <!-- 描画ボタン -->
         <button id="generate-btn" disabled class="bg-gray-300 text-gray-500 px-4 py-2 rounded shadow transition font-bold text-sm cursor-not-allowed">
             ブラケットを描画する
         </button>
 
         <hr class="border-gray-200">
 
-        <!-- アコーディオン：印刷オプション -->
+        <!-- アコーディオン：印刷オプション（初期状態はstyle="display: none;"で確実に隠す） -->
         <div class="border border-gray-200 rounded-lg overflow-hidden">
             <button class="accordion-toggle w-full flex justify-between items-center p-2.5 bg-gray-50 hover:bg-gray-100 font-bold text-xs text-gray-700 transition">
                 <span>🖨️ 印刷オプション</span>
                 <span class="transform transition-transform duration-200">▼</span>
             </button>
-            <div class="accordion-content hidden bg-white px-3 py-2 flex flex-col gap-2 text-xs">
+            <div class="accordion-content bg-white px-3 py-2 flex flex-col gap-2 text-xs" style="display: none;">
                 <div>
                     <label class="block font-semibold text-gray-600 mb-0.5">用紙サイズ</label>
                     <select id="print-size" class="w-full border border-gray-300 rounded p-1 bg-white">
@@ -425,13 +425,13 @@
             </div>
         </div>
 
-        <!-- アコーディオン：描画オプション -->
+        <!-- アコーディオン：描画オプション（初期状態はstyle="display: none;"で確実に隠す） -->
         <div class="border border-gray-200 rounded-lg overflow-hidden">
             <button class="accordion-toggle w-full flex justify-between items-center p-2.5 bg-gray-50 hover:bg-gray-100 font-bold text-xs text-gray-700 transition">
                 <span>🎨 描画オプション(任意)</span>
                 <span class="transform transition-transform duration-200">▼</span>
             </button>
-            <div class="accordion-content hidden bg-white px-3 py-2 flex flex-col gap-2 text-xs">
+            <div class="accordion-content bg-white px-3 py-2 flex flex-col gap-2 text-xs" style="display: none;">
                 <div>
                     <label class="block font-semibold text-gray-600 mb-0.5">右下にロゴを追加</label>
                     <input type="file" id="logo-upload" accept=".png" class="block w-full text-[10px] text-gray-500 file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200 cursor-pointer border border-gray-300 rounded">
@@ -480,7 +480,6 @@
     <div id="preview-viewport" class="flex-1 p-6 overflow-auto bg-gray-200">
         <div id="preview-scale-wrapper" class="inline-block">
             <div id="preview-area" class="shadow-md text-gray-800 relative">
-                <!-- 更新された未設定時のプレースホルダーメッセージ -->
                 <div id="preview-placeholder" class="flex flex-col items-center justify-center h-[1100px] text-gray-400 font-bold text-xl gap-2 text-center px-4">
                     <p>⚠️ プレビューを表示できません。</p>
                     <p class="text-sm font-normal text-gray-500">初期設定を完了し、「ブラケットを描画する」を押してください</p>
