@@ -83,9 +83,12 @@ csvUpload.addEventListener('change', (e) => {
             const parsedPools = {};
             for (let i = 1; i < rows.length; i++) {
                 const row = rows[i];
-                const poolName = (row[2] || '').trim();
+                const rawPoolName = (row[2] || '').trim();
                 const seedStr = (row[3] || '').trim();
-                if (!poolName || !seedStr) continue;
+                if (!rawPoolName || !seedStr) continue;
+
+                // start.ggのWave制仕様でプール番号の末尾に00が付く場合は除去する (例: A100 -> A1, 100 -> 1)
+                const poolName = rawPoolName.replace(/00$/, '') || rawPoolName;
 
                 const seed = parseInt(seedStr, 10);
                 if (isNaN(seed)) continue;
@@ -354,7 +357,6 @@ function createElement(tag, className = '', textContent = '') {
     return el;
 }
 
-// 0 -> 'A', 25 -> 'Z', 26 -> 'AA', 27 -> 'AB' ...
 function indexToMatchLabel(index) {
     let label = '';
     let n = index;
@@ -365,7 +367,6 @@ function indexToMatchLabel(index) {
     return label;
 }
 
-// WR1で試合が無い箇所の空白スペーサー（高さを40pxボックスと完全一致させる）
 function createSpacerNode() {
     const wrapper = createElement('div', 'match-wrapper');
     const dummyBox = createElement('div', '');
@@ -522,13 +523,10 @@ generateBtn.addEventListener('click', () => {
     container.style.flexDirection = 'column';
     container.style.gap = '28px'; 
 
-    // マッチラベル採番カウンター
     let labelCounter = 0;
     const nextLabel = () => indexToMatchLabel(labelCounter++);
 
-    // WR2の上段シード順 (合計17の基準となる1〜8シード)
     const wr2TopSeeds = [1, 8, 4, 5, 2, 7, 3, 6];
-    // WR1のシードペア (上段 + 下段 = 33, WR2上段 + WR1上段 = 17)
     const wr1SeedPairs = wr2TopSeeds.map(s => {
         const wr1Top = 17 - s;
         const wr1Bot = 33 - wr1Top;
@@ -546,7 +544,6 @@ generateBtn.addEventListener('click', () => {
     const wr5 = createRoundColumn('Winners Final', 'winners');
     const wQual = createRoundColumn('', 'winners', true);
 
-    // WR1: 対戦相手(wr1Bot)が playerCount 以下の場合のみ試合が存在する
     const wr1Labels = [];
     for (let i = 0; i < 8; i++) {
         const [s1, s2] = wr1SeedPairs[i];
@@ -560,13 +557,12 @@ generateBtn.addEventListener('click', () => {
         }
     }
 
-    // WR2: WR1の試合がある場合は上段のみシード配置＋直線接続。WR1が無い場合はs1がWR2下段に入り接続線なし
     const wr2Labels = [];
     for (let i = 0; i < 8; i++) {
         const lbl = nextLabel();
         wr2Labels.push(lbl);
         const topSeed = wr2TopSeeds[i];
-        const [wr1TopSeed, wr1BotSeed] = wr1SeedPairs[i];
+        const [wr1TopSeed] = wr1SeedPairs[i];
 
         if (wr1Labels[i] !== null) {
             wr2.appendChild(createMatchNode(lbl, getPlayerName(topSeed), '', topSeed, '', 'straight'));
@@ -575,7 +571,6 @@ generateBtn.addEventListener('click', () => {
         }
     }
 
-    // WQF (4試合)
     const wqfLabels = [];
     for (let i = 0; i < 4; i++) {
         const lbl = nextLabel();
@@ -583,7 +578,6 @@ generateBtn.addEventListener('click', () => {
         wr3.appendChild(createMatchNode(lbl, '', '', '', '', 'branch'));
     }
 
-    // WSF (2試合)
     const wsfLabels = [];
     for (let i = 0; i < 2; i++) {
         const lbl = nextLabel();
@@ -591,11 +585,9 @@ generateBtn.addEventListener('click', () => {
         wr4.appendChild(createMatchNode(lbl, '', '', '', '', 'branch'));
     }
 
-    // WF (1試合)
     const wfLabel = nextLabel();
     wr5.appendChild(createMatchNode(wfLabel, '', '', '', '', 'branch'));
 
-    // 予選通過ノード (Winners)
     wQual.appendChild(createQualifierNode(wfLabel, targetPhaseName, 'W'));
 
     wContainer.append(wr1, wr2, wr3, wr4, wr5, wQual);
@@ -603,7 +595,6 @@ generateBtn.addEventListener('click', () => {
     // ==========================================
     // 2. Losers Bracket のラベル割当と構築
     // ==========================================
-    // start.ggの採番規則に合わせ、WFの後に2文字分スキップしてからLR1を開始
     nextLabel();
     nextLabel();
 
@@ -616,7 +607,6 @@ generateBtn.addEventListener('click', () => {
     const lr6 = createRoundColumn('Losers Semi-Final', 'losers');
     const lQual = createRoundColumn('', 'losers', true);
 
-    // LR1の各スロット(j = 0..7)のラベルを先に採番（WR1の試合が存在する箇所のみ）
     const lr1Labels = [];
     for (let j = 0; j < 8; j++) {
         if (wr1Labels[j] !== null) {
@@ -626,13 +616,11 @@ generateBtn.addEventListener('click', () => {
         }
     }
 
-    // LR2の4試合のラベルを採番
     const lr2Labels = [];
     for (let k = 0; k < 4; k++) {
         lr2Labels.push(nextLabel());
     }
 
-    // LR1とLR2をペア単位(k = 0..3)で構築
     for (let k = 0; k < 4; k++) {
         const jTop = 2 * k;
         const jBot = 2 * k + 1;
@@ -646,7 +634,6 @@ generateBtn.addEventListener('click', () => {
         const pairGroup = createElement('div', 'lr1-pair-group');
 
         if (hasTopLr1 && hasBotLr1) {
-            // 両方のLR1試合が存在する場合（音叉型でLR2へ接続）
             pairGroup.appendChild(
                 createMatchNode(lr1Labels[jTop], '', '', '', '', 'none', `Loser of ${wr2DropTop}`, `Loser of ${wr1Labels[jTop]}`)
             );
@@ -657,7 +644,6 @@ generateBtn.addEventListener('click', () => {
 
             lr2.appendChild(createMatchNode(lr2Labels[k], '', '', '', '', 'branch'));
         } else if (hasTopLr1 && !hasBotLr1) {
-            // 上側のみLR1試合が存在し、下側のWR2敗者がLR2下段へ直行する場合（直線接続）
             pairGroup.appendChild(
                 createMatchNode(lr1Labels[jTop], '', '', '', '', 'none', `Loser of ${wr2DropTop}`, `Loser of ${wr1Labels[jTop]}`)
             );
@@ -665,37 +651,31 @@ generateBtn.addEventListener('click', () => {
 
             lr2.appendChild(createMatchNode(lr2Labels[k], '', '', '', '', 'straight', '', `Loser of ${wr2DropBot}`));
         } else {
-            // 両方ともWR1試合が無い場合（WR2敗者2名がそのままLR2で対戦）
             lr1.appendChild(pairGroup);
             lr2.appendChild(createMatchNode(lr2Labels[k], '', '', '', '', 'none', `Loser of ${wr2DropTop}`, `Loser of ${wr2DropBot}`));
         }
     }
 
-    // LR3: WQF(0, 1, 2, 3)から 2, 1, 4, 3 の順番 (index: 1, 0, 3, 2) で落下
     const lr3DropOrder = [wqfLabels[1], wqfLabels[0], wqfLabels[3], wqfLabels[2]];
     for (let k = 0; k < 4; k++) {
         const lbl = nextLabel();
         lr3.appendChild(createMatchNode(lbl, '', '', '', '', 'straight', `Loser of ${lr3DropOrder[k]}`));
     }
 
-    // LR4 (2試合)
     for (let k = 0; k < 2; k++) {
         const lbl = nextLabel();
         lr4.appendChild(createMatchNode(lbl, '', '', '', '', 'branch'));
     }
 
-    // LQF (2試合: WSFの 2, 1 の順で落下)
     const lqfDropOrder = [wsfLabels[1], wsfLabels[0]];
     for (let k = 0; k < 2; k++) {
         const lbl = nextLabel();
         lr5.appendChild(createMatchNode(lbl, '', '', '', '', 'straight', `Loser of ${lqfDropOrder[k]}`));
     }
 
-    // LSF (1試合)
     const lsfLabel = nextLabel();
     lr6.appendChild(createMatchNode(lsfLabel, '', '', '', '', 'branch'));
 
-    // 予選通過ノード (Losers)
     lQual.appendChild(createQualifierNode(lsfLabel, targetPhaseName, 'L'));
 
     lContainer.append(lr1, lr2, lr3, lr4, lr5, lr6, lQual);
