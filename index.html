@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bracket Printer</title>
+    <link rel="icon" href="BracketPrinter_logo.png" type="image/png">
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html-to-image/1.11.11/html-to-image.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+
+    <style>
+        @media print {
+            @page { size: A3 landscape; margin: 0; }
+            body * { visibility: hidden; }
+            #preview-area, #preview-area * { visibility: visible; }
+            #preview-area { 
+                position: fixed; left: 0; top: 0; 
+                width: 420mm !important; height: 297mm !important; 
+                box-shadow: none !important; margin: 0 !important;
+                transform: none !important;
+            }
+        }
+
+        #preview-scale-wrapper {
+            transform-origin: top left;
+        }
+
+        #preview-area {
+            width: 1800px;
+            min-height: 1273px;
+            padding: 24px 36px;
+            box-sizing: border-box;
+            background-color: #ffffff;
+        }
+
+        .bracket-container {
+            display: flex;
+            gap: 24px;
+        }
+
+        .round-col {
+            display: flex;
+            flex-direction: column;
+            width: 234px;
+            flex-shrink: 0;
+        }
+
+        .round-col.qualifier-col {
+            width: 160px;
+        }
+
+        .round-header {
+            background-color: #e5e7eb;
+            text-align: center;
+            font-weight: bold;
+            font-style: italic;
+            font-size: 13px;
+            line-height: 20px;
+            padding: 2px 0;
+            margin-bottom: 10px;
+            width: 100%;
+        }
+
+        .match-wrapper {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            position: relative;
+            padding: 14px 0;
+        }
+
+        .match-wrapper.branch-line::before {
+            content: '';
+            position: absolute;
+            left: -24px;
+            top: 25%;    
+            bottom: 25%; 
+            width: 12px;
+            border-top: 1px solid #000;
+            border-bottom: 1px solid #000;
+            border-right: 1px solid #000;
+        }
+        .match-wrapper.branch-line::after {
+            content: '';
+            position: absolute;
+            left: -12px;
+            top: 50%;
+            width: 12px;
+            border-top: 1px solid #000;
+        }
+
+        .match-wrapper.straight-line::before {
+            content: '';
+            position: absolute;
+            left: -24px;
+            top: 50%;
+            width: 24px;
+            border-top: 1px solid #000;
+        }
+
+        .match-box {
+            display: flex;
+            align-items: center;
+            width: 234px;
+            height: 40px;
+            position: relative;
+            z-index: 10;
+        }
+
+        .drop-label-top {
+            position: absolute;
+            top: -15px;
+            left: 55px;
+            font-size: 12px;
+            line-height: 13px;
+            color: #000;
+            white-space: nowrap;
+        }
+        .drop-label-bottom {
+            position: absolute;
+            bottom: -15px;
+            left: 55px;
+            font-size: 12px;
+            line-height: 13px;
+            color: #000;
+            white-space: nowrap;
+        }
+
+        .qual-drop-label-top {
+            position: absolute;
+            top: -15px;
+            left: 2px;
+            font-size: 12px;
+            line-height: 13px;
+            color: #000;
+            white-space: nowrap;
+        }
+        .qual-drop-label-bottom {
+            position: absolute;
+            bottom: -15px;
+            left: 2px;
+            font-size: 12px;
+            line-height: 13px;
+            color: #000;
+            white-space: nowrap;
+        }
+
+        .match-label {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 24px;
+            height: 24px;
+            background-color: #555;
+            color: white;
+            font-weight: bold;
+            font-size: 13px;
+            border: 1px solid #000;
+            border-right: none;
+            line-height: 1;
+            box-sizing: border-box;
+        }
+
+        .main-box-area {
+            display: flex;
+            width: 210px;
+            height: 40px;
+            border: 1px solid #000;
+            background-color: white;
+            box-sizing: border-box;
+        }
+
+        .checkbox-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            border-right: 1px solid #000;
+            box-sizing: border-box;
+        }
+        .checkbox-square {
+            width: 14px;
+            height: 14px;
+            border: 2px solid #888;
+            border-radius: 2px;
+            box-sizing: border-box;
+        }
+
+        .player-slots-area {
+            display: flex;
+            flex-direction: column;
+            width: 160px;
+            border-right: 1px solid #000;
+            box-sizing: border-box;
+        }
+        .player-slot {
+            flex: 1;
+            padding: 0 4px;
+            display: flex;
+            align-items: center;
+            font-size: 12px;
+            position: relative; 
+            line-height: 1;
+        }
+        .player-slot:first-child { border-bottom: 1px solid #000; }
+
+        .seed-label {
+            position: absolute;
+            font-size: 11px;
+            line-height: 12px;
+            color: #000;
+            text-align: left;
+            left: 3px;
+        }
+        .player-slot:first-child .seed-label { top: -14px; }
+        .player-slot:last-child .seed-label { bottom: -14px; }
+
+        .score-box-area {
+            display: flex;
+            flex-direction: column;
+            width: 22px;
+            box-sizing: border-box;
+        }
+        .score-box { flex: 1; }
+        .score-box:first-child { border-bottom: 1px solid #000; }
+
+        .qualifier-box {
+            display: flex;
+            flex-direction: column;
+            width: 160px;
+            border: 1px solid #000;
+            background-color: white;
+            position: relative;
+            z-index: 10;
+            box-sizing: border-box;
+        }
+        .qualifier-slot {
+            flex: 1;
+            padding: 2px 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: bold;
+            height: 20px;
+            box-sizing: border-box;
+        }
+    </style>
+</head>
+<body class="bg-gray-200 h-screen flex overflow-hidden">
+    <!-- 左側：スクロール可能な操作パネル（flex-shrinkを外し、内部コンテンツの高さが正しくスクロールに反映されるよう調整） -->
+    <div class="w-80 bg-white p-5 shadow-lg flex flex-col gap-4 overflow-y-auto z-20 h-full">
+        <h1 class="text-2xl font-bold text-gray-800">Bracket Printer</h1>
+        
+        <!-- 手順1: CSV読み込み -->
+        <div>
+            <label class="block text-xs font-bold text-gray-700 mb-1">1. CSVファイル読み込み (スキップ中)</label>
+            <input type="file" id="csv-upload" accept=".csv" class="block w-full text-xs text-gray-500 file:mr-2 file:py-1.5 file:px-2.5 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer border border-gray-300 rounded">
+        </div>
+
+        <hr class="border-gray-200">
+
+        <!-- 手順2: 通過人数指定 -->
+        <div class="flex flex-col gap-2 text-xs">
+            <label class="font-bold text-gray-700">2. フェーズ通過人数を指定</label>
+            <div class="grid grid-cols-2 gap-2">
+                <div>
+                    <span class="text-[11px] text-gray-500 block mb-0.5">勝者側 (Winners)</span>
+                    <select id="winners-advance-count" class="w-full border border-gray-300 rounded p-1 bg-white validation-target">
+                        <option value="" disabled selected>選択してください</option>
+                        <option value="1">1人</option>
+                        <option value="2">2人</option>
+                        <option value="3">3人</option>
+                        <option value="4">4人</option>
+                        <option value="5">5人</option>
+                        <option value="6">6人</option>
+                    </select>
+                </div>
+                <div>
+                    <span class="text-[11px] text-gray-500 block mb-0.5">敗者側 (Losers)</span>
+                    <select id="losers-advance-count" class="w-full border border-gray-300 rounded p-1 bg-white validation-target">
+                        <option value="" disabled selected>選択してください</option>
+                        <option value="1">1人</option>
+                        <option value="2">2人</option>
+                        <option value="3">3人</option>
+                        <option value="4">4人</option>
+                        <option value="5">5人</option>
+                        <option value="6">6人</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <!-- 手順3: 最大セット数指定 -->
+        <div class="flex flex-col gap-2 text-xs">
+            <label class="font-bold text-gray-700">3. 基本最大セット数を指定 (奇数のみ)</label>
+            <select id="base-bo-select" class="w-full border border-gray-300 rounded p-1.5 bg-white validation-target">
+                <option value="" disabled selected>選択してください</option>
+                <option value="5">Bo5 / 3本先取</option>
+                <option value="3">Bo3 / 2本先取</option>
+                <option value="custom">その他</option>
+            </select>
+
+            <div id="custom-bo-container" class="hidden flex flex-col gap-2 bg-gray-50 p-2 rounded border border-gray-200">
+                <label class="text-[11px] font-semibold text-gray-600">最大数を入力してください (奇数の半角数字)</label>
+                <div class="flex gap-1">
+                    <input type="text" id="custom-bo-input" placeholder="例: 9" class="flex-1 border border-gray-300 rounded p-1 text-xs">
+                    <button id="custom-bo-apply-btn" class="bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 rounded font-bold">確定</button>
+                </div>
+                <div id="custom-bo-confirm-area" class="hidden flex flex-col gap-1.5 mt-1 pt-1.5 border-t border-gray-200">
+                    <span id="custom-bo-confirm-text" class="text-[11px] font-bold text-blue-700"></span>
+                    <div class="flex gap-1">
+                        <button id="custom-bo-confirm-yes" class="flex-1 bg-green-600 hover:bg-green-700 text-white py-0.5 rounded font-bold">確定</button>
+                        <button id="custom-bo-confirm-no" class="flex-1 bg-gray-400 hover:bg-gray-500 text-white py-0.5 rounded font-bold">やり直す</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 手順4: 途中で最大セット数を変更 -->
+        <div class="flex flex-col gap-2 text-xs">
+            <label class="font-bold text-gray-700">4. 途中で最大セット数を変更</label>
+            <div class="flex gap-4">
+                <label class="flex items-center gap-1 cursor-pointer">
+                    <input type="radio" name="change-mode" value="no" checked class="accent-[#FA8534]"> 変更しない
+                </label>
+                <label class="flex items-center gap-1 cursor-pointer">
+                    <input type="radio" name="change-mode" value="yes" class="accent-[#FA8534]"> 変更する
+                </label>
+            </div>
+
+            <div id="round-change-container" class="hidden flex flex-col gap-2.5 bg-gray-50 p-2.5 rounded border border-gray-200">
+                <div class="flex flex-col gap-1">
+                    <span class="text-[11px] font-semibold text-gray-700">どのラウンドから変更しますか？ (勝者側)</span>
+                    <select id="winners-round-select" class="w-full border border-gray-300 rounded p-1 bg-white text-[11px]">
+                        <option value="none" selected>勝者側は変更しない</option>
+                        <option value="Winners Round 1">Winners Round 1 以降</option>
+                        <option value="Winners Round 2">Winners Round 2 以降</option>
+                        <option value="Winners Quarter-Final">Winners Quarter-Final 以降</option>
+                        <option value="Winners Semi-Final">Winners Semi-Final 以降</option>
+                        <option value="Winners Final">Winners Final のみ</option>
+                    </select>
+                    <div class="flex items-center gap-1 mt-1">
+                        <select id="winners-bo-select" class="flex-1 border border-gray-300 rounded p-1 bg-white text-[11px]">
+                            <option value="5" selected>Bo5 / 3本先取</option>
+                            <option value="3">Bo3 / 2本先取</option>
+                            <option value="custom">その他 (カスタム)</option>
+                        </select>
+                        <input type="text" id="winners-custom-input" placeholder="奇数" class="hidden w-12 border border-gray-300 rounded p-1 text-xs text-center">
+                    </div>
+                </div>
+
+                <div class="flex flex-col gap-1 pt-1 border-t border-gray-200">
+                    <span class="text-[11px] font-semibold text-gray-700">どのラウンドから変更しますか？ (敗者側)</span>
+                    <select id="losers-round-select" class="w-full border border-gray-300 rounded p-1 bg-white text-[11px]">
+                        <option value="none" selected>敗者側は変更しない</option>
+                        <option value="Losers Round 1">Losers Round 1 以降</option>
+                        <option value="Losers Round 2">Losers Round 2 以降</option>
+                        <option value="Losers Round 3">Losers Round 3 以降</option>
+                        <option value="Losers Round 4">Losers Round 4 以降</option>
+                        <option value="Losers Quarter-Final">Losers Quarter-Final 以降</option>
+                        <option value="Losers Semi-Final">Losers Semi-Final のみ</option>
+                    </select>
+                    <div class="flex items-center gap-1 mt-1">
+                        <select id="losers-bo-select" class="flex-1 border border-gray-300 rounded p-1 bg-white text-[11px]">
+                            <option value="5" selected>Bo5 / 3本先取</option>
+                            <option value="3">Bo3 / 2本先取</option>
+                            <option value="custom">その他 (カスタム)</option>
+                        </select>
+                        <input type="text" id="losers-custom-input" placeholder="奇数" class="hidden w-12 border border-gray-300 rounded p-1 text-xs text-center">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 手順5: 通水のフェーズ名を入力 -->
+        <div class="flex flex-col gap-1 text-xs">
+            <label class="font-bold text-gray-700">5. 通過先のフェーズ名を入力</label>
+            <input type="text" id="target-phase-input" value="" placeholder="例: Day2 / TOP192" class="border border-gray-300 rounded p-1.5 text-xs validation-target">
+        </div>
+
+        <!-- ブラケットを描画ボタン（初期状態はグレーアウト・バリデーション連動） -->
+        <button id="generate-btn" disabled class="bg-gray-300 text-gray-500 px-4 py-2 rounded shadow transition font-bold text-sm cursor-not-allowed">
+            ブラケットを描画する
+        </button>
+
+        <hr class="border-gray-200">
+
+        <!-- アコーディオン：印刷オプション -->
+        <div class="border border-gray-200 rounded-lg overflow-hidden">
+            <button class="accordion-toggle w-full flex justify-between items-center p-2.5 bg-gray-50 hover:bg-gray-100 font-bold text-xs text-gray-700 transition">
+                <span>🖨️ 印刷オプション</span>
+                <span class="transform transition-transform duration-200">▼</span>
+            </button>
+            <div class="accordion-content hidden bg-white px-3 py-2 flex flex-col gap-2 text-xs">
+                <div>
+                    <label class="block font-semibold text-gray-600 mb-0.5">用紙サイズ</label>
+                    <select id="print-size" class="w-full border border-gray-300 rounded p-1 bg-white">
+                        <option value="A3" selected>A3</option>
+                        <option value="B4">B4</option>
+                        <option value="A4">A4</option>
+                        <option value="B5">B5</option>
+                        <option value="A5">A5</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block font-semibold text-gray-600 mb-0.5">印刷の向き</label>
+                    <select id="print-orientation" class="w-full border border-gray-300 rounded p-1 bg-white">
+                        <option value="landscape" selected>横 (Landscape)</option>
+                        <option value="portrait">縦 (Portrait)</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block font-semibold text-gray-600 mb-0.5">余白設定</label>
+                    <select id="print-margin" class="w-full border border-gray-300 rounded p-1 bg-white">
+                        <option value="standard" selected>標準</option>
+                        <option value="wide">広い</option>
+                        <option value="narrow">狭い</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <!-- アコーディオン：描画オプション -->
+        <div class="border border-gray-200 rounded-lg overflow-hidden">
+            <button class="accordion-toggle w-full flex justify-between items-center p-2.5 bg-gray-50 hover:bg-gray-100 font-bold text-xs text-gray-700 transition">
+                <span>🎨 描画オプション(任意)</span>
+                <span class="transform transition-transform duration-200">▼</span>
+            </button>
+            <div class="accordion-content hidden bg-white px-3 py-2 flex flex-col gap-2 text-xs">
+                <div>
+                    <label class="block font-semibold text-gray-600 mb-0.5">右下にロゴを追加</label>
+                    <input type="file" id="logo-upload" accept=".png" class="block w-full text-[10px] text-gray-500 file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200 cursor-pointer border border-gray-300 rounded">
+                </div>
+                <div>
+                    <label class="block font-semibold text-gray-600 mb-0.5">テキストを追加</label>
+                    <button id="add-text-btn" class="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold py-1 px-2 rounded border border-gray-300 transition text-center">
+                        + テキストボックス追加
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <hr class="border-gray-200">
+
+        <!-- 表示倍率コントロール -->
+        <div class="flex flex-col gap-1.5">
+            <div class="flex justify-between items-center">
+                <label class="text-xs font-bold text-gray-700">プレビュー表示倍率</label>
+                <span id="zoom-value" class="text-xs font-mono font-bold text-gray-600">100%</span>
+            </div>
+            <input type="range" id="zoom-slider" min="30" max="120" value="100" step="1" class="w-full accent-[#FA8534] cursor-pointer">
+            <div class="flex gap-2 mt-0.5">
+                <button id="zoom-fit-btn" class="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-bold py-1 px-2 rounded border border-gray-300 transition">
+                    画面幅に合わせる
+                </button>
+                <button id="zoom-reset-btn" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-bold py-1 px-2 rounded border border-gray-300 transition">
+                    100%
+                </button>
+            </div>
+        </div>
+
+        <hr class="border-gray-200">
+
+        <div class="flex flex-col gap-2 pb-4">
+            <button id="export-btn" class="bg-green-600 text-white px-4 py-2 rounded shadow hover:bg-green-700 transition font-bold text-sm">
+                画像 (JPG) として保存
+            </button>
+            <button id="export-pdf-btn" class="bg-red-600 text-white px-4 py-2 rounded shadow hover:bg-red-700 transition font-bold text-sm">
+                PDFとして出力 (印刷)
+            </button>
+        </div>
+    </div>
+
+    <!-- 右側：プレビュー＆描画領域 -->
+    <div id="preview-viewport" class="flex-1 p-6 overflow-auto bg-gray-200">
+        <div id="preview-scale-wrapper" class="inline-block">
+            <div id="preview-area" class="shadow-md text-gray-800 relative">
+                <!-- 更新された未設定時のプレースホルダーメッセージ -->
+                <div id="preview-placeholder" class="flex flex-col items-center justify-center h-[1100px] text-gray-400 font-bold text-xl gap-2 text-center px-4">
+                    <p>⚠️ プレビューを表示できません。</p>
+                    <p class="text-sm font-normal text-gray-500">初期設定を完了し、「ブラケットを描画する」を押してください</p>
+                </div>
+
+                <div id="preview-header" class="hidden border-b-2 border-gray-800 pb-2 mb-4">
+                    <h2 id="pool-title" class="text-2xl font-bold">Pool 1 - Double Elimination (24 players)</h2>
+                    <p id="pool-subtitle" class="text-sm text-gray-600 font-medium">Winners side qualifier: 1 / Losers side qualifier: 2</p>
+                </div>
+                <div id="bracket-container"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
