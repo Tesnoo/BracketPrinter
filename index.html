@@ -35,6 +35,23 @@
                 margin: 0 !important;
                 transform-origin: top left !important;
             }
+            /* 印刷時はテキストボックスの操作UIを非表示にする */
+            .text-box-controls {
+                display: none !important;
+            }
+            .draggable-text-box {
+                border-color: transparent !important;
+                background-color: transparent !important;
+            }
+        }
+
+        /* JPG出力時にもテキストボックスの操作UIを非表示にするクラス */
+        .exporting .text-box-controls {
+            display: none !important;
+        }
+        .exporting .draggable-text-box {
+            border-color: transparent !important;
+            background-color: transparent !important;
         }
 
         #preview-scale-wrapper {
@@ -79,7 +96,6 @@
             color: #000000;
         }
 
-        /* ブロック間の上下余白にゆとりを持たせる (14px -> 24px) */
         .match-wrapper {
             flex: 1;
             display: flex;
@@ -89,7 +105,6 @@
             padding: 24px 0;
         }
 
-        /* LR1ペア枠の高さも拡大後の1枠(88px × 2 = 176px)に合わせる */
         .lr1-pair-group {
             flex: 1;
             display: flex;
@@ -281,6 +296,93 @@
             height: 20px;
             box-sizing: border-box;
         }
+
+        /* === Check-in / Gamer Tag 名簿テーブル用スタイル === */
+        .checkin-table {
+            width: 290px;
+            border: 1px solid #000;
+            border-collapse: collapse;
+            background-color: #ffffff;
+            flex-shrink: 0;
+        }
+        .checkin-table th {
+            font-size: 13px;
+            font-weight: 700;
+            text-align: center;
+            padding: 4px 6px;
+            border-bottom: 1px solid #000;
+            color: #000;
+            line-height: 1.2;
+        }
+        .checkin-table th:first-child {
+            width: 68px;
+            border-right: 1px solid #000;
+        }
+        .checkin-table td {
+            height: 22px;
+            padding: 0 6px;
+            font-size: 12px;
+            color: #000;
+            border-bottom: 1px dotted #000;
+            box-sizing: border-box;
+        }
+        .checkin-table tr:last-child td {
+            border-bottom: none;
+        }
+        .checkin-table td:first-child {
+            border-right: 1px solid #000;
+            text-align: center;
+            padding: 0;
+        }
+        .checkin-cell-inner {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+        }
+        .gamertag-cell-text {
+            display: block;
+            width: 208px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            line-height: 22px;
+        }
+
+        /* === ドラッグ可能なテキストボックス用スタイル === */
+        .draggable-text-box {
+            position: absolute;
+            z-index: 30;
+            border: 1px dashed #9ca3af;
+            background-color: rgba(255, 255, 255, 0.85);
+            border-radius: 4px;
+            min-width: 160px;
+        }
+        .draggable-text-box:hover {
+            border-color: #FA8534;
+        }
+        .text-box-controls {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background-color: #f3f4f6;
+            border-bottom: 1px solid #e5e7eb;
+            padding: 2px 6px;
+            cursor: move;
+            font-size: 11px;
+            color: #4b5563;
+            border-radius: 3px 3px 0 0;
+            user-select: none;
+        }
+        .draggable-text-content {
+            padding: 6px 8px;
+            outline: none;
+            min-height: 32px;
+            color: #000000;
+            line-height: 1.4;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
     </style>
 </head>
 <body class="bg-gray-200 h-screen flex overflow-hidden">
@@ -460,6 +562,7 @@
                             <option value="narrow">狭い</option>
                         </select>
                     </div>
+                    <p class="text-[10px] text-gray-400">※変更後は「ブラケットを描画する」を再クリックすると反映されます</p>
                 </div>
             </div>
 
@@ -471,14 +574,19 @@
                 </button>
                 <div class="accordion-content bg-white px-3 py-2.5 flex flex-col gap-2.5 text-xs border-t border-gray-200 rounded-b-lg" style="display: none;">
                     <div>
-                        <label class="block font-semibold text-gray-600 mb-0.5">右下にロゴを追加</label>
-                        <input type="file" id="logo-upload" accept=".png" class="block w-full text-[10px] text-gray-500 file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200 cursor-pointer border border-gray-300 rounded">
+                        <div class="flex justify-between items-center mb-0.5">
+                            <label class="block font-semibold text-gray-600">右下にロゴを追加</label>
+                            <button id="clear-logo-btn" class="hidden text-[10px] text-red-500 hover:underline">クリア</button>
+                        </div>
+                        <input type="file" id="logo-upload" accept="image/png" class="block w-full text-[10px] text-gray-500 file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200 cursor-pointer border border-gray-300 rounded">
+                        <span class="text-[10px] text-gray-400 mt-0.5 block">※pngファイルのみ。推奨サイズ：横400×縦150px</span>
                     </div>
                     <div>
                         <label class="block font-semibold text-gray-600 mb-0.5">テキストを追加</label>
                         <button id="add-text-btn" class="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold py-1.5 px-2 rounded border border-gray-300 transition text-center">
                             + テキストボックス追加
                         </button>
+                        <span class="text-[10px] text-gray-400 mt-0.5 block">※追加後、プレビュー上でドラッグ移動・編集できます</span>
                     </div>
                 </div>
             </div>
@@ -535,7 +643,20 @@
                         <p>Contact: @Tesnoo_ssb</p>
                     </div>
                 </div>
-                <div id="bracket-container"></div>
+
+                <!-- メインコンテンツ領域：左側にブラケット、右側にCheck-in名簿表 -->
+                <div id="main-sheet-body" class="hidden flex items-start justify-between gap-12">
+                    <div id="bracket-container"></div>
+                    <div id="checkin-roster-container" class="pr-6"></div>
+                </div>
+
+                <!-- 右下ロゴ配置領域 -->
+                <div id="logo-display-container" class="hidden absolute z-20 pointer-events-none" style="bottom: 36px; right: 40px;">
+                    <img id="logo-display-img" src="" alt="Tournament Logo" class="max-w-[380px] max-h-[160px] object-contain">
+                </div>
+
+                <!-- ドラッグ可能なテキストボックス配置レイヤー -->
+                <div id="custom-texts-layer" class="absolute inset-0 pointer-events-none"></div>
             </div>
         </div>
     </div>
