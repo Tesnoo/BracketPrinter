@@ -14,6 +14,100 @@ const losersAdvanceCount = document.getElementById('losers-advance-count');
 const baseBoSelect = document.getElementById('base-bo-select');
 const targetPhaseInput = document.getElementById('target-phase-input');
 
+const printSizeSelect = document.getElementById('print-size');
+const printOrientationSelect = document.getElementById('print-orientation');
+const printMarginSelect = document.getElementById('print-margin');
+const dynamicPrintStyle = document.getElementById('dynamic-print-style');
+
+const zoomSlider = document.getElementById('zoom-slider');
+const zoomValue = document.getElementById('zoom-value');
+const scaleWrapper = document.getElementById('preview-scale-wrapper');
+const previewArea = document.getElementById('preview-area');
+const viewport = document.getElementById('preview-viewport');
+
+// === 用紙サイズ・向き・余白の動的レイアウト計算（横向き時は高さ基準） ===
+const PAPER_DIMENSIONS_MM = {
+    A3: { short: 297, long: 420 },
+    B4: { short: 257, long: 364 },
+    A4: { short: 210, long: 297 },
+    B5: { short: 182, long: 257 },
+    A5: { short: 148, long: 210 }
+};
+
+const MARGIN_PRESETS = {
+    standard: { v: 36, h: 40 },
+    wide: { v: 56, h: 64 },
+    narrow: { v: 18, h: 20 }
+};
+
+function updatePaperLayout() {
+    const sizeKey = printSizeSelect.value || 'A3';
+    const orientation = printOrientationSelect.value || 'landscape';
+    const marginKey = printMarginSelect.value || 'standard';
+
+    const margin = MARGIN_PRESETS[marginKey] || MARGIN_PRESETS.standard;
+    previewArea.style.padding = `${margin.v}px ${margin.h}px`;
+
+    // ブラケット本体の基準サイズ（ゆとりを持たせた高さ 1598px / 横幅 1708px）
+    const baseContentHeight = 1598;
+    const baseContentWidth = 1708;
+    const paperRatio = Math.SQRT2; // 420 / 297 ≒ 1.4142
+
+    let canvasWidth, canvasHeight;
+
+    if (orientation === 'landscape') {
+        // 横向き印刷時：ブラケットの「高さ」を用紙の高さに合わせる（右側に自然とフリースペースが生まれる）
+        canvasHeight = baseContentHeight + margin.v * 2;
+        canvasWidth = Math.round(canvasHeight * paperRatio);
+    } else {
+        // 縦向き印刷時：ブラケットの「横幅」を用紙の横幅に合わせる
+        canvasWidth = baseContentWidth + margin.h * 2;
+        canvasHeight = Math.round(canvasWidth * paperRatio);
+    }
+
+    previewArea.style.width = `${canvasWidth}px`;
+    previewArea.style.minHeight = `${canvasHeight}px`;
+
+    // 印刷（PDF出力）時のスタイル更新：選んだ用紙サイズ・向きにジャストフィットさせる
+    const paperMm = PAPER_DIMENSIONS_MM[sizeKey] || PAPER_DIMENSIONS_MM.A3;
+    const pageWidthMm = orientation === 'landscape' ? paperMm.long : paperMm.short;
+    const pageHeightMm = orientation === 'landscape' ? paperMm.short : paperMm.long;
+
+    const mmToPx = 96 / 25.4;
+    const targetPrintHeightPx = pageHeightMm * mmToPx;
+    const targetPrintWidthPx = pageWidthMm * mmToPx;
+
+    // 横向き時は高さ基準でスケール、縦向き時は横幅基準でスケール
+    const printScale = orientation === 'landscape'
+        ? (targetPrintHeightPx / canvasHeight)
+        : (targetPrintWidthPx / canvasWidth);
+
+    dynamicPrintStyle.textContent = `
+        @media print {
+            @page { size: ${sizeKey} ${orientation}; margin: 0; }
+            #preview-area {
+                width: ${canvasWidth}px !important;
+                height: ${canvasHeight}px !important;
+                transform: scale(${printScale.toFixed(5)}) !important;
+                transform-origin: top left !important;
+            }
+        }
+    `;
+
+    // 現在のズーム倍率を再適用してラッパーサイズを更新
+    setZoom(Number(zoomSlider.value));
+}
+
+printSizeSelect.addEventListener('change', updatePaperLayout);
+printOrientationSelect.addEventListener('change', () => {
+    updatePaperLayout();
+    fitToViewport();
+});
+printMarginSelect.addEventListener('change', () => {
+    updatePaperLayout();
+    fitToViewport();
+});
+
 // === 入力バリデーションと描画ボタンの有効化連動 ===
 function validateForm() {
     const wVal = winnersAdvanceCount.value;
@@ -119,7 +213,6 @@ csvUpload.addEventListener('change', (e) => {
             poolsData = parsedPools;
             isCsvValid = true;
 
-            // プール選択プルダウンの構築
             poolSelect.innerHTML = '';
             poolNames.forEach(pName => {
                 const opt = document.createElement('option');
@@ -458,12 +551,6 @@ function createRoundColumn(roundName, bracketType = 'winners', isQualifier = fal
 }
 
 // === ズームコントロール ===
-const zoomSlider = document.getElementById('zoom-slider');
-const zoomValue = document.getElementById('zoom-value');
-const scaleWrapper = document.getElementById('preview-scale-wrapper');
-const previewArea = document.getElementById('preview-area');
-const viewport = document.getElementById('preview-viewport');
-
 function setZoom(percent) {
     const scale = percent / 100;
     zoomSlider.value = percent;
@@ -475,9 +562,15 @@ function setZoom(percent) {
 
 function fitToViewport() {
     const availableWidth = viewport.clientWidth - 48;
+    const availableHeight = viewport.clientHeight - 48;
     const contentWidth = previewArea.offsetWidth;
-    if (contentWidth > 0) {
-        const bestPercent = Math.min(100, Math.max(30, Math.floor((availableWidth / contentWidth) * 100)));
+    const contentHeight = previewArea.offsetHeight;
+
+    if (contentWidth > 0 && contentHeight > 0) {
+        const scaleW = availableWidth / contentWidth;
+        const scaleH = availableHeight / contentHeight;
+        const bestScale = Math.min(scaleW, scaleH);
+        const bestPercent = Math.min(100, Math.max(20, Math.floor(bestScale * 100)));
         setZoom(bestPercent);
     }
 }
@@ -486,6 +579,10 @@ zoomSlider.addEventListener('input', (e) => setZoom(Number(e.target.value)));
 document.getElementById('zoom-reset-btn').addEventListener('click', () => setZoom(100));
 document.getElementById('zoom-fit-btn').addEventListener('click', fitToViewport);
 window.addEventListener('resize', fitToViewport);
+
+// 初期用紙レイアウトの適用
+updatePaperLayout();
+fitToViewport();
 
 // === 17〜24人ブラケット生成メイン処理 ===
 generateBtn.addEventListener('click', () => {
@@ -521,7 +618,7 @@ generateBtn.addEventListener('click', () => {
     container.innerHTML = ''; 
     container.style.display = 'flex';
     container.style.flexDirection = 'column';
-    container.style.gap = '28px'; 
+    container.style.gap = '44px'; // WinnersとLosersの間隔もゆとりを持たせる
 
     let labelCounter = 0;
     const nextLabel = () => indexToMatchLabel(labelCounter++);
@@ -683,6 +780,7 @@ generateBtn.addEventListener('click', () => {
     container.appendChild(wContainer);
     container.appendChild(lContainer);
 
+    updatePaperLayout();
     requestAnimationFrame(fitToViewport);
 });
 
@@ -738,5 +836,6 @@ document.getElementById('export-btn').addEventListener('click', async () => {
 
 // === PDF出力機能 ===
 document.getElementById('export-pdf-btn').addEventListener('click', () => {
+    updatePaperLayout();
     window.print();
 });
