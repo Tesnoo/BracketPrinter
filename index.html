@@ -16,20 +16,24 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html-to-image/1.11.11/html-to-image.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
+    <!-- 印刷時の動的スタイル注入用 -->
+    <style id="dynamic-print-style"></style>
+
     <style>
         body, #preview-area {
             font-family: 'Roboto', sans-serif;
         }
 
         @media print {
-            @page { size: A3 landscape; margin: 0; }
             body * { visibility: hidden; }
             #preview-area, #preview-area * { visibility: visible; }
             #preview-area { 
-                position: fixed; left: 0; top: 0; 
-                width: 420mm !important; height: 297mm !important; 
-                box-shadow: none !important; margin: 0 !important;
-                transform: none !important;
+                position: fixed;
+                left: 0;
+                top: 0; 
+                box-shadow: none !important;
+                margin: 0 !important;
+                transform-origin: top left !important;
             }
         }
 
@@ -37,10 +41,11 @@
             transform-origin: top left;
         }
 
+        /* 横向き時：ブラケットの高さ(1670px)を基準に用紙サイズを設定 (2362px × 1670px) */
         #preview-area {
-            width: 1800px;
-            min-height: 1273px;
-            padding: 24px 36px;
+            width: 2362px;
+            min-height: 1670px;
+            padding: 36px 40px;
             box-sizing: border-box;
             background-color: #ffffff;
         }
@@ -69,26 +74,28 @@
             font-size: 13px;
             line-height: 20px;
             padding: 2px 0;
-            margin-bottom: 10px;
+            margin-bottom: 12px;
             width: 100%;
             color: #000000;
         }
 
+        /* ブロック間の上下余白にゆとりを持たせる (14px -> 24px) */
         .match-wrapper {
             flex: 1;
             display: flex;
             flex-direction: column;
             justify-content: center;
             position: relative;
-            padding: 14px 0;
+            padding: 24px 0;
         }
 
+        /* LR1ペア枠の高さも拡大後の1枠(88px × 2 = 176px)に合わせる */
         .lr1-pair-group {
             flex: 1;
             display: flex;
             flex-direction: column;
             justify-content: center;
-            min-height: 136px;
+            min-height: 176px;
         }
 
         .match-wrapper.branch-line::before {
@@ -131,7 +138,7 @@
 
         .drop-label-top {
             position: absolute;
-            top: -15px;
+            top: -16px;
             left: 55px;
             font-size: 12px;
             line-height: 13px;
@@ -140,7 +147,7 @@
         }
         .drop-label-bottom {
             position: absolute;
-            bottom: -15px;
+            bottom: -16px;
             left: 55px;
             font-size: 12px;
             line-height: 13px;
@@ -150,7 +157,7 @@
 
         .qual-drop-label-top {
             position: absolute;
-            top: -15px;
+            top: -16px;
             left: 2px;
             font-size: 12px;
             line-height: 13px;
@@ -159,7 +166,7 @@
         }
         .qual-drop-label-bottom {
             position: absolute;
-            bottom: -15px;
+            bottom: -16px;
             left: 2px;
             font-size: 12px;
             line-height: 13px;
@@ -484,10 +491,10 @@
                     <label class="text-xs font-bold text-gray-700">プレビュー表示倍率</label>
                     <span id="zoom-value" class="text-xs font-mono font-bold text-gray-600">100%</span>
                 </div>
-                <input type="range" id="zoom-slider" min="30" max="120" value="100" step="1" class="w-full accent-[#FA8534] cursor-pointer">
+                <input type="range" id="zoom-slider" min="20" max="120" value="100" step="1" class="w-full accent-[#FA8534] cursor-pointer">
                 <div class="flex gap-2 mt-0.5">
                     <button id="zoom-fit-btn" class="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-bold py-1 px-2 rounded border border-gray-300 transition">
-                        画面幅に合わせる
+                        画面に合わせる
                     </button>
                     <button id="zoom-reset-btn" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-bold py-1 px-2 rounded border border-gray-300 transition">
                         100%
@@ -512,13 +519,13 @@
     <div id="preview-viewport" class="flex-1 p-6 overflow-auto bg-gray-200">
         <div id="preview-scale-wrapper" class="inline-block">
             <div id="preview-area" class="shadow-md text-gray-800 relative">
-                <div id="preview-placeholder" class="flex flex-col items-center justify-center h-[1100px] text-gray-400 font-bold text-xl gap-2 text-center px-4">
+                <div id="preview-placeholder" class="flex flex-col items-center justify-center h-[1500px] text-gray-400 font-bold text-xl gap-2 text-center px-4">
                     <p>⚠️ プレビューを表示できません。</p>
                     <p class="text-sm font-normal text-gray-500">初期設定を完了し、「ブラケットを描画する」を押してください</p>
                 </div>
 
                 <!-- ヘッダー：左側にPool情報、右上にURL・Contact表記 -->
-                <div id="preview-header" class="hidden border-b-2 border-gray-800 pb-2 mb-4 flex justify-between items-end">
+                <div id="preview-header" class="hidden border-b-2 border-gray-800 pb-2 mb-5 flex justify-between items-end">
                     <div>
                         <h2 id="pool-title" class="text-2xl font-bold">Pool 1 - Double Elimination (24 players)</h2>
                         <p id="pool-subtitle" class="text-sm text-gray-600 font-medium">Winners side qualifier: 1 / Losers side qualifier: 2</p>
