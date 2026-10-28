@@ -1,8 +1,10 @@
-// === グローバル状態管理（CSVデータ・設定値） ===
+// === グローバル状態管理（CSVデータ・設定値・描画オプション） ===
 let poolsData = {}; // { poolName: { count: number, playersBySeed: { [seed]: { gamerTag, shortGamerTag } } } }
 let isCsvValid = false;
 let baseBoValue = '';
 let isCustomBoConfirmed = false;
+let pendingLogoDataUrl = null; // 選択されたロゴ画像DataURL
+let pendingTextBoxesCount = 0; // 描画前に追加ボタンを押した回数
 
 const csvUpload = document.getElementById('csv-upload');
 const csvStatus = document.getElementById('csv-status');
@@ -19,13 +21,20 @@ const printOrientationSelect = document.getElementById('print-orientation');
 const printMarginSelect = document.getElementById('print-margin');
 const dynamicPrintStyle = document.getElementById('dynamic-print-style');
 
+const logoUpload = document.getElementById('logo-upload');
+const clearLogoBtn = document.getElementById('clear-logo-btn');
+const logoDisplayContainer = document.getElementById('logo-display-container');
+const logoDisplayImg = document.getElementById('logo-display-img');
+const addTextBtn = document.getElementById('add-text-btn');
+const customTextsLayer = document.getElementById('custom-texts-layer');
+
 const zoomSlider = document.getElementById('zoom-slider');
 const zoomValue = document.getElementById('zoom-value');
 const scaleWrapper = document.getElementById('preview-scale-wrapper');
 const previewArea = document.getElementById('preview-area');
 const viewport = document.getElementById('preview-viewport');
 
-// === 用紙サイズ・向き・余白の動的レイアウト計算（横向き時は高さ基準） ===
+// === 用紙サイズ・向き・余白の動的レイアウト計算（描画ボタンクリック時に反映） ===
 const PAPER_DIMENSIONS_MM = {
     A3: { short: 297, long: 420 },
     B4: { short: 257, long: 364 },
@@ -40,7 +49,7 @@ const MARGIN_PRESETS = {
     narrow: { v: 18, h: 20 }
 };
 
-function updatePaperLayout() {
+function applyPrintAndDrawOptions() {
     const sizeKey = printSizeSelect.value || 'A3';
     const orientation = printOrientationSelect.value || 'landscape';
     const marginKey = printMarginSelect.value || 'standard';
@@ -48,19 +57,23 @@ function updatePaperLayout() {
     const margin = MARGIN_PRESETS[marginKey] || MARGIN_PRESETS.standard;
     previewArea.style.padding = `${margin.v}px ${margin.h}px`;
 
-    // ブラケット本体の基準サイズ（ゆとりを持たせた高さ 1598px / 横幅 1708px）
+    // ロゴの位置も余白設定に連動させる
+    logoDisplayContainer.style.bottom = `${margin.v}px`;
+    logoDisplayContainer.style.right = `${margin.h}px`;
+
+    // ブラケット＋名簿表の基準サイズ（高さ 1598px / 横幅: ブラケット1708px + 間隔48px + 名簿314px = 2070px）
     const baseContentHeight = 1598;
-    const baseContentWidth = 1708;
+    const baseContentWidth = 2070;
     const paperRatio = Math.SQRT2; // 420 / 297 ≒ 1.4142
 
     let canvasWidth, canvasHeight;
 
     if (orientation === 'landscape') {
-        // 横向き印刷時：ブラケットの「高さ」を用紙の高さに合わせる（右側に自然とフリースペースが生まれる）
+        // 横向き印刷時：ブラケットの「高さ」を用紙の高さに合わせる
         canvasHeight = baseContentHeight + margin.v * 2;
         canvasWidth = Math.round(canvasHeight * paperRatio);
     } else {
-        // 縦向き印刷時：ブラケットの「横幅」を用紙の横幅に合わせる
+        // 縦向き印刷時：ブラケット＋名簿表の「横幅」を用紙の横幅に合わせる
         canvasWidth = baseContentWidth + margin.h * 2;
         canvasHeight = Math.round(canvasWidth * paperRatio);
     }
@@ -68,7 +81,7 @@ function updatePaperLayout() {
     previewArea.style.width = `${canvasWidth}px`;
     previewArea.style.minHeight = `${canvasHeight}px`;
 
-    // 印刷（PDF出力）時のスタイル更新：選んだ用紙サイズ・向きにジャストフィットさせる
+    // 印刷（PDF出力）時のスタイル更新
     const paperMm = PAPER_DIMENSIONS_MM[sizeKey] || PAPER_DIMENSIONS_MM.A3;
     const pageWidthMm = orientation === 'landscape' ? paperMm.long : paperMm.short;
     const pageHeightMm = orientation === 'landscape' ? paperMm.short : paperMm.long;
@@ -77,7 +90,6 @@ function updatePaperLayout() {
     const targetPrintHeightPx = pageHeightMm * mmToPx;
     const targetPrintWidthPx = pageWidthMm * mmToPx;
 
-    // 横向き時は高さ基準でスケール、縦向き時は横幅基準でスケール
     const printScale = orientation === 'landscape'
         ? (targetPrintHeightPx / canvasHeight)
         : (targetPrintWidthPx / canvasWidth);
@@ -94,18 +106,149 @@ function updatePaperLayout() {
         }
     `;
 
-    // 現在のズーム倍率を再適用してラッパーサイズを更新
+    // ロゴの反映（描画ボタン押下時に反映）
+    if (pendingLogoDataUrl) {
+        logoDisplayImg.src = pendingLogoDataUrl;
+        logoDisplayContainer.classList.remove('hidden');
+    } else {
+        logoDisplayImg.src = '';
+        logoDisplayContainer.classList.add('hidden');
+    }
+
+    // 描画前に追加予約されていたテキストボックスがあれば生成
+    while (pendingTextBoxesCount > 0) {
+        createDraggableTextBox();
+        pendingTextBoxesCount--;
+    }
+
     setZoom(Number(zoomSlider.value));
 }
 
-printSizeSelect.addEventListener('change', updatePaperLayout);
-printOrientationSelect.addEventListener('change', () => {
-    updatePaperLayout();
-    fitToViewport();
+// === 描画オプション：ロゴ画像の読み込み制御 ===
+logoUpload.addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file) {
+        pendingLogoDataUrl = null;
+        clearLogoBtn.classList.add('hidden');
+        return;
+    }
+    if (file.type !== 'image/png' && !file.name.toLowerCase().endsWith('.png')) {
+        alert('ロゴ画像はPNGファイル（.png）のみ対応しています。');
+        logoUpload.value = '';
+        pendingLogoDataUrl = null;
+        clearLogoBtn.classList.add('hidden');
+        return;
+    }
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+        pendingLogoDataUrl = ev.target.result;
+        clearLogoBtn.classList.remove('hidden');
+    };
+    reader.readAsDataURL(file);
 });
-printMarginSelect.addEventListener('change', () => {
-    updatePaperLayout();
-    fitToViewport();
+
+clearLogoBtn.addEventListener('click', () => {
+    logoUpload.value = '';
+    pendingLogoDataUrl = null;
+    clearLogoBtn.classList.add('hidden');
+});
+
+// === 描画オプション：ドラッグ可能なテキストボックスの追加 ===
+function createDraggableTextBox(initialX = 1820, initialY = 820) {
+    const box = document.createElement('div');
+    box.className = 'draggable-text-box pointer-events-auto';
+    box.style.left = `${initialX}px`;
+    box.style.top = `${initialY}px`;
+
+    const controls = document.createElement('div');
+    controls.className = 'text-box-controls';
+
+    const dragLabel = document.createElement('span');
+    dragLabel.textContent = '⠿ ドラッグ移動';
+
+    const rightControls = document.createElement('div');
+    rightControls.className = 'flex items-center gap-1';
+
+    const sizeSelect = document.createElement('select');
+    sizeSelect.className = 'border border-gray-300 rounded text-[10px] bg-white px-1 py-0.5 cursor-pointer';
+    [
+        { label: '小', size: '14px' },
+        { label: '中', size: '18px' },
+        { label: '大', size: '24px' },
+        { label: '特大', size: '32px' }
+    ].forEach((opt, idx) => {
+        const optionEl = document.createElement('option');
+        optionEl.value = opt.size;
+        optionEl.textContent = opt.label;
+        if (idx === 1) optionEl.selected = true;
+        sizeSelect.appendChild(optionEl);
+    });
+
+    const deleteBtn = document.createElement('button');
+    deleteBtn.textContent = '×';
+    deleteBtn.className = 'text-gray-500 hover:text-red-600 font-bold px-1.5 leading-none';
+    deleteBtn.title = '削除';
+
+    rightControls.append(sizeSelect, deleteBtn);
+    controls.append(dragLabel, rightControls);
+
+    const content = document.createElement('div');
+    content.className = 'draggable-text-content';
+    content.contentEditable = 'true';
+    content.style.fontSize = '18px';
+    content.textContent = 'テキストを入力';
+
+    sizeSelect.addEventListener('change', (e) => {
+        content.style.fontSize = e.target.value;
+    });
+
+    deleteBtn.addEventListener('click', () => {
+        box.remove();
+    });
+
+    // ドラッグ移動ロジック（プレビューの表示倍率を考慮して座標補正）
+    let isDragging = false;
+    let startClientX = 0;
+    let startClientY = 0;
+    let initialLeft = 0;
+    let initialTop = 0;
+
+    controls.addEventListener('mousedown', (e) => {
+        if (e.target === sizeSelect || e.target === deleteBtn) return;
+        isDragging = true;
+        startClientX = e.clientX;
+        startClientY = e.clientY;
+        initialLeft = parseFloat(box.style.left) || 0;
+        initialTop = parseFloat(box.style.top) || 0;
+        e.preventDefault();
+    });
+
+    window.addEventListener('mousemove', (e) => {
+        if (!isDragging) return;
+        const scale = Number(zoomSlider.value) / 100;
+        const dx = (e.clientX - startClientX) / scale;
+        const dy = (e.clientY - startClientY) / scale;
+        box.style.left = `${Math.max(0, Math.round(initialLeft + dx))}px`;
+        box.style.top = `${Math.max(0, Math.round(initialTop + dy))}px`;
+    });
+
+    window.addEventListener('mouseup', () => {
+        isDragging = false;
+    });
+
+    box.append(controls, content);
+    customTextsLayer.appendChild(box);
+}
+
+addTextBtn.addEventListener('click', () => {
+    const isSheetDrawn = !document.getElementById('main-sheet-body').classList.contains('hidden');
+    if (isSheetDrawn) {
+        const offset = (customTextsLayer.children.length % 5) * 30;
+        createDraggableTextBox(1820 + offset, 820 + offset);
+    } else {
+        pendingTextBoxesCount++;
+        alert('テキストボックスを追加予約しました。「ブラケットを描画する」を押すとシート上に配置されます。');
+    }
 });
 
 // === 入力バリデーションと描画ボタンの有効化連動 ===
@@ -181,7 +324,7 @@ csvUpload.addEventListener('change', (e) => {
                 const seedStr = (row[3] || '').trim();
                 if (!rawPoolName || !seedStr) continue;
 
-                // start.ggのWave制仕様でプール番号の末尾に00が付く場合は除去する (例: A100 -> A1, 100 -> 1)
+                // start.ggのWave制仕様でプール番号の末尾に00が付く場合は除去する
                 const poolName = rawPoolName.replace(/00$/, '') || rawPoolName;
 
                 const seed = parseInt(seedStr, 10);
@@ -550,6 +693,47 @@ function createRoundColumn(roundName, bracketType = 'winners', isQualifier = fal
     return roundCol;
 }
 
+// === Check-in / Gamer Tag 名簿テーブル生成（M列のPrefix付きプレイヤー名をシード順に表示） ===
+function createCheckinRosterTable(currentPool, playerCount) {
+    const table = createElement('table', 'checkin-table');
+
+    const thead = createElement('thead');
+    const headerRow = createElement('tr');
+    headerRow.appendChild(createElement('th', '', 'Check-in'));
+    headerRow.appendChild(createElement('th', '', 'Gamer Tag'));
+    thead.appendChild(headerRow);
+    table.appendChild(thead);
+
+    const tbody = createElement('tbody');
+    // シード順（1〜playerCount）にソートして出力
+    const seeds = Object.keys(currentPool.playersBySeed)
+        .map(Number)
+        .sort((a, b) => a - b);
+
+    const rowCount = Math.max(playerCount, seeds.length);
+    for (let i = 1; i <= rowCount; i++) {
+        const player = currentPool.playersBySeed[i];
+        const fullGamerTag = player ? (player.gamerTag || player.shortGamerTag || '') : '';
+
+        const tr = createElement('tr');
+
+        const tdCheck = createElement('td');
+        const checkInner = createElement('div', 'checkin-cell-inner');
+        checkInner.appendChild(createElement('div', 'checkbox-square'));
+        tdCheck.appendChild(checkInner);
+
+        const tdTag = createElement('td');
+        const tagSpan = createElement('span', 'gamertag-cell-text', fullGamerTag);
+        tdTag.appendChild(tagSpan);
+
+        tr.append(tdCheck, tdTag);
+        tbody.appendChild(tr);
+    }
+
+    table.appendChild(tbody);
+    return table;
+}
+
 // === ズームコントロール ===
 function setZoom(percent) {
     const scale = percent / 100;
@@ -580,11 +764,11 @@ document.getElementById('zoom-reset-btn').addEventListener('click', () => setZoo
 document.getElementById('zoom-fit-btn').addEventListener('click', fitToViewport);
 window.addEventListener('resize', fitToViewport);
 
-// 初期用紙レイアウトの適用
-updatePaperLayout();
+// 初期プレビュー領域のズーム調整
+applyPrintAndDrawOptions();
 fitToViewport();
 
-// === 17〜24人ブラケット生成メイン処理 ===
+// === 17〜24人ブラケット＆名簿生成メイン処理（追加オプションもここで一括反映） ===
 generateBtn.addEventListener('click', () => {
     const selectedPoolName = poolSelect.value;
     const currentPool = poolsData[selectedPoolName];
@@ -608,9 +792,11 @@ generateBtn.addEventListener('click', () => {
     const wCount = winnersAdvanceCount.value;
     const lCount = losersAdvanceCount.value;
 
-    // ヘッダー更新
+    // プレースホルダーを隠してメイン領域を表示
     document.getElementById('preview-placeholder').classList.add('hidden');
     document.getElementById('preview-header').classList.remove('hidden');
+    document.getElementById('main-sheet-body').classList.remove('hidden');
+
     document.getElementById('pool-title').textContent = `Pool ${selectedPoolName} - Double Elimination (${playerCount} players)`;
     document.getElementById('pool-subtitle').textContent = `Winners side qualifier: ${wCount} / Losers side qualifier: ${lCount}`;
 
@@ -618,7 +804,7 @@ generateBtn.addEventListener('click', () => {
     container.innerHTML = ''; 
     container.style.display = 'flex';
     container.style.flexDirection = 'column';
-    container.style.gap = '44px'; // WinnersとLosersの間隔もゆとりを持たせる
+    container.style.gap = '44px';
 
     let labelCounter = 0;
     const nextLabel = () => indexToMatchLabel(labelCounter++);
@@ -780,7 +966,17 @@ generateBtn.addEventListener('click', () => {
     container.appendChild(wContainer);
     container.appendChild(lContainer);
 
-    updatePaperLayout();
+    // ==========================================
+    // 3. 右側 Check-in / Gamer Tag 名簿テーブルの描画
+    // ==========================================
+    const rosterContainer = document.getElementById('checkin-roster-container');
+    rosterContainer.innerHTML = '';
+    rosterContainer.appendChild(createCheckinRosterTable(currentPool, playerCount));
+
+    // ==========================================
+    // 4. 印刷オプション・描画オプション（ロゴ・テキスト）の反映
+    // ==========================================
+    applyPrintAndDrawOptions();
     requestAnimationFrame(fitToViewport);
 });
 
@@ -795,6 +991,7 @@ document.getElementById('export-btn').addEventListener('click', async () => {
     scaleWrapper.style.transform = 'none';
     scaleWrapper.style.width = `${previewArea.offsetWidth}px`;
     scaleWrapper.style.height = `${previewArea.offsetHeight}px`;
+    previewArea.classList.add('exporting');
 
     try {
         let dataUrl;
@@ -828,6 +1025,7 @@ document.getElementById('export-btn').addEventListener('click', async () => {
         console.error('画像生成に失敗しました:', err);
         alert('画像生成に失敗しました。');
     } finally {
+        previewArea.classList.remove('exporting');
         setZoom(currentZoom);
         btn.textContent = originalText;
         btn.disabled = false;
@@ -836,6 +1034,5 @@ document.getElementById('export-btn').addEventListener('click', async () => {
 
 // === PDF出力機能 ===
 document.getElementById('export-pdf-btn').addEventListener('click', () => {
-    updatePaperLayout();
     window.print();
 });
