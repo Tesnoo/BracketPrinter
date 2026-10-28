@@ -6,12 +6,21 @@
     <title>Bracket Printer</title>
     <link rel="icon" href="BracketPrinter_logo.png" type="image/png">
     
+    <!-- Google Fonts: Roboto -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,400;0,500;0,700;0,900;1,400;1,700;1,900&display=swap" rel="stylesheet">
+
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html-to-image/1.11.11/html-to-image.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
     <style>
+        body, #preview-area {
+            font-family: 'Roboto', sans-serif;
+        }
+
         @media print {
             @page { size: A3 landscape; margin: 0; }
             body * { visibility: hidden; }
@@ -55,13 +64,14 @@
         .round-header {
             background-color: #e5e7eb;
             text-align: center;
-            font-weight: bold;
+            font-weight: 700 !important;
             font-style: italic;
             font-size: 13px;
             line-height: 20px;
             padding: 2px 0;
             margin-bottom: 10px;
             width: 100%;
+            color: #000000;
         }
 
         .match-wrapper {
@@ -73,7 +83,6 @@
             padding: 14px 0;
         }
 
-        /* LR1のペア単位ラッパー（17〜23人時の位置揃え用） */
         .lr1-pair-group {
             flex: 1;
             display: flex;
@@ -166,7 +175,7 @@
             height: 24px;
             background-color: #555;
             color: white;
-            font-weight: bold;
+            font-weight: 700;
             font-size: 13px;
             border: 1px solid #000;
             border-right: none;
@@ -261,7 +270,7 @@
             align-items: center;
             justify-content: center;
             font-size: 12px;
-            font-weight: bold;
+            font-weight: 700;
             height: 20px;
             box-sizing: border-box;
         }
@@ -278,7 +287,6 @@
                 <label class="block text-xs font-bold text-gray-700">1. CSVファイル読み込み</label>
                 <input type="file" id="csv-upload" accept=".csv" class="block w-full text-xs text-gray-500 file:mr-2 file:py-1.5 file:px-2.5 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer border border-gray-300 rounded">
                 <p id="csv-status" class="text-[11px] text-gray-500 hidden"></p>
-                <!-- 複数プールが存在する場合のプール選択欄 -->
                 <div id="pool-select-wrapper" class="hidden flex flex-col gap-1 mt-1 bg-gray-50 p-2 rounded border border-gray-200 text-xs">
                     <label class="text-[11px] font-semibold text-gray-700">描画するPoolを選択</label>
                     <select id="pool-select" class="w-full border border-gray-300 rounded p-1 bg-white text-xs"></select>
@@ -509,9 +517,16 @@
                     <p class="text-sm font-normal text-gray-500">初期設定を完了し、「ブラケットを描画する」を押してください</p>
                 </div>
 
-                <div id="preview-header" class="hidden border-b-2 border-gray-800 pb-2 mb-4">
-                    <h2 id="pool-title" class="text-2xl font-bold">Pool 1 - Double Elimination (24 players)</h2>
-                    <p id="pool-subtitle" class="text-sm text-gray-600 font-medium">Winners side qualifier: 1 / Losers side qualifier: 2</p>
+                <!-- ヘッダー：左側にPool情報、右上にURL・Contact表記 -->
+                <div id="preview-header" class="hidden border-b-2 border-gray-800 pb-2 mb-4 flex justify-between items-end">
+                    <div>
+                        <h2 id="pool-title" class="text-2xl font-bold">Pool 1 - Double Elimination (24 players)</h2>
+                        <p id="pool-subtitle" class="text-sm text-gray-600 font-medium">Winners side qualifier: 1 / Losers side qualifier: 2</p>
+                    </div>
+                    <div class="text-right text-xs text-gray-600 leading-snug font-medium">
+                        <p>https://tesnoo.github.io/BracketPrinter/</p>
+                        <p>Contact: @Tesnoo_ssb</p>
+                    </div>
                 </div>
                 <div id="bracket-container"></div>
             </div>
