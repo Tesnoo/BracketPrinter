@@ -389,7 +389,11 @@
     <!-- 左側：スクロール専用コンテナ -->
     <div class="w-80 shrink-0 bg-white shadow-lg overflow-y-auto z-20 h-full">
         <div class="p-5 flex flex-col gap-4">
-            <h1 class="text-2xl font-bold text-gray-800 shrink-0">Bracket Printer</h1>
+            <!-- タイトル＆サイトアイコン -->
+            <div class="flex items-center gap-2.5 shrink-0">
+                <img src="BracketPrinter_logo.png" alt="Bracket Printer Logo" class="w-8 h-8 object-contain">
+                <h1 class="text-2xl font-bold text-gray-800">Bracket Printer</h1>
+            </div>
             
             <!-- 手順1: CSV読み込み -->
             <div class="flex flex-col gap-1.5 shrink-0">
@@ -627,9 +631,10 @@
     <div id="preview-viewport" class="flex-1 p-6 overflow-auto bg-gray-200">
         <div id="preview-scale-wrapper" class="inline-block">
             <div id="preview-area" class="shadow-md text-gray-800 relative">
-                <div id="preview-placeholder" class="flex flex-col items-center justify-center h-[1500px] text-gray-400 font-bold text-xl gap-2 text-center px-4">
+                <!-- 縮小表示時でもはっきり読めるよう文字サイズを拡大 -->
+                <div id="preview-placeholder" class="flex flex-col items-center justify-center h-[1550px] text-gray-400 font-bold text-6xl gap-6 text-center px-8">
                     <p>⚠️ プレビューを表示できません。</p>
-                    <p class="text-sm font-normal text-gray-500">初期設定を完了し、「ブラケットを描画する」を押してください</p>
+                    <p class="text-4xl font-medium text-gray-500">初期設定を完了し、「ブラケットを描画する」を押してください</p>
                 </div>
 
                 <!-- ヘッダー：左側にPool情報、右上にURL・Contact表記 -->
