@@ -25,12 +25,45 @@
         }
 
         @media print {
-            body * { visibility: hidden; }
-            #preview-area, #preview-area * { visibility: visible; }
+            * {
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+            }
+            html, body {
+                margin: 0 !important;
+                padding: 0 !important;
+                width: 100% !important;
+                height: 100% !important;
+                overflow: hidden !important;
+                background-color: #ffffff !important;
+                display: block !important;
+            }
+            /* 左側の操作パネルを印刷時はレイアウトから完全に除外 */
+            #sidebar-panel {
+                display: none !important;
+            }
+            #preview-viewport {
+                margin: 0 !important;
+                padding: 0 !important;
+                width: 100% !important;
+                height: 100% !important;
+                overflow: visible !important;
+                background-color: #ffffff !important;
+                display: block !important;
+            }
+            /* 画面ズーム用のtransformを印刷時は完全に無効化 */
+            #preview-scale-wrapper {
+                transform: none !important;
+                width: auto !important;
+                height: auto !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                display: block !important;
+            }
             #preview-area { 
-                position: fixed;
-                left: 0;
-                top: 0; 
+                position: fixed !important;
+                left: 0 !important;
+                top: 0 !important; 
                 box-shadow: none !important;
                 margin: 0 !important;
                 transform-origin: top left !important;
@@ -428,8 +461,8 @@
     </style>
 </head>
 <body class="bg-gray-200 h-screen flex overflow-hidden">
-    <!-- 左側：スクロール専用コンテナ -->
-    <div class="w-80 shrink-0 bg-white shadow-lg overflow-y-auto z-20 h-full">
+    <!-- 左側：スクロール専用コンテナ（印刷時は #sidebar-panel で非表示化） -->
+    <div id="sidebar-panel" class="w-80 shrink-0 bg-white shadow-lg overflow-y-auto z-20 h-full">
         <div class="p-5 flex flex-col gap-4">
             <!-- タイトル＆サイトアイコン -->
             <div class="flex items-center gap-2.5 shrink-0">
@@ -460,7 +493,7 @@
                 </select>
             </div>
 
-            <!-- 手順3: フェーズ通過人数を指定（勝者側: 1, 2, 4 / 敗者側: 1, 2, 4, 8） -->
+            <!-- 手順3: フェーズ通過人数を指定 -->
             <div class="flex flex-col gap-2 text-xs shrink-0">
                 <label class="font-bold text-gray-700">3. フェーズ通過人数を指定</label>
                 <div class="grid grid-cols-2 gap-2">
@@ -713,7 +746,7 @@
                     </div>
                 </div>
 
-                <!-- メインコンテンツ領域：ブラケットは縦一杯に伸縮し、Check-in名簿は右上（勝者側の右横・敗者側の上方）に配置 -->
+                <!-- メインコンテンツ領域 -->
                 <div id="main-sheet-body" class="hidden flex-1 flex flex-col relative w-full">
                     <div id="bracket-container" class="flex-1 flex flex-col justify-between w-full"></div>
                     <div id="checkin-roster-container" class="absolute top-0 right-0 z-10"></div>
