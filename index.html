@@ -102,7 +102,6 @@
             padding: 24px 0;
         }
 
-        /* ペア単位のラッパー（WR1やLR1で片方の試合が無い場合の位置揃え用） */
         .pair-group {
             flex: 1;
             display: flex;
@@ -322,7 +321,6 @@
             font-size: 12px;
             color: #000;
             box-sizing: border-box;
-            /* 細かすぎないよう、線幅3px・空白4px（計7px周期）の点線を描画 */
             background-image: linear-gradient(to right, #000000 3px, transparent 3px);
             background-position: bottom;
             background-size: 7px 1px;
@@ -410,7 +408,7 @@
 
             <hr class="border-gray-200 shrink-0">
 
-            <!-- 手順2: トーナメント形式を選択（新規追加） -->
+            <!-- 手順2: トーナメント形式を選択 -->
             <div class="flex flex-col gap-1.5 text-xs shrink-0">
                 <label class="font-bold text-gray-700">2. トーナメント形式を選択</label>
                 <select id="elim-format-select" class="w-full border border-gray-300 rounded p-1.5 bg-white">
@@ -420,7 +418,7 @@
                 </select>
             </div>
 
-            <!-- 手順3: フェーズ通過人数を指定 -->
+            <!-- 手順3: フェーズ通過人数を指定（勝者側: 1, 2, 4 / 敗者側: 1, 2, 4, 8） -->
             <div class="flex flex-col gap-2 text-xs shrink-0">
                 <label class="font-bold text-gray-700">3. フェーズ通過人数を指定</label>
                 <div class="grid grid-cols-2 gap-2">
@@ -430,10 +428,7 @@
                             <option value="" disabled selected>選択してください</option>
                             <option value="1">1人</option>
                             <option value="2">2人</option>
-                            <option value="3">3人</option>
                             <option value="4">4人</option>
-                            <option value="5">5人</option>
-                            <option value="6">6人</option>
                         </select>
                     </div>
                     <div id="losers-advance-wrapper">
@@ -442,10 +437,8 @@
                             <option value="" disabled selected>選択してください</option>
                             <option value="1">1人</option>
                             <option value="2">2人</option>
-                            <option value="3">3人</option>
                             <option value="4">4人</option>
-                            <option value="5">5人</option>
-                            <option value="6">6人</option>
+                            <option value="8">8人</option>
                         </select>
                     </div>
                 </div>
