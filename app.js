@@ -12,7 +12,7 @@ let recommendedPrintConfig = {
     size: 'A3',
     orientation: 'landscape',
     margin: 'standard',
-    reason: '17〜24人 ダブルエリミの推奨設定'
+    reason: '17〜32人 ダブルエリミの推奨設定'
 };
 
 const csvUpload = document.getElementById('csv-upload');
@@ -69,7 +69,7 @@ elimFormatSelect.addEventListener('change', () => {
     validateForm();
 });
 
-// === 推奨印刷設定の算出とUI装飾更新 ===
+// === 推奨印刷設定の算出（ダブルエリミは横向きに統一して安定化） ===
 function updateRecommendedPrintConfig(autoSelect = true) {
     const isSingleElim = elimFormatSelect.value === 'single';
     const n = maxPoolPlayerCount || 24;
@@ -88,19 +88,12 @@ function updateRecommendedPrintConfig(autoSelect = true) {
             margin: 'standard',
             reason: `8〜16人 ダブルエリミの推奨設定 (最大${n}人)`
         };
-    } else if (n <= 24) {
+    } else {
         recommendedPrintConfig = {
             size: 'A3',
             orientation: 'landscape',
             margin: 'standard',
-            reason: `17〜24人 ダブルエリミの推奨設定 (最大${n}人)`
-        };
-    } else {
-        recommendedPrintConfig = {
-            size: 'A3',
-            orientation: 'portrait',
-            margin: 'standard',
-            reason: `25〜32人 ダブルエリミの推奨設定 (最大${n}人)`
+            reason: `17〜32人 ダブルエリミの推奨設定 (最大${n}人)`
         };
     }
 
@@ -161,7 +154,7 @@ resetPrintRecBtn.addEventListener('click', () => {
     refreshPrintOptionDecorations();
 });
 
-// === 用紙サイズ・向き・余白の動的レイアウト計算（1段 約6.0mm ＆ 完全ベクター印刷対応） ===
+// === 用紙サイズ・向き・余白の動的レイアウト計算 ===
 const PAPER_DIMENSIONS_MM = {
     A3: { short: 297, long: 420 },
     B4: { short: 257, long: 364 },
@@ -171,8 +164,8 @@ const PAPER_DIMENSIONS_MM = {
 };
 
 const MARGIN_PRESETS = {
-    standard: { v: 26, h: 30 },
-    wide: { v: 44, h: 48 },
+    standard: { v: 28, h: 32 },
+    wide: { v: 48, h: 52 },
     narrow: { v: 14, h: 16 }
 };
 
@@ -193,23 +186,25 @@ function applyPrintAndDrawOptions() {
     const rosterEl = document.getElementById('checkin-roster-container');
     const isSheetDrawn = !sheetBodyEl.classList.contains('hidden');
 
-    let naturalHeight = 1520;
-    let naturalWidth = 1540;
+    let naturalHeight = 1600;
+    let naturalWidth = 1900;
 
     if (isSheetDrawn) {
+        // 計測時は固定高さを解除し、コンテンツ本来の高さを取得（上端見切れ防止）
         previewArea.style.height = 'auto';
         previewArea.style.minHeight = '0px';
 
         const wContainer = bracketEl.children[0];
         const lContainer = bracketEl.children[1];
 
-        // width: max-content により、ブラケット列の純粋な実寸幅のみを取得
         const wWidth = wContainer ? wContainer.offsetWidth : 0;
         const lWidth = lContainer ? lContainer.offsetWidth : 0;
         const rosterWidth = rosterEl ? rosterEl.offsetWidth : 0;
+        const rosterHeight = rosterEl ? rosterEl.offsetHeight : 0;
 
-        naturalWidth = Math.max(wWidth + 28 + rosterWidth, lWidth);
-        naturalHeight = headerEl.offsetHeight + 16 + bracketEl.scrollHeight;
+        naturalWidth = Math.max(wWidth + 36 + rosterWidth, lWidth);
+        const bracketTotalHeight = bracketEl.offsetHeight;
+        naturalHeight = headerEl.offsetHeight + 16 + Math.max(bracketTotalHeight, rosterHeight);
     }
 
     const paperRatio = Math.SQRT2;
@@ -224,8 +219,8 @@ function applyPrintAndDrawOptions() {
     }
 
     previewArea.style.width = `${canvasWidth}px`;
-    previewArea.style.height = `${canvasHeight}px`;
     previewArea.style.minHeight = `${canvasHeight}px`;
+    previewArea.style.height = `${canvasHeight}px`;
 
     const paperMm = PAPER_DIMENSIONS_MM[sizeKey] || PAPER_DIMENSIONS_MM.A3;
     const pageWidthMm = orientation === 'landscape' ? paperMm.long : paperMm.short;
@@ -235,9 +230,8 @@ function applyPrintAndDrawOptions() {
     const targetPrintHeightPx = pageHeightMm * mmToPx;
     const targetPrintWidthPx = pageWidthMm * mmToPx;
 
-    const printZoom = Math.min(targetPrintWidthPx / canvasWidth, targetPrintHeightPx / canvasHeight) * 0.996;
+    const printScale = Math.min(targetPrintWidthPx / canvasWidth, targetPrintHeightPx / canvasHeight) * 0.995;
 
-    // transform: scale() ではなく zoom を使うことで、PDF出力時のビットマップ画像化（ボヤけ）を防ぎ完全ベクターで出力する
     dynamicPrintStyle.textContent = `
         @page {
             size: ${sizeKey} ${orientation};
@@ -248,8 +242,8 @@ function applyPrintAndDrawOptions() {
                 width: ${canvasWidth}px !important;
                 height: ${canvasHeight}px !important;
                 min-height: ${canvasHeight}px !important;
-                zoom: ${printZoom.toFixed(5)} !important;
-                transform: none !important;
+                transform: scale(${printScale.toFixed(5)}) !important;
+                transform-origin: top left !important;
             }
         }
     `;
@@ -728,7 +722,7 @@ function indexToMatchLabel(index) {
 function createSpacerNode() {
     const wrapper = createElement('div', 'match-wrapper');
     const dummyBox = createElement('div', '');
-    dummyBox.style.height = '64px';
+    dummyBox.style.height = '52px';
     wrapper.appendChild(dummyBox);
     return wrapper;
 }
@@ -783,14 +777,14 @@ function createQualifierNode(matchSourceLabel, targetPhase, targetType = 'W', in
     box.appendChild(createElement('span', 'qual-drop-label-top', `Winner of ${matchSourceLabel}`));
 
     if (targetType === 'W' && includeLoserSlot) {
-        box.style.height = '64px';
+        box.style.height = '52px';
         const slot1 = createElement('div', 'qualifier-slot border-b border-black', `${targetPhase} [W]`);
         box.appendChild(slot1);
         const slot2 = createElement('div', 'qualifier-slot', `${targetPhase} [L]`);
         box.appendChild(slot2);
         box.appendChild(createElement('span', 'qual-drop-label-bottom', `Loser of ${matchSourceLabel}`));
     } else {
-        box.style.height = '34px';
+        box.style.height = '28px';
         box.appendChild(createElement('div', 'qualifier-slot', `${targetPhase} [${targetType}]`));
     }
 
@@ -1053,7 +1047,6 @@ function render17To24Bracket(container, playerCount, getPlayerName, targetPhaseN
     const wr1SeedPairs = wr2TopSeeds.map(s => [17 - s, 33 - (17 - s)]);
 
     const wContainer = createElement('div', 'bracket-container');
-    wContainer.style.flex = '1';
     const wr1 = createRoundColumn('Winners Round 1', 'winners');
     const wr2 = createRoundColumn('Winners Round 2', 'winners');
 
@@ -1091,7 +1084,6 @@ function render17To24Bracket(container, playerCount, getPlayerName, targetPhaseN
     if (lCountNum === 0) return;
 
     const lContainer = createElement('div', 'bracket-container');
-    lContainer.style.flex = '1';
     const lr1 = createRoundColumn('Losers Round 1', 'losers');
     const lr2 = createRoundColumn('Losers Round 2', 'losers');
 
@@ -1162,7 +1154,6 @@ function render25To32Bracket(container, playerCount, getPlayerName, targetPhaseN
     const wr2TopSeeds = [1, 8, 4, 5, 2, 7, 3, 6];
 
     const wContainer = createElement('div', 'bracket-container');
-    wContainer.style.flex = '2';
     const wr1 = createRoundColumn('Winners Round 1', 'winners');
     const wr2 = createRoundColumn('Winners Round 2', 'winners');
 
@@ -1209,7 +1200,6 @@ function render25To32Bracket(container, playerCount, getPlayerName, targetPhaseN
     if (lCountNum === 0) return;
 
     const lContainer = createElement('div', 'bracket-container');
-    lContainer.style.flex = '1';
     const lr1 = createRoundColumn('Losers Round 1', 'losers');
     const lr2 = createRoundColumn('Losers Round 2', 'losers');
     const lr3 = createRoundColumn('Losers Round 3', 'losers');
@@ -1314,23 +1304,12 @@ generateBtn.addEventListener('click', () => {
     container.innerHTML = ''; 
     container.style.display = 'flex';
     container.style.flexDirection = 'column';
-    container.style.gap = '28px';
+    container.style.gap = '32px';
 
     if (playerCount >= 25) {
         render25To32Bracket(container, playerCount, getPlayerName, targetPhaseName, wCountNum, lCountNum);
     } else {
         render17To24Bracket(container, playerCount, getPlayerName, targetPhaseName, wCountNum, lCountNum);
-    }
-
-    // 列数に応じて横幅スタイルを切り替え（縦の記入枠高さ6mmは常に維持）
-    const maxCols = Math.max(
-        ...Array.from(container.children).map(c => c.children.length)
-    );
-    container.classList.remove('compact-bracket', 'ultra-compact-bracket');
-    if (maxCols >= 8) {
-        container.classList.add('ultra-compact-bracket');
-    } else if (maxCols === 7) {
-        container.classList.add('compact-bracket');
     }
 
     const rosterContainer = document.getElementById('checkin-roster-container');
