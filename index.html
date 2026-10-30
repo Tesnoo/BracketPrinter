@@ -16,9 +16,6 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html-to-image/1.11.11/html-to-image.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
-    <!-- 印刷時の動的スタイル注入用 -->
-    <style id="dynamic-print-style"></style>
-
     <style>
         body, #preview-area {
             font-family: 'Roboto', sans-serif;
@@ -33,9 +30,11 @@
             html, body {
                 margin: 0 !important;
                 padding: 0 !important;
+                width: 100% !important;
+                height: auto !important;
                 background-color: #ffffff !important;
                 display: block !important;
-                overflow: visible !important;
+                overflow: hidden !important;
             }
             #sidebar-panel {
                 display: none !important;
@@ -43,25 +42,11 @@
             #preview-viewport {
                 margin: 0 !important;
                 padding: 0 !important;
-                overflow: visible !important;
+                width: 100% !important;
+                height: auto !important;
+                overflow: hidden !important;
                 background-color: #ffffff !important;
                 display: block !important;
-            }
-            #preview-scale-wrapper {
-                transform: none !important;
-                width: auto !important;
-                height: auto !important;
-                margin: 0 !important;
-                padding: 0 !important;
-                display: block !important;
-            }
-            #preview-area { 
-                position: absolute !important;
-                left: 0 !important;
-                top: 0 !important; 
-                box-shadow: none !important;
-                margin: 0 !important;
-                transform-origin: top left !important;
             }
             .text-box-controls {
                 display: none !important;
@@ -85,9 +70,9 @@
         }
 
         #preview-area {
-            width: 2246px;
-            min-height: 1588px;
-            padding: 22px 26px;
+            width: 2362px;
+            min-height: 1670px;
+            padding: 24px 30px;
             box-sizing: border-box;
             background-color: #ffffff;
             display: flex;
@@ -96,7 +81,7 @@
 
         .bracket-container {
             display: flex;
-            gap: 20px;
+            gap: 22px;
             align-items: stretch;
             width: max-content;
             flex-shrink: 0;
@@ -105,13 +90,13 @@
         .round-col {
             display: flex;
             flex-direction: column;
-            width: 220px;
+            width: 244px;
             height: 100%;
             flex-shrink: 0;
         }
 
         .round-col.qualifier-col {
-            width: 150px;
+            width: 164px;
         }
 
         .round-header {
@@ -123,14 +108,13 @@
             line-height: 20px;
             height: 26px;
             padding: 3px 0;
-            margin-bottom: 10px;
+            margin-bottom: 8px;
             width: 100%;
             color: #000000;
             flex-shrink: 0;
             box-sizing: border-box;
         }
 
-        /* flex: 1 1 0px と min-height: 0 により、中身に関わらず列高さを数学的に完全等分する */
         .match-wrapper {
             flex: 1 1 0px;
             min-height: 0;
@@ -154,10 +138,10 @@
         .match-wrapper.branch-line::before {
             content: '';
             position: absolute;
-            left: -20px;
+            left: -22px;
             top: 25%;    
             bottom: 25%; 
-            width: 10px;
+            width: 11px;
             border-top: 1.5px solid #000;
             border-bottom: 1.5px solid #000;
             border-right: 1.5px solid #000;
@@ -166,9 +150,9 @@
         .match-wrapper.branch-line::after {
             content: '';
             position: absolute;
-            left: -10px;
+            left: -11px;
             top: 50%;
-            width: 10px;
+            width: 11px;
             border-top: 1.5px solid #000;
             box-sizing: border-box;
         }
@@ -176,68 +160,68 @@
         .match-wrapper.straight-line::before {
             content: '';
             position: absolute;
-            left: -20px;
+            left: -22px;
             top: 50%;
-            width: 20px;
+            width: 22px;
             border-top: 1.5px solid #000;
             box-sizing: border-box;
         }
 
-        /* 試合ボックスの高さ: 60px（1段30px ＝ A3印刷時の実寸 約5.6mm） */
+        /* 横長でスマートなブロック形状 (幅244px × 高さ48px) */
         .match-box {
             display: flex;
             align-items: center;
-            width: 220px;
-            height: 60px;
+            width: 244px;
+            height: 48px;
             position: relative;
             z-index: 10;
             flex-shrink: 0;
         }
 
         .dummy-spacer-box {
-            width: 220px;
-            height: 60px;
+            width: 244px;
+            height: 48px;
             flex-shrink: 0;
         }
 
         .drop-label-top {
             position: absolute;
-            top: -14px;
+            top: -13px;
             left: 52px;
             font-size: 11px;
             font-weight: 500;
-            line-height: 12px;
+            line-height: 11px;
             color: #000;
             white-space: nowrap;
         }
         .drop-label-bottom {
             position: absolute;
-            bottom: -14px;
+            bottom: -13px;
             left: 52px;
             font-size: 11px;
             font-weight: 500;
-            line-height: 12px;
+            line-height: 11px;
             color: #000;
             white-space: nowrap;
         }
 
         .qual-drop-label-top {
             position: absolute;
-            top: -14px;
+            top: -13px;
             left: 2px;
             font-size: 11px;
             font-weight: 500;
-            line-height: 12px;
+            line-height: 11px;
             color: #000;
             white-space: nowrap;
         }
         .qual-drop-label-bottom {
             position: absolute;
-            bottom: -14px;
+            bottom: -13px;
             left: 2px;
             font-size: 11px;
             font-weight: 500;
-            line-height: 12px;
+            line-height: 11px;
             color: #000;
             white-space: nowrap;
         }
@@ -247,7 +231,7 @@
             align-items: center;
             justify-content: center;
             width: 25px;
-            height: 26px;
+            height: 25px;
             background-color: #4b5563;
             color: white;
             font-weight: 700;
@@ -261,8 +245,8 @@
 
         .main-box-area {
             display: flex;
-            width: 195px;
-            height: 60px;
+            width: 219px;
+            height: 48px;
             border: 1.5px solid #000;
             background-color: white;
             box-sizing: border-box;
@@ -272,7 +256,7 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            width: 26px;
+            width: 27px;
             border-right: 1px solid #000;
             box-sizing: border-box;
             flex-shrink: 0;
@@ -285,10 +269,11 @@
             box-sizing: border-box;
         }
 
+        /* プレイヤー名記入欄の横幅を166pxに拡大 */
         .player-slots-area {
             display: flex;
             flex-direction: column;
-            width: 142px;
+            width: 166px;
             border-right: 1px solid #000;
             box-sizing: border-box;
         }
@@ -297,7 +282,7 @@
             padding: 0 6px;
             display: flex;
             align-items: center;
-            font-size: 14px;
+            font-size: 13.5px;
             font-weight: 500;
             position: relative; 
             line-height: 1.1;
@@ -315,18 +300,18 @@
             position: absolute;
             font-size: 10px;
             font-weight: 500;
-            line-height: 11px;
+            line-height: 10px;
             color: #000;
             text-align: left;
             left: 3px;
         }
-        .player-slot:first-child .seed-label { top: -12px; }
-        .player-slot:last-child .seed-label { bottom: -12px; }
+        .player-slot:first-child .seed-label { top: -11px; }
+        .player-slot:last-child .seed-label { bottom: -11px; }
 
         .score-box-area {
             display: flex;
             flex-direction: column;
-            width: 27px;
+            width: 26px;
             box-sizing: border-box;
             flex-shrink: 0;
         }
@@ -336,7 +321,7 @@
         .qualifier-box {
             display: flex;
             flex-direction: column;
-            width: 150px;
+            width: 164px;
             border: 1.5px solid #000;
             background-color: white;
             position: relative;
@@ -352,55 +337,13 @@
             justify-content: center;
             font-size: 13px;
             font-weight: 700;
-            height: 29px;
+            height: 23px;
             box-sizing: border-box;
         }
 
-        /* === 縦向き時・多列（7〜9列）の横幅スリム化（縦の記入枠高さ60px＝5.6mmはそのまま維持） === */
-        .cols-7 .bracket-container { gap: 16px; }
-        .cols-7 .round-col { width: 196px; }
-        .cols-7 .round-col.qualifier-col { width: 136px; }
-        .cols-7 .match-box, .cols-7 .dummy-spacer-box { width: 196px; }
-        .cols-7 .main-box-area { width: 171px; }
-        .cols-7 .player-slots-area { width: 120px; }
-        .cols-7 .qualifier-box { width: 136px; }
-        .cols-7 .match-wrapper.branch-line::before { left: -16px; width: 8px; }
-        .cols-7 .match-wrapper.branch-line::after { left: -8px; width: 8px; }
-        .cols-7 .match-wrapper.straight-line::before { left: -16px; width: 16px; }
-
-        .cols-8 .bracket-container { gap: 14px; }
-        .cols-8 .round-col { width: 178px; }
-        .cols-8 .round-col.qualifier-col { width: 128px; }
-        .cols-8 .match-box, .cols-8 .dummy-spacer-box { width: 178px; }
-        .cols-8 .main-box-area { width: 153px; }
-        .cols-8 .checkbox-container { width: 24px; }
-        .cols-8 .player-slots-area { width: 105px; }
-        .cols-8 .score-box-area { width: 24px; }
-        .cols-8 .qualifier-box { width: 128px; }
-        .cols-8 .drop-label-top, .cols-8 .drop-label-bottom { left: 48px; }
-        .cols-8 .match-wrapper.branch-line::before { left: -14px; width: 7px; }
-        .cols-8 .match-wrapper.branch-line::after { left: -7px; width: 7px; }
-        .cols-8 .match-wrapper.straight-line::before { left: -14px; width: 14px; }
-
-        .cols-9 .bracket-container { gap: 12px; }
-        .cols-9 .round-col { width: 160px; }
-        .cols-9 .round-col.qualifier-col { width: 118px; }
-        .cols-9 .match-box, .cols-9 .dummy-spacer-box { width: 160px; }
-        .cols-9 .match-label { width: 23px; font-size: 11px; }
-        .cols-9 .main-box-area { width: 137px; }
-        .cols-9 .checkbox-container { width: 22px; }
-        .cols-9 .player-slots-area { width: 93px; }
-        .cols-9 .score-box-area { width: 22px; }
-        .cols-9 .qualifier-box { width: 118px; }
-        .cols-9 .drop-label-top, .cols-9 .drop-label-bottom { left: 44px; font-size: 10.5px; }
-        .cols-9 .round-header { font-size: 12px; }
-        .cols-9 .match-wrapper.branch-line::before { left: -12px; width: 6px; }
-        .cols-9 .match-wrapper.branch-line::after { left: -6px; width: 6px; }
-        .cols-9 .match-wrapper.straight-line::before { left: -12px; width: 12px; }
-
         /* === Check-in / Gamer Tag 名簿テーブル === */
         .checkin-table {
-            width: 264px;
+            width: 280px;
             border: 1.5px solid #000;
             border-collapse: collapse;
             background-color: #ffffff;
@@ -416,7 +359,7 @@
             line-height: 1.2;
         }
         .checkin-table th:first-child {
-            width: 60px;
+            width: 62px;
             border-right: 1px solid #000;
         }
         .checkin-table td {
@@ -444,7 +387,7 @@
         }
         .gamertag-cell-text {
             display: block;
-            width: 186px;
+            width: 200px;
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
@@ -486,6 +429,9 @@
             word-break: break-word;
         }
     </style>
+
+    <!-- 印刷時の動的スタイル注入用（優先度を高めるためメインstyleの後に配置） -->
+    <style id="dynamic-print-style"></style>
 </head>
 <body class="bg-gray-200 h-screen flex overflow-hidden">
     <!-- 左側：スクロール専用コンテナ -->
@@ -654,7 +600,7 @@
                 </button>
                 <div class="accordion-content bg-white px-3 py-2.5 flex flex-col gap-2.5 text-xs border-t border-gray-200 rounded-b-lg" style="display: none;">
                     <div id="print-rec-reason-box" class="bg-orange-50 border border-orange-200 rounded p-1.5 text-[11px] text-orange-800 flex items-center justify-between">
-                        <span id="print-rec-reason-text">💡 17〜24人 ダブルエリミの推奨設定</span>
+                        <span id="print-rec-reason-text">💡 17〜32人 ダブルエリミの推奨設定</span>
                         <button id="reset-print-rec-btn" type="button" class="hidden text-[10px] bg-[#FA8534] text-white px-1.5 py-0.5 rounded font-bold hover:bg-orange-600 transition">推奨に戻す</button>
                     </div>
 
@@ -692,7 +638,6 @@
                             <option value="narrow">狭い</option>
                         </select>
                     </div>
-                    <p class="text-[10px] text-gray-400">※変更後は「ブラケットを描画する」を再クリックすると反映されます</p>
                 </div>
             </div>
 
@@ -781,7 +726,7 @@
                 </div>
 
                 <!-- 右下ロゴ配置領域 -->
-                <div id="logo-display-container" class="hidden absolute z-20 pointer-events-none" style="bottom: 22px; right: 26px;"></div>
+                <div id="logo-display-container" class="hidden absolute z-20 pointer-events-none" style="bottom: 24px; right: 30px;"></div>
 
                 <!-- ドラッグ可能なテキストボックス配置レイヤー -->
                 <div id="custom-texts-layer" class="absolute inset-0 pointer-events-none"></div>
