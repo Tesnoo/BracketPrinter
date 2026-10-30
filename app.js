@@ -8,16 +8,18 @@ let pendingLogoDataUrl = null;
 let pendingTextBoxesCount = 0;
 let isPrintingMode = false;
 
-// 60pxボックス(1段30px＝実寸約5.6mm)に対する勝者側(84px)と敗者側(90px)の基準スロット高
-const WINNERS_SLOT_HEIGHT = 84;
-const LOSERS_SLOT_HEIGHT = 90;
-const ROUND_HEADER_TOTAL_HEIGHT = 36;
+// 17〜24人用のスロット高（48pxボックス + 余白34px = 82px）
+const SLOT_HEIGHT_24 = 82;
+// 25〜32人用のスロット高（勝者側はシード番号のみのため68pxに引き締め、敗者側はLoser ofラベル用に74px確保）
+const WINNERS_SLOT_HEIGHT_32 = 68;
+const LOSERS_SLOT_HEIGHT_32 = 74;
+const ROUND_HEADER_TOTAL_HEIGHT = 34;
 
 let recommendedPrintConfig = {
     size: 'A3',
     orientation: 'landscape',
     margin: 'standard',
-    reason: '17〜24人 ダブルエリミの推奨設定'
+    reason: '17〜32人 ダブルエリミの推奨設定'
 };
 
 const csvUpload = document.getElementById('csv-upload');
@@ -73,7 +75,7 @@ elimFormatSelect.addEventListener('change', () => {
     validateForm();
 });
 
-// === 推奨印刷設定の算出（25〜32人ダブルエリミはA3・縦向きで実寸5.6mmを確保） ===
+// === 推奨印刷設定の算出（ダブルエリミは17〜32人すべてA3・横向きを推奨） ===
 function updateRecommendedPrintConfig(autoSelect = true) {
     const isSingleElim = elimFormatSelect.value === 'single';
     const n = maxPoolPlayerCount || 24;
@@ -92,19 +94,12 @@ function updateRecommendedPrintConfig(autoSelect = true) {
             margin: 'standard',
             reason: `8〜16人 ダブルエリミの推奨設定 (最大${n}人)`
         };
-    } else if (n <= 24) {
+    } else {
         recommendedPrintConfig = {
             size: 'A3',
             orientation: 'landscape',
             margin: 'standard',
-            reason: `17〜24人 ダブルエリミの推奨設定 (最大${n}人)`
-        };
-    } else {
-        recommendedPrintConfig = {
-            size: 'A3',
-            orientation: 'portrait',
-            margin: 'standard',
-            reason: `25〜32人 ダブルエリミの推奨設定 (最大${n}人)`
+            reason: `17〜32人 ダブルエリミの推奨設定 (最大${n}人)`
         };
     }
 
@@ -154,18 +149,33 @@ function refreshPrintOptionDecorations() {
     }
 }
 
-printSizeSelect.addEventListener('change', refreshPrintOptionDecorations);
-printOrientationSelect.addEventListener('change', refreshPrintOptionDecorations);
-printMarginSelect.addEventListener('change', refreshPrintOptionDecorations);
+// 印刷オプション変更時は即座にレイアウトと印刷用CSSを更新する
+printSizeSelect.addEventListener('change', () => {
+    refreshPrintOptionDecorations();
+    applyPrintAndDrawOptions();
+    fitToViewport();
+});
+printOrientationSelect.addEventListener('change', () => {
+    refreshPrintOptionDecorations();
+    applyPrintAndDrawOptions();
+    fitToViewport();
+});
+printMarginSelect.addEventListener('change', () => {
+    refreshPrintOptionDecorations();
+    applyPrintAndDrawOptions();
+    fitToViewport();
+});
 
 resetPrintRecBtn.addEventListener('click', () => {
     printSizeSelect.value = recommendedPrintConfig.size;
     printOrientationSelect.value = recommendedPrintConfig.orientation;
     printMarginSelect.value = recommendedPrintConfig.margin;
     refreshPrintOptionDecorations();
+    applyPrintAndDrawOptions();
+    fitToViewport();
 });
 
-// === 用紙サイズ・向き・余白の動的レイアウト計算 ===
+// === 用紙サイズ・向き・余白の動的レイアウト計算（1ページ完全収容保証） ===
 const PAPER_DIMENSIONS_MM = {
     A3: { short: 297, long: 420 },
     B4: { short: 257, long: 364 },
@@ -175,9 +185,9 @@ const PAPER_DIMENSIONS_MM = {
 };
 
 const MARGIN_PRESETS = {
-    standard: { v: 22, h: 26 },
-    wide: { v: 40, h: 44 },
-    narrow: { v: 12, h: 14 }
+    standard: { v: 22, h: 28 },
+    wide: { v: 40, h: 48 },
+    narrow: { v: 12, h: 16 }
 };
 
 function applyPrintAndDrawOptions() {
@@ -198,22 +208,11 @@ function applyPrintAndDrawOptions() {
     const isSheetDrawn = !sheetBodyEl.classList.contains('hidden');
 
     let naturalHeight = 1540;
-    let naturalWidth = 1800;
+    let naturalWidth = 1900;
 
     if (isSheetDrawn) {
         previewArea.style.height = 'auto';
         previewArea.style.minHeight = '0px';
-
-        // 縦向き(Portrait)で列数が7〜9列ある場合は、横幅が溢れて全体が縮小されないよう列幅クラスを適用
-        const maxCols = Math.max(
-            ...Array.from(bracketEl.children).map(c => c.children.length)
-        );
-        bracketEl.classList.remove('cols-7', 'cols-8', 'cols-9');
-        if (orientation === 'portrait') {
-            if (maxCols >= 9) bracketEl.classList.add('cols-9');
-            else if (maxCols === 8) bracketEl.classList.add('cols-8');
-            else if (maxCols === 7) bracketEl.classList.add('cols-7');
-        }
 
         const wContainer = bracketEl.children[0];
         const lContainer = bracketEl.children[1];
@@ -223,7 +222,7 @@ function applyPrintAndDrawOptions() {
         const rosterWidth = rosterEl ? rosterEl.offsetWidth : 0;
         const rosterHeight = rosterEl ? rosterEl.offsetHeight : 0;
 
-        naturalWidth = Math.max(wWidth + 24 + rosterWidth, lWidth);
+        naturalWidth = Math.max(wWidth + 32 + rosterWidth, lWidth);
         const bracketTotalHeight = bracketEl.offsetHeight;
         naturalHeight = headerEl.offsetHeight + 14 + Math.max(bracketTotalHeight, rosterHeight);
     }
@@ -243,28 +242,51 @@ function applyPrintAndDrawOptions() {
     previewArea.style.minHeight = `${canvasHeight}px`;
     previewArea.style.height = `${canvasHeight}px`;
 
+    // ブラウザの「余白: デフォルト」が有効な場合でも絶対に2ページ目へ溢れないよう、上下左右16mm分の安全マージンを引いた印刷可能枠を計算
     const paperMm = PAPER_DIMENSIONS_MM[sizeKey] || PAPER_DIMENSIONS_MM.A3;
-    const pageWidthMm = orientation === 'landscape' ? paperMm.long : paperMm.short;
-    const pageHeightMm = orientation === 'landscape' ? paperMm.short : paperMm.long;
+    const pageWidthMm = (orientation === 'landscape' ? paperMm.long : paperMm.short) - 16;
+    const pageHeightMm = (orientation === 'landscape' ? paperMm.short : paperMm.long) - 16;
 
     const mmToPx = 96 / 25.4;
-    const targetPrintHeightPx = pageHeightMm * mmToPx;
     const targetPrintWidthPx = pageWidthMm * mmToPx;
+    const targetPrintHeightPx = pageHeightMm * mmToPx;
 
-    const printScale = Math.min(targetPrintWidthPx / canvasWidth, targetPrintHeightPx / canvasHeight) * 0.995;
+    const printScale = Math.min(targetPrintWidthPx / canvasWidth, targetPrintHeightPx / canvasHeight);
+    const scaledBoxWidth = Math.floor(canvasWidth * printScale);
+    const scaledBoxHeight = Math.floor(canvasHeight * printScale);
 
+    // #preview-scale-wrapper を縮小後の1ページ実寸サイズ＋overflow:hiddenに固定することで、元の高さによる2ページ分裂と二重縮小を完全に防ぐ
     dynamicPrintStyle.textContent = `
         @page {
             size: ${sizeKey} ${orientation};
-            margin: 0mm;
+            margin: 6mm;
         }
         @media print {
+            #preview-scale-wrapper {
+                position: relative !important;
+                width: ${scaledBoxWidth}px !important;
+                height: ${scaledBoxHeight}px !important;
+                max-width: ${scaledBoxWidth}px !important;
+                max-height: ${scaledBoxHeight}px !important;
+                overflow: hidden !important;
+                transform: none !important;
+                margin: 0 auto !important;
+                padding: 0 !important;
+                display: block !important;
+                page-break-inside: avoid !important;
+                break-inside: avoid !important;
+            }
             #preview-area {
+                position: absolute !important;
+                left: 0 !important;
+                top: 0 !important;
                 width: ${canvasWidth}px !important;
                 height: ${canvasHeight}px !important;
                 min-height: ${canvasHeight}px !important;
                 transform: scale(${printScale.toFixed(5)}) !important;
                 transform-origin: top left !important;
+                margin: 0 !important;
+                box-shadow: none !important;
             }
         }
     `;
@@ -318,7 +340,7 @@ clearLogoBtn.addEventListener('click', () => {
     clearLogoBtn.classList.add('hidden');
 });
 
-function createDraggableTextBox(initialX = 1200, initialY = 820) {
+function createDraggableTextBox(initialX = 1280, initialY = 820) {
     const box = document.createElement('div');
     box.className = 'draggable-text-box pointer-events-auto';
     box.style.left = `${initialX}px`;
@@ -407,7 +429,7 @@ addTextBtn.addEventListener('click', () => {
     const isSheetDrawn = !document.getElementById('main-sheet-body').classList.contains('hidden');
     if (isSheetDrawn) {
         const offset = (customTextsLayer.children.length % 5) * 30;
-        createDraggableTextBox(1200 + offset, 820 + offset);
+        createDraggableTextBox(1280 + offset, 820 + offset);
     } else {
         pendingTextBoxesCount++;
         alert('テキストボックスを追加予約しました。「ブラケットを描画する」を押すとシート上に配置されます。');
@@ -801,14 +823,14 @@ function createQualifierNode(matchSourceLabel, targetPhase, targetType = 'W', in
     box.appendChild(createElement('span', 'qual-drop-label-top', `Winner of ${matchSourceLabel}`));
 
     if (targetType === 'W' && includeLoserSlot) {
-        box.style.height = '60px';
+        box.style.height = '48px';
         const slot1 = createElement('div', 'qualifier-slot border-b border-black', `${targetPhase} [W]`);
         box.appendChild(slot1);
         const slot2 = createElement('div', 'qualifier-slot', `${targetPhase} [L]`);
         box.appendChild(slot2);
         box.appendChild(createElement('span', 'qual-drop-label-bottom', `Loser of ${matchSourceLabel}`));
     } else {
-        box.style.height = '32px';
+        box.style.height = '26px';
         box.appendChild(createElement('div', 'qualifier-slot', `${targetPhase} [${targetType}]`));
     }
 
@@ -899,11 +921,10 @@ window.addEventListener('resize', fitToViewport);
 
 let savedZoomBeforePrint = 100;
 window.addEventListener('beforeprint', () => {
+    applyPrintAndDrawOptions();
     savedZoomBeforePrint = Number(zoomSlider.value);
     isPrintingMode = true;
     scaleWrapper.style.transform = 'none';
-    scaleWrapper.style.width = 'auto';
-    scaleWrapper.style.height = 'auto';
 });
 
 window.addEventListener('afterprint', () => {
@@ -1070,9 +1091,8 @@ function render17To24Bracket(container, playerCount, getPlayerName, targetPhaseN
     const wr2TopSeeds = [1, 8, 4, 5, 2, 7, 3, 6];
     const wr1SeedPairs = wr2TopSeeds.map(s => [17 - s, 33 - (17 - s)]);
 
-    // 1. Winners Bracket（8スロット × 84px）
     const wContainer = createElement('div', 'bracket-container');
-    wContainer.style.height = `${8 * WINNERS_SLOT_HEIGHT + ROUND_HEADER_TOTAL_HEIGHT}px`;
+    wContainer.style.height = `${8 * SLOT_HEIGHT_24 + ROUND_HEADER_TOTAL_HEIGHT}px`;
     const wr1 = createRoundColumn('Winners Round 1', 'winners');
     const wr2 = createRoundColumn('Winners Round 2', 'winners');
 
@@ -1109,12 +1129,11 @@ function render17To24Bracket(container, playerCount, getPlayerName, targetPhaseN
 
     if (lCountNum === 0) return;
 
-    // 2. Losers Bracket
     const hasAnyDoubleLr1Pair = playerCount >= 21;
     const losersUnitSlots = hasAnyDoubleLr1Pair ? 8 : 4;
 
     const lContainer = createElement('div', 'bracket-container');
-    lContainer.style.height = `${losersUnitSlots * LOSERS_SLOT_HEIGHT + ROUND_HEADER_TOTAL_HEIGHT}px`;
+    lContainer.style.height = `${losersUnitSlots * SLOT_HEIGHT_24 + ROUND_HEADER_TOTAL_HEIGHT}px`;
     const lr1 = createRoundColumn('Losers Round 1', 'losers');
     const lr2 = createRoundColumn('Losers Round 2', 'losers');
 
@@ -1184,9 +1203,8 @@ function render25To32Bracket(container, playerCount, getPlayerName, targetPhaseN
 
     const wr2TopSeeds = [1, 8, 4, 5, 2, 7, 3, 6];
 
-    // 1. Winners Bracket（16スロット × 84px）
     const wContainer = createElement('div', 'bracket-container');
-    wContainer.style.height = `${16 * WINNERS_SLOT_HEIGHT + ROUND_HEADER_TOTAL_HEIGHT}px`;
+    wContainer.style.height = `${16 * WINNERS_SLOT_HEIGHT_32 + ROUND_HEADER_TOTAL_HEIGHT}px`;
     const wr1 = createRoundColumn('Winners Round 1', 'winners');
     const wr2 = createRoundColumn('Winners Round 2', 'winners');
 
@@ -1232,9 +1250,8 @@ function render25To32Bracket(container, playerCount, getPlayerName, targetPhaseN
 
     if (lCountNum === 0) return;
 
-    // 2. Losers Bracket（8スロット × 90px）
     const lContainer = createElement('div', 'bracket-container');
-    lContainer.style.height = `${8 * LOSERS_SLOT_HEIGHT + ROUND_HEADER_TOTAL_HEIGHT}px`;
+    lContainer.style.height = `${8 * LOSERS_SLOT_HEIGHT_32 + ROUND_HEADER_TOTAL_HEIGHT}px`;
     const lr1 = createRoundColumn('Losers Round 1', 'losers');
     const lr2 = createRoundColumn('Losers Round 2', 'losers');
     const lr3 = createRoundColumn('Losers Round 3', 'losers');
@@ -1275,7 +1292,6 @@ function render25To32Bracket(container, playerCount, getPlayerName, targetPhaseN
 
     lContainer.append(lr1, lr2, lr3);
 
-    // 25〜32人では、LR4(4試合)の次の2試合統合ラウンドは常に Losers Round 5 となる
     appendLosersAfter4Matches(
         lContainer,
         lr3Labels,
@@ -1339,7 +1355,7 @@ generateBtn.addEventListener('click', () => {
     container.innerHTML = ''; 
     container.style.display = 'flex';
     container.style.flexDirection = 'column';
-    container.style.gap = '28px';
+    container.style.gap = '24px';
 
     if (playerCount >= 25) {
         render25To32Bracket(container, playerCount, getPlayerName, targetPhaseName, wCountNum, lCountNum);
@@ -1433,8 +1449,6 @@ document.getElementById('export-pdf-btn').addEventListener('click', () => {
     savedZoomBeforePrint = Number(zoomSlider.value);
     isPrintingMode = true;
     scaleWrapper.style.transform = 'none';
-    scaleWrapper.style.width = 'auto';
-    scaleWrapper.style.height = 'auto';
 
     setTimeout(() => {
         window.print();
