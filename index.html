@@ -167,7 +167,6 @@
             box-sizing: border-box;
         }
 
-        /* 横長でスマートなブロック形状 (幅244px × 高さ48px) */
         .match-box {
             display: flex;
             align-items: center;
@@ -269,7 +268,6 @@
             box-sizing: border-box;
         }
 
-        /* プレイヤー名記入欄の横幅を166pxに拡大 */
         .player-slots-area {
             display: flex;
             flex-direction: column;
@@ -430,7 +428,7 @@
         }
     </style>
 
-    <!-- 印刷時の動的スタイル注入用（優先度を高めるためメインstyleの後に配置） -->
+    <!-- 印刷時の動的スタイル注入用 -->
     <style id="dynamic-print-style"></style>
 </head>
 <body class="bg-gray-200 h-screen flex overflow-hidden">
@@ -654,7 +652,8 @@
                             <button id="clear-logo-btn" class="hidden text-[10px] text-red-500 hover:underline">クリア</button>
                         </div>
                         <input type="file" id="logo-upload" accept="image/png" class="block w-full text-[10px] text-gray-500 file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200 cursor-pointer border border-gray-300 rounded">
-                        <span class="text-[10px] text-gray-400 mt-0.5 block">※pngファイルのみ。推奨サイズ：横400×縦150px</span>
+                        <p id="logo-status" class="text-[10px] text-green-600 font-bold mt-0.5 hidden"></p>
+                        <span class="text-[10px] text-gray-400 mt-0.5 block">※白黒のpngファイルのみ。縦上限：160px（横幅無制限・超過時は自動縮小）</span>
                     </div>
                     <div>
                         <label class="block font-semibold text-gray-600 mb-0.5">テキストを追加</label>
