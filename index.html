@@ -85,9 +85,9 @@
         }
 
         #preview-area {
-            width: 2362px;
-            min-height: 1670px;
-            padding: 28px 32px;
+            width: 2246px;
+            min-height: 1588px;
+            padding: 22px 26px;
             box-sizing: border-box;
             background-color: #ffffff;
             display: flex;
@@ -96,7 +96,7 @@
 
         .bracket-container {
             display: flex;
-            gap: 22px;
+            gap: 20px;
             align-items: stretch;
             width: max-content;
             flex-shrink: 0;
@@ -105,13 +105,13 @@
         .round-col {
             display: flex;
             flex-direction: column;
-            width: 228px;
+            width: 220px;
             height: 100%;
             flex-shrink: 0;
         }
 
         .round-col.qualifier-col {
-            width: 156px;
+            width: 150px;
         }
 
         .round-header {
@@ -119,9 +119,9 @@
             text-align: center;
             font-weight: 700 !important;
             font-style: italic;
-            font-size: 14px;
-            line-height: 22px;
-            height: 28px;
+            font-size: 13px;
+            line-height: 20px;
+            height: 26px;
             padding: 3px 0;
             margin-bottom: 10px;
             width: 100%;
@@ -142,7 +142,6 @@
             box-sizing: border-box;
         }
 
-        /* ペア枠も同様に列高さを厳密に4等分（または8等分）する */
         .pair-group {
             flex: 1 1 0px;
             min-height: 0;
@@ -155,10 +154,10 @@
         .match-wrapper.branch-line::before {
             content: '';
             position: absolute;
-            left: -22px;
+            left: -20px;
             top: 25%;    
             bottom: 25%; 
-            width: 11px;
+            width: 10px;
             border-top: 1.5px solid #000;
             border-bottom: 1.5px solid #000;
             border-right: 1.5px solid #000;
@@ -167,9 +166,9 @@
         .match-wrapper.branch-line::after {
             content: '';
             position: absolute;
-            left: -11px;
+            left: -10px;
             top: 50%;
-            width: 11px;
+            width: 10px;
             border-top: 1.5px solid #000;
             box-sizing: border-box;
         }
@@ -177,67 +176,68 @@
         .match-wrapper.straight-line::before {
             content: '';
             position: absolute;
-            left: -22px;
+            left: -20px;
             top: 50%;
-            width: 22px;
+            width: 20px;
             border-top: 1.5px solid #000;
             box-sizing: border-box;
         }
 
+        /* 試合ボックスの高さ: 60px（1段30px ＝ A3印刷時の実寸 約5.6mm） */
         .match-box {
             display: flex;
             align-items: center;
-            width: 228px;
-            height: 52px;
+            width: 220px;
+            height: 60px;
             position: relative;
             z-index: 10;
             flex-shrink: 0;
         }
 
         .dummy-spacer-box {
-            width: 228px;
-            height: 52px;
+            width: 220px;
+            height: 60px;
             flex-shrink: 0;
         }
 
         .drop-label-top {
             position: absolute;
-            top: -15px;
-            left: 54px;
-            font-size: 12px;
+            top: -14px;
+            left: 52px;
+            font-size: 11px;
             font-weight: 500;
-            line-height: 13px;
+            line-height: 12px;
             color: #000;
             white-space: nowrap;
         }
         .drop-label-bottom {
             position: absolute;
-            bottom: -15px;
-            left: 54px;
-            font-size: 12px;
+            bottom: -14px;
+            left: 52px;
+            font-size: 11px;
             font-weight: 500;
-            line-height: 13px;
+            line-height: 12px;
             color: #000;
             white-space: nowrap;
         }
 
         .qual-drop-label-top {
             position: absolute;
-            top: -15px;
+            top: -14px;
             left: 2px;
-            font-size: 12px;
+            font-size: 11px;
             font-weight: 500;
-            line-height: 13px;
+            line-height: 12px;
             color: #000;
             white-space: nowrap;
         }
         .qual-drop-label-bottom {
             position: absolute;
-            bottom: -15px;
+            bottom: -14px;
             left: 2px;
-            font-size: 12px;
+            font-size: 11px;
             font-weight: 500;
-            line-height: 13px;
+            line-height: 12px;
             color: #000;
             white-space: nowrap;
         }
@@ -246,12 +246,12 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            width: 26px;
+            width: 25px;
             height: 26px;
             background-color: #4b5563;
             color: white;
             font-weight: 700;
-            font-size: 13px;
+            font-size: 12px;
             border: 1.5px solid #000;
             border-right: none;
             line-height: 1;
@@ -261,8 +261,8 @@
 
         .main-box-area {
             display: flex;
-            width: 202px;
-            height: 52px;
+            width: 195px;
+            height: 60px;
             border: 1.5px solid #000;
             background-color: white;
             box-sizing: border-box;
@@ -272,14 +272,14 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            width: 28px;
+            width: 26px;
             border-right: 1px solid #000;
             box-sizing: border-box;
             flex-shrink: 0;
         }
         .checkbox-square {
-            width: 15px;
-            height: 15px;
+            width: 14px;
+            height: 14px;
             border: 2px solid #666;
             border-radius: 2px;
             box-sizing: border-box;
@@ -288,7 +288,7 @@
         .player-slots-area {
             display: flex;
             flex-direction: column;
-            width: 146px;
+            width: 142px;
             border-right: 1px solid #000;
             box-sizing: border-box;
         }
@@ -313,20 +313,20 @@
 
         .seed-label {
             position: absolute;
-            font-size: 11px;
+            font-size: 10px;
             font-weight: 500;
-            line-height: 12px;
+            line-height: 11px;
             color: #000;
             text-align: left;
             left: 3px;
         }
-        .player-slot:first-child .seed-label { top: -14px; }
-        .player-slot:last-child .seed-label { bottom: -14px; }
+        .player-slot:first-child .seed-label { top: -12px; }
+        .player-slot:last-child .seed-label { bottom: -12px; }
 
         .score-box-area {
             display: flex;
             flex-direction: column;
-            width: 28px;
+            width: 27px;
             box-sizing: border-box;
             flex-shrink: 0;
         }
@@ -336,7 +336,7 @@
         .qualifier-box {
             display: flex;
             flex-direction: column;
-            width: 156px;
+            width: 150px;
             border: 1.5px solid #000;
             background-color: white;
             position: relative;
@@ -352,20 +352,62 @@
             justify-content: center;
             font-size: 13px;
             font-weight: 700;
-            height: 25px;
+            height: 29px;
             box-sizing: border-box;
         }
 
+        /* === 縦向き時・多列（7〜9列）の横幅スリム化（縦の記入枠高さ60px＝5.6mmはそのまま維持） === */
+        .cols-7 .bracket-container { gap: 16px; }
+        .cols-7 .round-col { width: 196px; }
+        .cols-7 .round-col.qualifier-col { width: 136px; }
+        .cols-7 .match-box, .cols-7 .dummy-spacer-box { width: 196px; }
+        .cols-7 .main-box-area { width: 171px; }
+        .cols-7 .player-slots-area { width: 120px; }
+        .cols-7 .qualifier-box { width: 136px; }
+        .cols-7 .match-wrapper.branch-line::before { left: -16px; width: 8px; }
+        .cols-7 .match-wrapper.branch-line::after { left: -8px; width: 8px; }
+        .cols-7 .match-wrapper.straight-line::before { left: -16px; width: 16px; }
+
+        .cols-8 .bracket-container { gap: 14px; }
+        .cols-8 .round-col { width: 178px; }
+        .cols-8 .round-col.qualifier-col { width: 128px; }
+        .cols-8 .match-box, .cols-8 .dummy-spacer-box { width: 178px; }
+        .cols-8 .main-box-area { width: 153px; }
+        .cols-8 .checkbox-container { width: 24px; }
+        .cols-8 .player-slots-area { width: 105px; }
+        .cols-8 .score-box-area { width: 24px; }
+        .cols-8 .qualifier-box { width: 128px; }
+        .cols-8 .drop-label-top, .cols-8 .drop-label-bottom { left: 48px; }
+        .cols-8 .match-wrapper.branch-line::before { left: -14px; width: 7px; }
+        .cols-8 .match-wrapper.branch-line::after { left: -7px; width: 7px; }
+        .cols-8 .match-wrapper.straight-line::before { left: -14px; width: 14px; }
+
+        .cols-9 .bracket-container { gap: 12px; }
+        .cols-9 .round-col { width: 160px; }
+        .cols-9 .round-col.qualifier-col { width: 118px; }
+        .cols-9 .match-box, .cols-9 .dummy-spacer-box { width: 160px; }
+        .cols-9 .match-label { width: 23px; font-size: 11px; }
+        .cols-9 .main-box-area { width: 137px; }
+        .cols-9 .checkbox-container { width: 22px; }
+        .cols-9 .player-slots-area { width: 93px; }
+        .cols-9 .score-box-area { width: 22px; }
+        .cols-9 .qualifier-box { width: 118px; }
+        .cols-9 .drop-label-top, .cols-9 .drop-label-bottom { left: 44px; font-size: 10.5px; }
+        .cols-9 .round-header { font-size: 12px; }
+        .cols-9 .match-wrapper.branch-line::before { left: -12px; width: 6px; }
+        .cols-9 .match-wrapper.branch-line::after { left: -6px; width: 6px; }
+        .cols-9 .match-wrapper.straight-line::before { left: -12px; width: 12px; }
+
         /* === Check-in / Gamer Tag 名簿テーブル === */
         .checkin-table {
-            width: 280px;
+            width: 264px;
             border: 1.5px solid #000;
             border-collapse: collapse;
             background-color: #ffffff;
             flex-shrink: 0;
         }
         .checkin-table th {
-            font-size: 14px;
+            font-size: 13px;
             font-weight: 700;
             text-align: center;
             padding: 5px 6px;
@@ -374,13 +416,13 @@
             line-height: 1.2;
         }
         .checkin-table th:first-child {
-            width: 64px;
+            width: 60px;
             border-right: 1px solid #000;
         }
         .checkin-table td {
-            height: 26px;
+            height: 25px;
             padding: 0 8px;
-            font-size: 13px;
+            font-size: 12.5px;
             font-weight: 500;
             color: #000;
             border-bottom: 1px dashed #555;
@@ -402,11 +444,11 @@
         }
         .gamertag-cell-text {
             display: block;
-            width: 198px;
+            width: 186px;
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
-            line-height: 26px;
+            line-height: 25px;
         }
 
         /* === ドラッグ可能なテキストボックス用スタイル === */
@@ -571,6 +613,7 @@
                             <option value="Losers Round 2">Losers Round 2 以降</option>
                             <option value="Losers Round 3">Losers Round 3 以降</option>
                             <option value="Losers Round 4">Losers Round 4 以降</option>
+                            <option value="Losers Round 5">Losers Round 5 以降</option>
                             <option value="Losers Quarter-Final">Losers Quarter-Final 以降</option>
                             <option value="Losers Semi-Final">Losers Semi-Final 以降</option>
                             <option value="Losers Final">Losers Final のみ</option>
@@ -611,7 +654,7 @@
                 </button>
                 <div class="accordion-content bg-white px-3 py-2.5 flex flex-col gap-2.5 text-xs border-t border-gray-200 rounded-b-lg" style="display: none;">
                     <div id="print-rec-reason-box" class="bg-orange-50 border border-orange-200 rounded p-1.5 text-[11px] text-orange-800 flex items-center justify-between">
-                        <span id="print-rec-reason-text">💡 17〜32人 ダブルエリミの推奨設定</span>
+                        <span id="print-rec-reason-text">💡 17〜24人 ダブルエリミの推奨設定</span>
                         <button id="reset-print-rec-btn" type="button" class="hidden text-[10px] bg-[#FA8534] text-white px-1.5 py-0.5 rounded font-bold hover:bg-orange-600 transition">推奨に戻す</button>
                     </div>
 
@@ -720,7 +763,7 @@
                 </div>
 
                 <!-- ヘッダー -->
-                <div id="preview-header" class="hidden border-b-2 border-gray-800 pb-2 mb-4 flex justify-between items-end shrink-0">
+                <div id="preview-header" class="hidden border-b-2 border-gray-800 pb-2 mb-3.5 flex justify-between items-end shrink-0">
                     <div>
                         <h2 id="pool-title" class="text-2xl font-bold">Pool 1 - Double Elimination (24 players)</h2>
                         <p id="pool-subtitle" class="text-sm text-gray-600 font-medium">Winners side qualifier: 1 / Losers side qualifier: 2</p>
@@ -738,7 +781,7 @@
                 </div>
 
                 <!-- 右下ロゴ配置領域 -->
-                <div id="logo-display-container" class="hidden absolute z-20 pointer-events-none" style="bottom: 28px; right: 32px;"></div>
+                <div id="logo-display-container" class="hidden absolute z-20 pointer-events-none" style="bottom: 22px; right: 26px;"></div>
 
                 <!-- ドラッグ可能なテキストボックス配置レイヤー -->
                 <div id="custom-texts-layer" class="absolute inset-0 pointer-events-none"></div>
