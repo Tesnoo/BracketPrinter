@@ -8,15 +8,16 @@ let pendingLogoDataUrl = null;
 let pendingTextBoxesCount = 0;
 let isPrintingMode = false;
 
-// 1試合分の基準スロット高（52pxボックス + 上下余白34px = 86px）とヘッダー高（28px + margin10px = 38px）
-const UNIT_SLOT_HEIGHT = 86;
-const ROUND_HEADER_TOTAL_HEIGHT = 38;
+// 60pxボックス(1段30px＝実寸約5.6mm)に対する勝者側(84px)と敗者側(90px)の基準スロット高
+const WINNERS_SLOT_HEIGHT = 84;
+const LOSERS_SLOT_HEIGHT = 90;
+const ROUND_HEADER_TOTAL_HEIGHT = 36;
 
 let recommendedPrintConfig = {
     size: 'A3',
     orientation: 'landscape',
     margin: 'standard',
-    reason: '17〜32人 ダブルエリミの推奨設定'
+    reason: '17〜24人 ダブルエリミの推奨設定'
 };
 
 const csvUpload = document.getElementById('csv-upload');
@@ -72,7 +73,7 @@ elimFormatSelect.addEventListener('change', () => {
     validateForm();
 });
 
-// === 推奨印刷設定の算出 ===
+// === 推奨印刷設定の算出（25〜32人ダブルエリミはA3・縦向きで実寸5.6mmを確保） ===
 function updateRecommendedPrintConfig(autoSelect = true) {
     const isSingleElim = elimFormatSelect.value === 'single';
     const n = maxPoolPlayerCount || 24;
@@ -91,12 +92,19 @@ function updateRecommendedPrintConfig(autoSelect = true) {
             margin: 'standard',
             reason: `8〜16人 ダブルエリミの推奨設定 (最大${n}人)`
         };
-    } else {
+    } else if (n <= 24) {
         recommendedPrintConfig = {
             size: 'A3',
             orientation: 'landscape',
             margin: 'standard',
-            reason: `17〜32人 ダブルエリミの推奨設定 (最大${n}人)`
+            reason: `17〜24人 ダブルエリミの推奨設定 (最大${n}人)`
+        };
+    } else {
+        recommendedPrintConfig = {
+            size: 'A3',
+            orientation: 'portrait',
+            margin: 'standard',
+            reason: `25〜32人 ダブルエリミの推奨設定 (最大${n}人)`
         };
     }
 
@@ -167,9 +175,9 @@ const PAPER_DIMENSIONS_MM = {
 };
 
 const MARGIN_PRESETS = {
-    standard: { v: 28, h: 32 },
-    wide: { v: 48, h: 52 },
-    narrow: { v: 14, h: 16 }
+    standard: { v: 22, h: 26 },
+    wide: { v: 40, h: 44 },
+    narrow: { v: 12, h: 14 }
 };
 
 function applyPrintAndDrawOptions() {
@@ -189,12 +197,23 @@ function applyPrintAndDrawOptions() {
     const rosterEl = document.getElementById('checkin-roster-container');
     const isSheetDrawn = !sheetBodyEl.classList.contains('hidden');
 
-    let naturalHeight = 1600;
-    let naturalWidth = 1900;
+    let naturalHeight = 1540;
+    let naturalWidth = 1800;
 
     if (isSheetDrawn) {
         previewArea.style.height = 'auto';
         previewArea.style.minHeight = '0px';
+
+        // 縦向き(Portrait)で列数が7〜9列ある場合は、横幅が溢れて全体が縮小されないよう列幅クラスを適用
+        const maxCols = Math.max(
+            ...Array.from(bracketEl.children).map(c => c.children.length)
+        );
+        bracketEl.classList.remove('cols-7', 'cols-8', 'cols-9');
+        if (orientation === 'portrait') {
+            if (maxCols >= 9) bracketEl.classList.add('cols-9');
+            else if (maxCols === 8) bracketEl.classList.add('cols-8');
+            else if (maxCols === 7) bracketEl.classList.add('cols-7');
+        }
 
         const wContainer = bracketEl.children[0];
         const lContainer = bracketEl.children[1];
@@ -204,9 +223,9 @@ function applyPrintAndDrawOptions() {
         const rosterWidth = rosterEl ? rosterEl.offsetWidth : 0;
         const rosterHeight = rosterEl ? rosterEl.offsetHeight : 0;
 
-        naturalWidth = Math.max(wWidth + 36 + rosterWidth, lWidth);
+        naturalWidth = Math.max(wWidth + 24 + rosterWidth, lWidth);
         const bracketTotalHeight = bracketEl.offsetHeight;
-        naturalHeight = headerEl.offsetHeight + 16 + Math.max(bracketTotalHeight, rosterHeight);
+        naturalHeight = headerEl.offsetHeight + 14 + Math.max(bracketTotalHeight, rosterHeight);
     }
 
     const paperRatio = Math.SQRT2;
@@ -299,7 +318,7 @@ clearLogoBtn.addEventListener('click', () => {
     clearLogoBtn.classList.add('hidden');
 });
 
-function createDraggableTextBox(initialX = 1280, initialY = 820) {
+function createDraggableTextBox(initialX = 1200, initialY = 820) {
     const box = document.createElement('div');
     box.className = 'draggable-text-box pointer-events-auto';
     box.style.left = `${initialX}px`;
@@ -388,7 +407,7 @@ addTextBtn.addEventListener('click', () => {
     const isSheetDrawn = !document.getElementById('main-sheet-body').classList.contains('hidden');
     if (isSheetDrawn) {
         const offset = (customTextsLayer.children.length % 5) * 30;
-        createDraggableTextBox(1280 + offset, 820 + offset);
+        createDraggableTextBox(1200 + offset, 820 + offset);
     } else {
         pendingTextBoxesCount++;
         alert('テキストボックスを追加予約しました。「ブラケットを描画する」を押すとシート上に配置されます。');
@@ -782,14 +801,14 @@ function createQualifierNode(matchSourceLabel, targetPhase, targetType = 'W', in
     box.appendChild(createElement('span', 'qual-drop-label-top', `Winner of ${matchSourceLabel}`));
 
     if (targetType === 'W' && includeLoserSlot) {
-        box.style.height = '52px';
+        box.style.height = '60px';
         const slot1 = createElement('div', 'qualifier-slot border-b border-black', `${targetPhase} [W]`);
         box.appendChild(slot1);
         const slot2 = createElement('div', 'qualifier-slot', `${targetPhase} [L]`);
         box.appendChild(slot2);
         box.appendChild(createElement('span', 'qual-drop-label-bottom', `Loser of ${matchSourceLabel}`));
     } else {
-        box.style.height = '28px';
+        box.style.height = '32px';
         box.appendChild(createElement('div', 'qualifier-slot', `${targetPhase} [${targetType}]`));
     }
 
@@ -1051,9 +1070,9 @@ function render17To24Bracket(container, playerCount, getPlayerName, targetPhaseN
     const wr2TopSeeds = [1, 8, 4, 5, 2, 7, 3, 6];
     const wr1SeedPairs = wr2TopSeeds.map(s => [17 - s, 33 - (17 - s)]);
 
-    // 1. Winners Bracket（8スロット分の高さを厳密に指定し、各列を完全等分させる）
+    // 1. Winners Bracket（8スロット × 84px）
     const wContainer = createElement('div', 'bracket-container');
-    wContainer.style.height = `${8 * UNIT_SLOT_HEIGHT + ROUND_HEADER_TOTAL_HEIGHT}px`;
+    wContainer.style.height = `${8 * WINNERS_SLOT_HEIGHT + ROUND_HEADER_TOTAL_HEIGHT}px`;
     const wr1 = createRoundColumn('Winners Round 1', 'winners');
     const wr2 = createRoundColumn('Winners Round 2', 'winners');
 
@@ -1091,12 +1110,11 @@ function render17To24Bracket(container, playerCount, getPlayerName, targetPhaseN
     if (lCountNum === 0) return;
 
     // 2. Losers Bracket
-    // 21〜24人ではLR1のペア枠に2試合入る箇所があるため8スロット高、17〜20人は最大1試合のため4スロット高に固定
     const hasAnyDoubleLr1Pair = playerCount >= 21;
     const losersUnitSlots = hasAnyDoubleLr1Pair ? 8 : 4;
 
     const lContainer = createElement('div', 'bracket-container');
-    lContainer.style.height = `${losersUnitSlots * UNIT_SLOT_HEIGHT + ROUND_HEADER_TOTAL_HEIGHT}px`;
+    lContainer.style.height = `${losersUnitSlots * LOSERS_SLOT_HEIGHT + ROUND_HEADER_TOTAL_HEIGHT}px`;
     const lr1 = createRoundColumn('Losers Round 1', 'losers');
     const lr2 = createRoundColumn('Losers Round 2', 'losers');
 
@@ -1166,9 +1184,9 @@ function render25To32Bracket(container, playerCount, getPlayerName, targetPhaseN
 
     const wr2TopSeeds = [1, 8, 4, 5, 2, 7, 3, 6];
 
-    // 1. Winners Bracket（16スロット分の高さを厳密に指定）
+    // 1. Winners Bracket（16スロット × 84px）
     const wContainer = createElement('div', 'bracket-container');
-    wContainer.style.height = `${16 * UNIT_SLOT_HEIGHT + ROUND_HEADER_TOTAL_HEIGHT}px`;
+    wContainer.style.height = `${16 * WINNERS_SLOT_HEIGHT + ROUND_HEADER_TOTAL_HEIGHT}px`;
     const wr1 = createRoundColumn('Winners Round 1', 'winners');
     const wr2 = createRoundColumn('Winners Round 2', 'winners');
 
@@ -1214,9 +1232,9 @@ function render25To32Bracket(container, playerCount, getPlayerName, targetPhaseN
 
     if (lCountNum === 0) return;
 
-    // 2. Losers Bracket（8スロット分の高さを厳密に指定）
+    // 2. Losers Bracket（8スロット × 90px）
     const lContainer = createElement('div', 'bracket-container');
-    lContainer.style.height = `${8 * UNIT_SLOT_HEIGHT + ROUND_HEADER_TOTAL_HEIGHT}px`;
+    lContainer.style.height = `${8 * LOSERS_SLOT_HEIGHT + ROUND_HEADER_TOTAL_HEIGHT}px`;
     const lr1 = createRoundColumn('Losers Round 1', 'losers');
     const lr2 = createRoundColumn('Losers Round 2', 'losers');
     const lr3 = createRoundColumn('Losers Round 3', 'losers');
@@ -1257,7 +1275,7 @@ function render25To32Bracket(container, playerCount, getPlayerName, targetPhaseN
 
     lContainer.append(lr1, lr2, lr3);
 
-    const isW1L1 = (wCountNum === 1 && lCountNum === 1);
+    // 25〜32人では、LR4(4試合)の次の2試合統合ラウンドは常に Losers Round 5 となる
     appendLosersAfter4Matches(
         lContainer,
         lr3Labels,
@@ -1270,9 +1288,9 @@ function render25To32Bracket(container, playerCount, getPlayerName, targetPhaseN
         nextLabel,
         {
             wqfDrop: 'Losers Round 4',
-            consolidate2: isW1L1 ? 'Losers Round 5' : 'Losers Quarter-Final',
-            wsfDrop: isW1L1 ? 'Losers Quarter-Final' : 'Losers Semi-Final',
-            consolidate1: isW1L1 ? 'Losers Semi-Final' : 'Losers Final',
+            consolidate2: 'Losers Round 5',
+            wsfDrop: 'Losers Quarter-Final',
+            consolidate1: 'Losers Semi-Final',
             wfDrop: 'Losers Final'
         }
     );
@@ -1321,7 +1339,7 @@ generateBtn.addEventListener('click', () => {
     container.innerHTML = ''; 
     container.style.display = 'flex';
     container.style.flexDirection = 'column';
-    container.style.gap = '36px';
+    container.style.gap = '28px';
 
     if (playerCount >= 25) {
         render25To32Bracket(container, playerCount, getPlayerName, targetPhaseName, wCountNum, lCountNum);
