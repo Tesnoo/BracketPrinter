@@ -8,6 +8,10 @@ let pendingLogoDataUrl = null;
 let pendingTextBoxesCount = 0;
 let isPrintingMode = false;
 
+// 1試合分の基準スロット高（52pxボックス + 上下余白34px = 86px）とヘッダー高（28px + margin10px = 38px）
+const UNIT_SLOT_HEIGHT = 86;
+const ROUND_HEADER_TOTAL_HEIGHT = 38;
+
 let recommendedPrintConfig = {
     size: 'A3',
     orientation: 'landscape',
@@ -246,7 +250,6 @@ function applyPrintAndDrawOptions() {
         }
     `;
 
-    // ロゴ画像のDOM生成（空のimg要素を残さないことでhtml-to-imageのエラーを完全防止）
     logoDisplayContainer.innerHTML = '';
     if (pendingLogoDataUrl) {
         const img = document.createElement('img');
@@ -724,8 +727,7 @@ function indexToMatchLabel(index) {
 
 function createSpacerNode() {
     const wrapper = createElement('div', 'match-wrapper');
-    const dummyBox = createElement('div', '');
-    dummyBox.style.height = '52px';
+    const dummyBox = createElement('div', 'dummy-spacer-box');
     wrapper.appendChild(dummyBox);
     return wrapper;
 }
@@ -1049,7 +1051,9 @@ function render17To24Bracket(container, playerCount, getPlayerName, targetPhaseN
     const wr2TopSeeds = [1, 8, 4, 5, 2, 7, 3, 6];
     const wr1SeedPairs = wr2TopSeeds.map(s => [17 - s, 33 - (17 - s)]);
 
+    // 1. Winners Bracket（8スロット分の高さを厳密に指定し、各列を完全等分させる）
     const wContainer = createElement('div', 'bracket-container');
+    wContainer.style.height = `${8 * UNIT_SLOT_HEIGHT + ROUND_HEADER_TOTAL_HEIGHT}px`;
     const wr1 = createRoundColumn('Winners Round 1', 'winners');
     const wr2 = createRoundColumn('Winners Round 2', 'winners');
 
@@ -1086,7 +1090,13 @@ function render17To24Bracket(container, playerCount, getPlayerName, targetPhaseN
 
     if (lCountNum === 0) return;
 
+    // 2. Losers Bracket
+    // 21〜24人ではLR1のペア枠に2試合入る箇所があるため8スロット高、17〜20人は最大1試合のため4スロット高に固定
+    const hasAnyDoubleLr1Pair = playerCount >= 21;
+    const losersUnitSlots = hasAnyDoubleLr1Pair ? 8 : 4;
+
     const lContainer = createElement('div', 'bracket-container');
+    lContainer.style.height = `${losersUnitSlots * UNIT_SLOT_HEIGHT + ROUND_HEADER_TOTAL_HEIGHT}px`;
     const lr1 = createRoundColumn('Losers Round 1', 'losers');
     const lr2 = createRoundColumn('Losers Round 2', 'losers');
 
@@ -1156,7 +1166,9 @@ function render25To32Bracket(container, playerCount, getPlayerName, targetPhaseN
 
     const wr2TopSeeds = [1, 8, 4, 5, 2, 7, 3, 6];
 
+    // 1. Winners Bracket（16スロット分の高さを厳密に指定）
     const wContainer = createElement('div', 'bracket-container');
+    wContainer.style.height = `${16 * UNIT_SLOT_HEIGHT + ROUND_HEADER_TOTAL_HEIGHT}px`;
     const wr1 = createRoundColumn('Winners Round 1', 'winners');
     const wr2 = createRoundColumn('Winners Round 2', 'winners');
 
@@ -1202,7 +1214,9 @@ function render25To32Bracket(container, playerCount, getPlayerName, targetPhaseN
 
     if (lCountNum === 0) return;
 
+    // 2. Losers Bracket（8スロット分の高さを厳密に指定）
     const lContainer = createElement('div', 'bracket-container');
+    lContainer.style.height = `${8 * UNIT_SLOT_HEIGHT + ROUND_HEADER_TOTAL_HEIGHT}px`;
     const lr1 = createRoundColumn('Losers Round 1', 'losers');
     const lr2 = createRoundColumn('Losers Round 2', 'losers');
     const lr3 = createRoundColumn('Losers Round 3', 'losers');
@@ -1307,7 +1321,7 @@ generateBtn.addEventListener('click', () => {
     container.innerHTML = ''; 
     container.style.display = 'flex';
     container.style.flexDirection = 'column';
-    container.style.gap = '32px';
+    container.style.gap = '36px';
 
     if (playerCount >= 25) {
         render25To32Bracket(container, playerCount, getPlayerName, targetPhaseName, wCountNum, lCountNum);
@@ -1323,7 +1337,7 @@ generateBtn.addEventListener('click', () => {
     requestAnimationFrame(fitToViewport);
 });
 
-// === JPG出力機能（非表示要素の除外 ＆ html2canvasへの確実なフォールバック付き） ===
+// === JPG出力機能 ===
 document.getElementById('export-btn').addEventListener('click', async () => {
     const btn = document.getElementById('export-btn');
     const originalText = btn.textContent;
