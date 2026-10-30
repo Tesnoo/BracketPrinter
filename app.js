@@ -8,9 +8,13 @@ let pendingLogoDataUrl = null;
 let pendingTextBoxesCount = 0;
 let isPrintingMode = false;
 
+// ロゴ画像の縦ピクセル上限（横幅は無制限）と白黒判定の許容誤差
+const MAX_LOGO_HEIGHT = 160;
+const LOGO_COLOR_TOLERANCE = 15;
+
 // 17〜24人用のスロット高（48pxボックス + 余白34px = 82px）
 const SLOT_HEIGHT_24 = 82;
-// 25〜32人用のスロット高（勝者側はシード番号のみのため68pxに引き締め、敗者側はLoser ofラベル用に74px確保）
+// 25〜32人用のスロット高（勝者側は68px、敗者側は74px）
 const WINNERS_SLOT_HEIGHT_32 = 68;
 const LOSERS_SLOT_HEIGHT_32 = 74;
 const ROUND_HEADER_TOTAL_HEIGHT = 34;
@@ -46,6 +50,7 @@ const recOrientationBadge = document.getElementById('rec-orientation-badge');
 const dynamicPrintStyle = document.getElementById('dynamic-print-style');
 
 const logoUpload = document.getElementById('logo-upload');
+const logoStatus = document.getElementById('logo-status');
 const clearLogoBtn = document.getElementById('clear-logo-btn');
 const logoDisplayContainer = document.getElementById('logo-display-container');
 const addTextBtn = document.getElementById('add-text-btn');
@@ -75,7 +80,7 @@ elimFormatSelect.addEventListener('change', () => {
     validateForm();
 });
 
-// === 推奨印刷設定の算出（ダブルエリミは17〜32人すべてA3・横向きを推奨） ===
+// === 推奨印刷設定の算出 ===
 function updateRecommendedPrintConfig(autoSelect = true) {
     const isSingleElim = elimFormatSelect.value === 'single';
     const n = maxPoolPlayerCount || 24;
@@ -149,7 +154,6 @@ function refreshPrintOptionDecorations() {
     }
 }
 
-// 印刷オプション変更時は即座にレイアウトと印刷用CSSを更新する
 printSizeSelect.addEventListener('change', () => {
     refreshPrintOptionDecorations();
     applyPrintAndDrawOptions();
@@ -242,7 +246,6 @@ function applyPrintAndDrawOptions() {
     previewArea.style.minHeight = `${canvasHeight}px`;
     previewArea.style.height = `${canvasHeight}px`;
 
-    // ブラウザの「余白: デフォルト」が有効な場合でも絶対に2ページ目へ溢れないよう、上下左右16mm分の安全マージンを引いた印刷可能枠を計算
     const paperMm = PAPER_DIMENSIONS_MM[sizeKey] || PAPER_DIMENSIONS_MM.A3;
     const pageWidthMm = (orientation === 'landscape' ? paperMm.long : paperMm.short) - 16;
     const pageHeightMm = (orientation === 'landscape' ? paperMm.short : paperMm.long) - 16;
@@ -255,7 +258,6 @@ function applyPrintAndDrawOptions() {
     const scaledBoxWidth = Math.floor(canvasWidth * printScale);
     const scaledBoxHeight = Math.floor(canvasHeight * printScale);
 
-    // #preview-scale-wrapper を縮小後の1ページ実寸サイズ＋overflow:hiddenに固定することで、元の高さによる2ページ分裂と二重縮小を完全に防ぐ
     dynamicPrintStyle.textContent = `
         @page {
             size: ${sizeKey} ${orientation};
@@ -291,12 +293,16 @@ function applyPrintAndDrawOptions() {
         }
     `;
 
+    // ロゴ画像のDOM生成（縦上限160px・横幅無制限で表示）
     logoDisplayContainer.innerHTML = '';
     if (pendingLogoDataUrl) {
         const img = document.createElement('img');
         img.src = pendingLogoDataUrl;
         img.alt = 'Tournament Logo';
-        img.className = 'max-w-[380px] max-h-[160px] object-contain';
+        img.style.maxHeight = `${MAX_LOGO_HEIGHT}px`;
+        img.style.width = 'auto';
+        img.style.height = 'auto';
+        img.className = 'object-contain block';
         logoDisplayContainer.appendChild(img);
         logoDisplayContainer.classList.remove('hidden');
     } else {
@@ -311,35 +317,106 @@ function applyPrintAndDrawOptions() {
     setZoom(Number(zoomSlider.value));
 }
 
-// === ロゴ・テキストボックス制御 ===
+// === ロゴ画像の白黒判定・縦サイズ上限(160px)自動縮小処理 ===
+function resetLogoInput() {
+    logoUpload.value = '';
+    pendingLogoDataUrl = null;
+    clearLogoBtn.classList.add('hidden');
+    logoStatus.classList.add('hidden');
+    logoStatus.textContent = '';
+}
+
 logoUpload.addEventListener('change', (e) => {
     const file = e.target.files[0];
     if (!file) {
-        pendingLogoDataUrl = null;
-        clearLogoBtn.classList.add('hidden');
+        resetLogoInput();
         return;
     }
     if (file.type !== 'image/png' && !file.name.toLowerCase().endsWith('.png')) {
-        alert('ロゴ画像はPNGファイル（.png）のみ対応しています。');
-        logoUpload.value = '';
-        pendingLogoDataUrl = null;
-        clearLogoBtn.classList.add('hidden');
+        alert('エラー: ロゴ画像はPNGファイル（.png）のみ対応しています。');
+        resetLogoInput();
         return;
     }
+
     const reader = new FileReader();
     reader.onload = (ev) => {
-        pendingLogoDataUrl = ev.target.result;
-        clearLogoBtn.classList.remove('hidden');
+        const img = new Image();
+        img.onload = () => {
+            const origW = img.naturalWidth || img.width;
+            const origH = img.naturalHeight || img.height;
+
+            if (origW === 0 || origH === 0) {
+                alert('エラー: 画像サイズの取得に失敗しました。');
+                resetLogoInput();
+                return;
+            }
+
+            // 1. 元画像をCanvasに描画してピクセル単位で白黒（グレースケール）判定を行う
+            const checkCanvas = document.createElement('canvas');
+            checkCanvas.width = origW;
+            checkCanvas.height = origH;
+            const checkCtx = checkCanvas.getContext('2d');
+            checkCtx.drawImage(img, 0, 0);
+
+            const imageData = checkCtx.getImageData(0, 0, origW, origH).data;
+            for (let i = 0; i < imageData.length; i += 4) {
+                const r = imageData[i];
+                const g = imageData[i + 1];
+                const b = imageData[i + 2];
+                const a = imageData[i + 3];
+
+                // 透明ピクセル(a < 16)は無視し、可視ピクセルに色味(RGB差 > 15)がある場合はエラー
+                if (a >= 16) {
+                    const maxChannel = Math.max(r, g, b);
+                    const minChannel = Math.min(r, g, b);
+                    if (maxChannel - minChannel > LOGO_COLOR_TOLERANCE) {
+                        alert('エラー: ロゴ画像に白黒（グレースケール・透過）以外のカラーが含まれています。\n白黒のPNG画像を選択してください。');
+                        resetLogoInput();
+                        return;
+                    }
+                }
+            }
+
+            // 2. 縦サイズが上限(160px)を超えている場合は、縦横比を維持したまま縦160pxへ自動縮小・圧縮する
+            if (origH > MAX_LOGO_HEIGHT) {
+                const scale = MAX_LOGO_HEIGHT / origH;
+                const targetW = Math.max(1, Math.round(origW * scale));
+                const targetH = MAX_LOGO_HEIGHT;
+
+                const resizeCanvas = document.createElement('canvas');
+                resizeCanvas.width = targetW;
+                resizeCanvas.height = targetH;
+                const resizeCtx = resizeCanvas.getContext('2d');
+                resizeCtx.imageSmoothingEnabled = true;
+                resizeCtx.imageSmoothingQuality = 'high';
+                resizeCtx.drawImage(img, 0, 0, targetW, targetH);
+
+                pendingLogoDataUrl = resizeCanvas.toDataURL('image/png');
+                logoStatus.textContent = `✅ 自動縮小済: ${origW}×${origH}px → ${targetW}×${targetH}px`;
+            } else {
+                pendingLogoDataUrl = checkCanvas.toDataURL('image/png');
+                logoStatus.textContent = `✅ 読み込み完了: ${origW}×${origH}px`;
+            }
+
+            logoStatus.classList.remove('hidden');
+            clearLogoBtn.classList.remove('hidden');
+        };
+
+        img.onerror = () => {
+            alert('エラー: 画像ファイルの読み込みに失敗しました。');
+            resetLogoInput();
+        };
+
+        img.src = ev.target.result;
     };
     reader.readAsDataURL(file);
 });
 
 clearLogoBtn.addEventListener('click', () => {
-    logoUpload.value = '';
-    pendingLogoDataUrl = null;
-    clearLogoBtn.classList.add('hidden');
+    resetLogoInput();
 });
 
+// === テキストボックス制御 ===
 function createDraggableTextBox(initialX = 1280, initialY = 820) {
     const box = document.createElement('div');
     box.className = 'draggable-text-box pointer-events-auto';
