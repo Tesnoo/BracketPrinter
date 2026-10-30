@@ -35,7 +35,6 @@
                 margin: 0 !important;
                 transform-origin: top left !important;
             }
-            /* 印刷時はテキストボックスの操作UIを非表示にする */
             .text-box-controls {
                 display: none !important;
             }
@@ -45,7 +44,6 @@
             }
         }
 
-        /* JPG出力時にもテキストボックスの操作UIを非表示にするクラス */
         .exporting .text-box-controls {
             display: none !important;
         }
@@ -58,7 +56,6 @@
             transform-origin: top left;
         }
 
-        /* 横向き時：ブラケットの高さ(1670px)を基準に用紙サイズを設定 (2362px × 1670px) */
         #preview-area {
             width: 2362px;
             min-height: 1670px;
@@ -428,6 +425,7 @@
                         <span class="text-[11px] text-gray-500 block mb-0.5">敗者側 (Losers)</span>
                         <select id="losers-advance-count" class="w-full border border-gray-300 rounded p-1 bg-white">
                             <option value="" disabled selected>選択してください</option>
+                            <option value="0">0人 (Single Elim.)</option>
                             <option value="1">1人</option>
                             <option value="2">2人</option>
                             <option value="3">3人</option>
@@ -534,17 +532,29 @@
 
             <hr class="border-gray-200 shrink-0">
 
-            <!-- アコーディオン：印刷オプション -->
+            <!-- アコーディオン：印刷オプション（推奨装飾付き） -->
             <div class="border border-gray-200 rounded-lg shrink-0">
                 <button class="accordion-toggle w-full flex justify-between items-center p-2.5 bg-gray-50 hover:bg-gray-100 font-bold text-xs text-gray-700 transition rounded-t-lg">
-                    <span>🖨️ 印刷オプション</span>
+                    <span class="flex items-center gap-1.5">
+                        <span>🖨️ 印刷オプション</span>
+                        <span id="print-rec-status-badge" class="bg-orange-100 text-[#FA8534] border border-orange-200 text-[10px] px-1.5 py-0.5 rounded font-bold">★推奨設定</span>
+                    </span>
                     <span class="transform transition-transform duration-200">▼</span>
                 </button>
                 <div class="accordion-content bg-white px-3 py-2.5 flex flex-col gap-2.5 text-xs border-t border-gray-200 rounded-b-lg" style="display: none;">
+                    <!-- 現在の推奨基準の案内バナー -->
+                    <div id="print-rec-reason-box" class="bg-orange-50 border border-orange-200 rounded p-1.5 text-[11px] text-orange-800 flex items-center justify-between">
+                        <span id="print-rec-reason-text">💡 17〜24人 ダブルエリミの推奨設定</span>
+                        <button id="reset-print-rec-btn" type="button" class="hidden text-[10px] bg-[#FA8534] text-white px-1.5 py-0.5 rounded font-bold hover:bg-orange-600 transition">推奨に戻す</button>
+                    </div>
+
                     <div>
-                        <label class="block font-semibold text-gray-600 mb-0.5">用紙サイズ</label>
+                        <div class="flex justify-between items-center mb-0.5">
+                            <label class="block font-semibold text-gray-600">用紙サイズ</label>
+                            <span id="rec-size-badge" class="text-[10px] font-bold text-[#FA8534] bg-orange-50 px-1.5 py-0.2 rounded border border-orange-200">★推奨: A3</span>
+                        </div>
                         <select id="print-size" class="w-full border border-gray-300 rounded p-1 bg-white">
-                            <option value="A3" selected>A3</option>
+                            <option value="A3" selected>A3 ★推奨</option>
                             <option value="B4">B4</option>
                             <option value="A4">A4</option>
                             <option value="B5">B5</option>
@@ -552,16 +562,22 @@
                         </select>
                     </div>
                     <div>
-                        <label class="block font-semibold text-gray-600 mb-0.5">印刷の向き</label>
+                        <div class="flex justify-between items-center mb-0.5">
+                            <label class="block font-semibold text-gray-600">印刷の向き</label>
+                            <span id="rec-orientation-badge" class="text-[10px] font-bold text-[#FA8534] bg-orange-50 px-1.5 py-0.2 rounded border border-orange-200">★推奨: 横</span>
+                        </div>
                         <select id="print-orientation" class="w-full border border-gray-300 rounded p-1 bg-white">
-                            <option value="landscape" selected>横 (Landscape)</option>
+                            <option value="landscape" selected>横 (Landscape) ★推奨</option>
                             <option value="portrait">縦 (Portrait)</option>
                         </select>
                     </div>
                     <div>
-                        <label class="block font-semibold text-gray-600 mb-0.5">余白設定</label>
+                        <div class="flex justify-between items-center mb-0.5">
+                            <label class="block font-semibold text-gray-600">余白設定</label>
+                            <span class="text-[10px] font-bold text-[#FA8534] bg-orange-50 px-1.5 py-0.2 rounded border border-orange-200">★推奨: 標準</span>
+                        </div>
                         <select id="print-margin" class="w-full border border-gray-300 rounded p-1 bg-white">
-                            <option value="standard" selected>標準</option>
+                            <option value="standard" selected>標準 ★推奨</option>
                             <option value="wide">広い</option>
                             <option value="narrow">狭い</option>
                         </select>
@@ -631,7 +647,6 @@
     <div id="preview-viewport" class="flex-1 p-6 overflow-auto bg-gray-200">
         <div id="preview-scale-wrapper" class="inline-block">
             <div id="preview-area" class="shadow-md text-gray-800 relative">
-                <!-- 縮小表示時でもはっきり読めるよう文字サイズを拡大 -->
                 <div id="preview-placeholder" class="flex flex-col items-center justify-center h-[1550px] text-gray-400 font-bold text-6xl gap-6 text-center px-8">
                     <p>⚠️ プレビューを表示できません。</p>
                     <p class="text-4xl font-medium text-gray-500">初期設定を完了し、「ブラケットを描画する」を押してください</p>
