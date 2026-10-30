@@ -6,10 +6,10 @@
     <title>Bracket Printer</title>
     <link rel="icon" href="BracketPrinter_logo.png" type="image/png">
     
-    <!-- Google Fonts: Roboto -->
+    <!-- Google Fonts: Roboto (画像化時のCORSエラー防止のため crossorigin="anonymous" を指定) -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,400;0,500;0,700;0,900;1,400;1,700;1,900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,400;0,500;0,700;0,900;1,400;1,700;1,900&display=swap" rel="stylesheet" crossorigin="anonymous">
 
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
@@ -126,7 +126,6 @@
             flex-shrink: 0;
         }
 
-        /* 上下パディングを17px（試合間34px）確保し、Loser of ラベル同士の重なりを完全に防止 */
         .match-wrapper {
             flex: 1;
             display: flex;
@@ -172,7 +171,6 @@
             border-top: 1.5px solid #000;
         }
 
-        /* 試合ボックスの高さ: 52px（1段26px） */
         .match-box {
             display: flex;
             align-items: center;
@@ -718,10 +716,8 @@
                     <div id="checkin-roster-container" class="absolute top-0 right-0 z-10"></div>
                 </div>
 
-                <!-- 右下ロゴ配置領域 -->
-                <div id="logo-display-container" class="hidden absolute z-20 pointer-events-none" style="bottom: 28px; right: 32px;">
-                    <img id="logo-display-img" src="" alt="Tournament Logo" class="max-w-[380px] max-h-[160px] object-contain">
-                </div>
+                <!-- 右下ロゴ配置領域（空のimgによる画像生成エラーを防ぐため、JSで必要時のみimgを生成） -->
+                <div id="logo-display-container" class="hidden absolute z-20 pointer-events-none" style="bottom: 28px; right: 32px;"></div>
 
                 <!-- ドラッグ可能なテキストボックス配置レイヤー -->
                 <div id="custom-texts-layer" class="absolute inset-0 pointer-events-none"></div>
