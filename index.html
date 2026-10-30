@@ -22,6 +22,7 @@
     <style>
         body, #preview-area {
             font-family: 'Roboto', sans-serif;
+            -webkit-font-smoothing: antialiased;
         }
 
         @media print {
@@ -38,7 +39,6 @@
                 background-color: #ffffff !important;
                 display: block !important;
             }
-            /* 左側の操作パネルを印刷時はレイアウトから完全に除外 */
             #sidebar-panel {
                 display: none !important;
             }
@@ -51,7 +51,6 @@
                 background-color: #ffffff !important;
                 display: block !important;
             }
-            /* 画面ズーム用のtransformを印刷時は完全に無効化 */
             #preview-scale-wrapper {
                 transform: none !important;
                 width: auto !important;
@@ -61,12 +60,12 @@
                 display: block !important;
             }
             #preview-area { 
-                position: fixed !important;
+                position: relative !important;
                 left: 0 !important;
                 top: 0 !important; 
                 box-shadow: none !important;
                 margin: 0 !important;
-                transform-origin: top left !important;
+                transform: none !important;
             }
             .text-box-controls {
                 display: none !important;
@@ -90,30 +89,32 @@
         }
 
         #preview-area {
-            width: 2362px;
-            min-height: 1670px;
-            padding: 36px 40px;
+            width: 2226px;
+            min-height: 1574px;
+            padding: 28px 32px;
             box-sizing: border-box;
             background-color: #ffffff;
             display: flex;
             flex-direction: column;
         }
 
+        /* width: max-content で実際の列幅のみを正確に持つようにする */
         .bracket-container {
             display: flex;
-            gap: 24px;
+            gap: 22px;
             align-items: stretch;
+            width: max-content;
         }
 
         .round-col {
             display: flex;
             flex-direction: column;
-            width: 234px;
+            width: 228px;
             flex-shrink: 0;
         }
 
         .round-col.qualifier-col {
-            width: 160px;
+            width: 156px;
         }
 
         .round-header {
@@ -121,22 +122,23 @@
             text-align: center;
             font-weight: 700 !important;
             font-style: italic;
-            font-size: 13px;
-            line-height: 20px;
-            padding: 2px 0;
-            margin-bottom: 12px;
+            font-size: 14px;
+            line-height: 22px;
+            padding: 3px 0;
+            margin-bottom: 8px;
             width: 100%;
             color: #000000;
             flex-shrink: 0;
         }
 
+        /* ボックスを大きく(64px)し、上下パディングを11pxにして記入枠の面積を最大化 */
         .match-wrapper {
             flex: 1;
             display: flex;
             flex-direction: column;
             justify-content: center;
             position: relative;
-            padding: 20px 0;
+            padding: 11px 0;
         }
 
         .pair-group {
@@ -144,61 +146,64 @@
             display: flex;
             flex-direction: column;
             justify-content: center;
-            min-height: 160px;
+            min-height: 172px;
         }
 
         .match-wrapper.branch-line::before {
             content: '';
             position: absolute;
-            left: -24px;
+            left: -22px;
             top: 25%;    
             bottom: 25%; 
-            width: 12px;
-            border-top: 1px solid #000;
-            border-bottom: 1px solid #000;
-            border-right: 1px solid #000;
+            width: 11px;
+            border-top: 1.5px solid #000;
+            border-bottom: 1.5px solid #000;
+            border-right: 1.5px solid #000;
         }
         .match-wrapper.branch-line::after {
             content: '';
             position: absolute;
-            left: -12px;
+            left: -11px;
             top: 50%;
-            width: 12px;
-            border-top: 1px solid #000;
+            width: 11px;
+            border-top: 1.5px solid #000;
         }
 
         .match-wrapper.straight-line::before {
             content: '';
             position: absolute;
-            left: -24px;
+            left: -22px;
             top: 50%;
-            width: 24px;
-            border-top: 1px solid #000;
+            width: 22px;
+            border-top: 1.5px solid #000;
         }
 
+        /* 試合ボックスの高さ: 64px (1段32px = 印刷時実寸 約6.0mm) */
         .match-box {
             display: flex;
             align-items: center;
-            width: 234px;
-            height: 40px;
+            width: 228px;
+            height: 64px;
             position: relative;
             z-index: 10;
         }
 
         .drop-label-top {
             position: absolute;
-            top: -16px;
-            left: 55px;
+            top: -15px;
+            left: 54px;
             font-size: 12px;
+            font-weight: 500;
             line-height: 13px;
             color: #000;
             white-space: nowrap;
         }
         .drop-label-bottom {
             position: absolute;
-            bottom: -16px;
-            left: 55px;
+            bottom: -15px;
+            left: 54px;
             font-size: 12px;
+            font-weight: 500;
             line-height: 13px;
             color: #000;
             white-space: nowrap;
@@ -206,18 +211,20 @@
 
         .qual-drop-label-top {
             position: absolute;
-            top: -16px;
+            top: -15px;
             left: 2px;
             font-size: 12px;
+            font-weight: 500;
             line-height: 13px;
             color: #000;
             white-space: nowrap;
         }
         .qual-drop-label-bottom {
             position: absolute;
-            bottom: -16px;
+            bottom: -15px;
             left: 2px;
             font-size: 12px;
+            font-weight: 500;
             line-height: 13px;
             color: #000;
             white-space: nowrap;
@@ -227,13 +234,13 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            width: 24px;
-            height: 24px;
-            background-color: #555;
+            width: 26px;
+            height: 28px;
+            background-color: #4b5563;
             color: white;
             font-weight: 700;
             font-size: 13px;
-            border: 1px solid #000;
+            border: 1.5px solid #000;
             border-right: none;
             line-height: 1;
             box-sizing: border-box;
@@ -242,9 +249,9 @@
 
         .main-box-area {
             display: flex;
-            width: 210px;
-            height: 40px;
-            border: 1px solid #000;
+            width: 202px;
+            height: 64px;
+            border: 1.5px solid #000;
             background-color: white;
             box-sizing: border-box;
         }
@@ -259,9 +266,9 @@
             flex-shrink: 0;
         }
         .checkbox-square {
-            width: 14px;
-            height: 14px;
-            border: 2px solid #888;
+            width: 15px;
+            height: 15px;
+            border: 2px solid #666;
             border-radius: 2px;
             box-sizing: border-box;
         }
@@ -269,18 +276,19 @@
         .player-slots-area {
             display: flex;
             flex-direction: column;
-            width: 160px;
+            width: 146px;
             border-right: 1px solid #000;
             box-sizing: border-box;
         }
         .player-slot {
             flex: 1;
-            padding: 0 5px;
+            padding: 0 6px;
             display: flex;
             align-items: center;
-            font-size: 12px;
+            font-size: 15px;
+            font-weight: 500;
             position: relative; 
-            line-height: 1;
+            line-height: 1.1;
         }
         .player-slot:first-child { border-bottom: 1px solid #000; }
 
@@ -294,6 +302,7 @@
         .seed-label {
             position: absolute;
             font-size: 11px;
+            font-weight: 500;
             line-height: 12px;
             color: #000;
             text-align: left;
@@ -305,7 +314,7 @@
         .score-box-area {
             display: flex;
             flex-direction: column;
-            width: 22px;
+            width: 28px;
             box-sizing: border-box;
             flex-shrink: 0;
         }
@@ -315,8 +324,8 @@
         .qualifier-box {
             display: flex;
             flex-direction: column;
-            width: 160px;
-            border: 1px solid #000;
+            width: 156px;
+            border: 1.5px solid #000;
             background-color: white;
             position: relative;
             z-index: 10;
@@ -324,85 +333,76 @@
         }
         .qualifier-slot {
             flex: 1;
-            padding: 2px 4px;
+            padding: 0 6px;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 12px;
+            font-size: 14px;
             font-weight: 700;
-            height: 20px;
+            height: 31px;
             box-sizing: border-box;
         }
 
-        /* === ラウンド数が多い時（7列以上）の自動スリム化スタイル === */
-        .compact-bracket .bracket-container {
-            gap: 18px;
-        }
-        .compact-bracket .round-col {
-            width: 204px;
-        }
-        .compact-bracket .round-col.qualifier-col {
-            width: 144px;
-        }
-        .compact-bracket .match-box {
-            width: 204px;
-        }
-        .compact-bracket .main-box-area {
-            width: 180px;
-        }
-        .compact-bracket .player-slots-area {
-            width: 130px;
-        }
-        .compact-bracket .qualifier-box {
-            width: 144px;
-        }
-        .compact-bracket .match-wrapper.branch-line::before {
-            left: -18px;
-            width: 9px;
-        }
-        .compact-bracket .match-wrapper.branch-line::after {
-            left: -9px;
-            width: 9px;
-        }
-        .compact-bracket .match-wrapper.straight-line::before {
-            left: -18px;
-            width: 18px;
-        }
+        /* === 7列時（W2L2等）の横幅スリム化（縦の記入枠6mmはそのまま維持） === */
+        .compact-bracket .bracket-container { gap: 16px; }
+        .compact-bracket .round-col { width: 196px; }
+        .compact-bracket .round-col.qualifier-col { width: 136px; }
+        .compact-bracket .match-box { width: 196px; }
+        .compact-bracket .main-box-area { width: 170px; }
+        .compact-bracket .player-slots-area { width: 118px; }
+        .compact-bracket .qualifier-box { width: 136px; }
+        .compact-bracket .match-wrapper.branch-line::before { left: -16px; width: 8px; }
+        .compact-bracket .match-wrapper.branch-line::after { left: -8px; width: 8px; }
+        .compact-bracket .match-wrapper.straight-line::before { left: -16px; width: 16px; }
 
-        /* === Check-in / Gamer Tag 名簿テーブル === */
+        /* === 8〜9列時（W1L2 / W1L1等）の横幅スリム化（縦の記入枠6mmはそのまま維持） === */
+        .ultra-compact-bracket .bracket-container { gap: 14px; }
+        .ultra-compact-bracket .round-col { width: 168px; }
+        .ultra-compact-bracket .round-col.qualifier-col { width: 124px; }
+        .ultra-compact-bracket .match-box { width: 168px; }
+        .ultra-compact-bracket .main-box-area { width: 144px; }
+        .ultra-compact-bracket .checkbox-container { width: 22px; }
+        .ultra-compact-bracket .player-slots-area { width: 98px; }
+        .ultra-compact-bracket .score-box-area { width: 24px; }
+        .ultra-compact-bracket .qualifier-box { width: 124px; }
+        .ultra-compact-bracket .drop-label-top,
+        .ultra-compact-bracket .drop-label-bottom { left: 46px; font-size: 11px; }
+        .ultra-compact-bracket .match-wrapper.branch-line::before { left: -14px; width: 7px; }
+        .ultra-compact-bracket .match-wrapper.branch-line::after { left: -7px; width: 7px; }
+        .ultra-compact-bracket .match-wrapper.straight-line::before { left: -14px; width: 14px; }
+
+        /* === Check-in / Gamer Tag 名簿テーブル（ベクター破線で鮮明に出力） === */
         .checkin-table {
-            width: 300px;
-            border: 1px solid #000;
+            width: 280px;
+            border: 1.5px solid #000;
             border-collapse: collapse;
             background-color: #ffffff;
             flex-shrink: 0;
         }
         .checkin-table th {
-            font-size: 13px;
+            font-size: 14px;
             font-weight: 700;
             text-align: center;
             padding: 5px 6px;
-            border-bottom: 1px solid #000;
+            border-bottom: 1.5px solid #000;
             color: #000;
             line-height: 1.2;
         }
         .checkin-table th:first-child {
-            width: 68px;
+            width: 64px;
             border-right: 1px solid #000;
         }
         .checkin-table td {
-            height: 24px;
+            height: 26px;
             padding: 0 8px;
-            font-size: 12px;
+            font-size: 13px;
+            font-weight: 500;
             color: #000;
+            border-bottom: 1px dashed #555;
             box-sizing: border-box;
-            background-image: linear-gradient(to right, #000000 3px, transparent 3px);
-            background-position: bottom;
-            background-size: 7px 1px;
-            background-repeat: repeat-x;
         }
         .checkin-table tr:last-child td {
-            background-image: none;
+            border-bottom: none;
         }
         .checkin-table td:first-child {
             border-right: 1px solid #000;
@@ -417,11 +417,11 @@
         }
         .gamertag-cell-text {
             display: block;
-            width: 214px;
+            width: 198px;
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
-            line-height: 24px;
+            line-height: 26px;
         }
 
         /* === ドラッグ可能なテキストボックス用スタイル === */
@@ -461,7 +461,7 @@
     </style>
 </head>
 <body class="bg-gray-200 h-screen flex overflow-hidden">
-    <!-- 左側：スクロール専用コンテナ（印刷時は #sidebar-panel で非表示化） -->
+    <!-- 左側：スクロール専用コンテナ -->
     <div id="sidebar-panel" class="w-80 shrink-0 bg-white shadow-lg overflow-y-auto z-20 h-full">
         <div class="p-5 flex flex-col gap-4">
             <!-- タイトル＆サイトアイコン -->
@@ -735,7 +735,7 @@
                 </div>
 
                 <!-- ヘッダー -->
-                <div id="preview-header" class="hidden border-b-2 border-gray-800 pb-2 mb-5 flex justify-between items-end shrink-0">
+                <div id="preview-header" class="hidden border-b-2 border-gray-800 pb-2 mb-4 flex justify-between items-end shrink-0">
                     <div>
                         <h2 id="pool-title" class="text-2xl font-bold">Pool 1 - Double Elimination (24 players)</h2>
                         <p id="pool-subtitle" class="text-sm text-gray-600 font-medium">Winners side qualifier: 1 / Losers side qualifier: 2</p>
@@ -753,7 +753,7 @@
                 </div>
 
                 <!-- 右下ロゴ配置領域 -->
-                <div id="logo-display-container" class="hidden absolute z-20 pointer-events-none" style="bottom: 36px; right: 40px;">
+                <div id="logo-display-container" class="hidden absolute z-20 pointer-events-none" style="bottom: 28px; right: 32px;">
                     <img id="logo-display-img" src="" alt="Tournament Logo" class="max-w-[380px] max-h-[160px] object-contain">
                 </div>
 
