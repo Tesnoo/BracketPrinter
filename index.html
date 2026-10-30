@@ -33,11 +33,9 @@
             html, body {
                 margin: 0 !important;
                 padding: 0 !important;
-                width: 100% !important;
-                height: 100% !important;
-                overflow: hidden !important;
                 background-color: #ffffff !important;
                 display: block !important;
+                overflow: visible !important;
             }
             #sidebar-panel {
                 display: none !important;
@@ -45,8 +43,6 @@
             #preview-viewport {
                 margin: 0 !important;
                 padding: 0 !important;
-                width: 100% !important;
-                height: 100% !important;
                 overflow: visible !important;
                 background-color: #ffffff !important;
                 display: block !important;
@@ -60,12 +56,12 @@
                 display: block !important;
             }
             #preview-area { 
-                position: relative !important;
+                position: absolute !important;
                 left: 0 !important;
                 top: 0 !important; 
                 box-shadow: none !important;
                 margin: 0 !important;
-                transform: none !important;
+                transform-origin: top left !important;
             }
             .text-box-controls {
                 display: none !important;
@@ -89,8 +85,8 @@
         }
 
         #preview-area {
-            width: 2226px;
-            min-height: 1574px;
+            width: 2362px;
+            min-height: 1670px;
             padding: 28px 32px;
             box-sizing: border-box;
             background-color: #ffffff;
@@ -98,7 +94,6 @@
             flex-direction: column;
         }
 
-        /* width: max-content で実際の列幅のみを正確に持つようにする */
         .bracket-container {
             display: flex;
             gap: 22px;
@@ -125,20 +120,20 @@
             font-size: 14px;
             line-height: 22px;
             padding: 3px 0;
-            margin-bottom: 8px;
+            margin-bottom: 10px;
             width: 100%;
             color: #000000;
             flex-shrink: 0;
         }
 
-        /* ボックスを大きく(64px)し、上下パディングを11pxにして記入枠の面積を最大化 */
+        /* 上下パディングを17px（試合間34px）確保し、Loser of ラベル同士の重なりを完全に防止 */
         .match-wrapper {
             flex: 1;
             display: flex;
             flex-direction: column;
             justify-content: center;
             position: relative;
-            padding: 11px 0;
+            padding: 17px 0;
         }
 
         .pair-group {
@@ -146,7 +141,6 @@
             display: flex;
             flex-direction: column;
             justify-content: center;
-            min-height: 172px;
         }
 
         .match-wrapper.branch-line::before {
@@ -178,12 +172,12 @@
             border-top: 1.5px solid #000;
         }
 
-        /* 試合ボックスの高さ: 64px (1段32px = 印刷時実寸 約6.0mm) */
+        /* 試合ボックスの高さ: 52px（1段26px） */
         .match-box {
             display: flex;
             align-items: center;
             width: 228px;
-            height: 64px;
+            height: 52px;
             position: relative;
             z-index: 10;
         }
@@ -235,7 +229,7 @@
             align-items: center;
             justify-content: center;
             width: 26px;
-            height: 28px;
+            height: 26px;
             background-color: #4b5563;
             color: white;
             font-weight: 700;
@@ -250,7 +244,7 @@
         .main-box-area {
             display: flex;
             width: 202px;
-            height: 64px;
+            height: 52px;
             border: 1.5px solid #000;
             background-color: white;
             box-sizing: border-box;
@@ -285,7 +279,7 @@
             padding: 0 6px;
             display: flex;
             align-items: center;
-            font-size: 15px;
+            font-size: 14px;
             font-weight: 500;
             position: relative; 
             line-height: 1.1;
@@ -337,41 +331,13 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 14px;
+            font-size: 13px;
             font-weight: 700;
-            height: 31px;
+            height: 25px;
             box-sizing: border-box;
         }
 
-        /* === 7列時（W2L2等）の横幅スリム化（縦の記入枠6mmはそのまま維持） === */
-        .compact-bracket .bracket-container { gap: 16px; }
-        .compact-bracket .round-col { width: 196px; }
-        .compact-bracket .round-col.qualifier-col { width: 136px; }
-        .compact-bracket .match-box { width: 196px; }
-        .compact-bracket .main-box-area { width: 170px; }
-        .compact-bracket .player-slots-area { width: 118px; }
-        .compact-bracket .qualifier-box { width: 136px; }
-        .compact-bracket .match-wrapper.branch-line::before { left: -16px; width: 8px; }
-        .compact-bracket .match-wrapper.branch-line::after { left: -8px; width: 8px; }
-        .compact-bracket .match-wrapper.straight-line::before { left: -16px; width: 16px; }
-
-        /* === 8〜9列時（W1L2 / W1L1等）の横幅スリム化（縦の記入枠6mmはそのまま維持） === */
-        .ultra-compact-bracket .bracket-container { gap: 14px; }
-        .ultra-compact-bracket .round-col { width: 168px; }
-        .ultra-compact-bracket .round-col.qualifier-col { width: 124px; }
-        .ultra-compact-bracket .match-box { width: 168px; }
-        .ultra-compact-bracket .main-box-area { width: 144px; }
-        .ultra-compact-bracket .checkbox-container { width: 22px; }
-        .ultra-compact-bracket .player-slots-area { width: 98px; }
-        .ultra-compact-bracket .score-box-area { width: 24px; }
-        .ultra-compact-bracket .qualifier-box { width: 124px; }
-        .ultra-compact-bracket .drop-label-top,
-        .ultra-compact-bracket .drop-label-bottom { left: 46px; font-size: 11px; }
-        .ultra-compact-bracket .match-wrapper.branch-line::before { left: -14px; width: 7px; }
-        .ultra-compact-bracket .match-wrapper.branch-line::after { left: -7px; width: 7px; }
-        .ultra-compact-bracket .match-wrapper.straight-line::before { left: -14px; width: 14px; }
-
-        /* === Check-in / Gamer Tag 名簿テーブル（ベクター破線で鮮明に出力） === */
+        /* === Check-in / Gamer Tag 名簿テーブル === */
         .checkin-table {
             width: 280px;
             border: 1.5px solid #000;
@@ -626,7 +592,7 @@
                 </button>
                 <div class="accordion-content bg-white px-3 py-2.5 flex flex-col gap-2.5 text-xs border-t border-gray-200 rounded-b-lg" style="display: none;">
                     <div id="print-rec-reason-box" class="bg-orange-50 border border-orange-200 rounded p-1.5 text-[11px] text-orange-800 flex items-center justify-between">
-                        <span id="print-rec-reason-text">💡 17〜24人 ダブルエリミの推奨設定</span>
+                        <span id="print-rec-reason-text">💡 17〜32人 ダブルエリミの推奨設定</span>
                         <button id="reset-print-rec-btn" type="button" class="hidden text-[10px] bg-[#FA8534] text-white px-1.5 py-0.5 rounded font-bold hover:bg-orange-600 transition">推奨に戻す</button>
                     </div>
 
