@@ -102,7 +102,8 @@
             padding: 24px 0;
         }
 
-        .lr1-pair-group {
+        /* ペア単位のラッパー（WR1やLR1で片方の試合が無い場合の位置揃え用） */
+        .pair-group {
             flex: 1;
             display: flex;
             flex-direction: column;
@@ -294,9 +295,9 @@
             box-sizing: border-box;
         }
 
-        /* === Check-in / Gamer Tag 名簿テーブル用スタイル === */
+        /* === Check-in / Gamer Tag 名簿テーブル（点線の幅・間隔を広めに設定） === */
         .checkin-table {
-            width: 290px;
+            width: 300px;
             border: 1px solid #000;
             border-collapse: collapse;
             background-color: #ffffff;
@@ -306,7 +307,7 @@
             font-size: 13px;
             font-weight: 700;
             text-align: center;
-            padding: 4px 6px;
+            padding: 5px 6px;
             border-bottom: 1px solid #000;
             color: #000;
             line-height: 1.2;
@@ -316,15 +317,19 @@
             border-right: 1px solid #000;
         }
         .checkin-table td {
-            height: 22px;
-            padding: 0 6px;
+            height: 24px;
+            padding: 0 8px;
             font-size: 12px;
             color: #000;
-            border-bottom: 1px dotted #000;
             box-sizing: border-box;
+            /* 細かすぎないよう、線幅3px・空白4px（計7px周期）の点線を描画 */
+            background-image: linear-gradient(to right, #000000 3px, transparent 3px);
+            background-position: bottom;
+            background-size: 7px 1px;
+            background-repeat: repeat-x;
         }
         .checkin-table tr:last-child td {
-            border-bottom: none;
+            background-image: none;
         }
         .checkin-table td:first-child {
             border-right: 1px solid #000;
@@ -339,11 +344,11 @@
         }
         .gamertag-cell-text {
             display: block;
-            width: 208px;
+            width: 214px;
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
-            line-height: 22px;
+            line-height: 24px;
         }
 
         /* === ドラッグ可能なテキストボックス用スタイル === */
@@ -405,9 +410,19 @@
 
             <hr class="border-gray-200 shrink-0">
 
-            <!-- 手順2 -->
+            <!-- 手順2: トーナメント形式を選択（新規追加） -->
+            <div class="flex flex-col gap-1.5 text-xs shrink-0">
+                <label class="font-bold text-gray-700">2. トーナメント形式を選択</label>
+                <select id="elim-format-select" class="w-full border border-gray-300 rounded p-1.5 bg-white">
+                    <option value="" disabled selected>選択してください</option>
+                    <option value="double">ダブルエリミネーション</option>
+                    <option value="single">シングルエリミネーション</option>
+                </select>
+            </div>
+
+            <!-- 手順3: フェーズ通過人数を指定 -->
             <div class="flex flex-col gap-2 text-xs shrink-0">
-                <label class="font-bold text-gray-700">2. フェーズ通過人数を指定</label>
+                <label class="font-bold text-gray-700">3. フェーズ通過人数を指定</label>
                 <div class="grid grid-cols-2 gap-2">
                     <div>
                         <span class="text-[11px] text-gray-500 block mb-0.5">勝者側 (Winners)</span>
@@ -421,11 +436,10 @@
                             <option value="6">6人</option>
                         </select>
                     </div>
-                    <div>
+                    <div id="losers-advance-wrapper">
                         <span class="text-[11px] text-gray-500 block mb-0.5">敗者側 (Losers)</span>
                         <select id="losers-advance-count" class="w-full border border-gray-300 rounded p-1 bg-white">
                             <option value="" disabled selected>選択してください</option>
-                            <option value="0">0人 (Single Elim.)</option>
                             <option value="1">1人</option>
                             <option value="2">2人</option>
                             <option value="3">3人</option>
@@ -437,9 +451,9 @@
                 </div>
             </div>
 
-            <!-- 手順3 -->
+            <!-- 手順4: 基本最大セット数を指定 -->
             <div class="flex flex-col gap-2 text-xs shrink-0">
-                <label class="font-bold text-gray-700">3. 基本最大セット数を指定 (奇数のみ)</label>
+                <label class="font-bold text-gray-700">4. 基本最大セット数を指定 (奇数のみ)</label>
                 <select id="base-bo-select" class="w-full border border-gray-300 rounded p-1.5 bg-white">
                     <option value="" disabled selected>選択してください</option>
                     <option value="5">Bo5 / 3本先取</option>
@@ -463,9 +477,9 @@
                 </div>
             </div>
 
-            <!-- 手順4 -->
+            <!-- 手順5: 途中で最大セット数を変更 -->
             <div class="flex flex-col gap-2 text-xs shrink-0">
-                <label class="font-bold text-gray-700">4. 途中で最大セット数を変更</label>
+                <label class="font-bold text-gray-700">5. 途中で最大セット数を変更</label>
                 <div class="flex gap-4">
                     <label class="flex items-center gap-1 cursor-pointer">
                         <input type="radio" name="change-mode" value="no" checked class="accent-[#FA8534]"> 変更しない
@@ -496,7 +510,7 @@
                         </div>
                     </div>
 
-                    <div class="flex flex-col gap-1 pt-1 border-t border-gray-200">
+                    <div id="losers-round-change-block" class="flex flex-col gap-1 pt-1 border-t border-gray-200">
                         <span class="text-[11px] font-semibold text-gray-700">どのラウンドから変更しますか？ (敗者側)</span>
                         <select id="losers-round-select" class="w-full border border-gray-300 rounded p-1 bg-white text-[11px]">
                             <option value="none" selected>敗者側は変更しない</option>
@@ -505,7 +519,8 @@
                             <option value="Losers Round 3">Losers Round 3 以降</option>
                             <option value="Losers Round 4">Losers Round 4 以降</option>
                             <option value="Losers Quarter-Final">Losers Quarter-Final 以降</option>
-                            <option value="Losers Semi-Final">Losers Semi-Final のみ</option>
+                            <option value="Losers Semi-Final">Losers Semi-Final 以降</option>
+                            <option value="Losers Final">Losers Final のみ</option>
                         </select>
                         <div class="flex items-center gap-1 mt-1">
                             <select id="losers-bo-select" class="flex-1 border border-gray-300 rounded p-1 bg-white text-[11px]">
@@ -519,9 +534,9 @@
                 </div>
             </div>
 
-            <!-- 手順5 -->
+            <!-- 手順6: 通過先のフェーズ名を入力 -->
             <div class="flex flex-col gap-1 text-xs shrink-0">
-                <label class="font-bold text-gray-700">5. 通過先のフェーズ名を入力</label>
+                <label class="font-bold text-gray-700">6. 通過先のフェーズ名を入力</label>
                 <input type="text" id="target-phase-input" value="" placeholder="例: Day2 / TOP192" class="border border-gray-300 rounded p-1.5 text-xs">
             </div>
 
@@ -532,7 +547,7 @@
 
             <hr class="border-gray-200 shrink-0">
 
-            <!-- アコーディオン：印刷オプション（推奨装飾付き） -->
+            <!-- アコーディオン：印刷オプション -->
             <div class="border border-gray-200 rounded-lg shrink-0">
                 <button class="accordion-toggle w-full flex justify-between items-center p-2.5 bg-gray-50 hover:bg-gray-100 font-bold text-xs text-gray-700 transition rounded-t-lg">
                     <span class="flex items-center gap-1.5">
@@ -542,7 +557,6 @@
                     <span class="transform transition-transform duration-200">▼</span>
                 </button>
                 <div class="accordion-content bg-white px-3 py-2.5 flex flex-col gap-2.5 text-xs border-t border-gray-200 rounded-b-lg" style="display: none;">
-                    <!-- 現在の推奨基準の案内バナー -->
                     <div id="print-rec-reason-box" class="bg-orange-50 border border-orange-200 rounded p-1.5 text-[11px] text-orange-800 flex items-center justify-between">
                         <span id="print-rec-reason-text">💡 17〜24人 ダブルエリミの推奨設定</span>
                         <button id="reset-print-rec-btn" type="button" class="hidden text-[10px] bg-[#FA8534] text-white px-1.5 py-0.5 rounded font-bold hover:bg-orange-600 transition">推奨に戻す</button>
@@ -652,7 +666,7 @@
                     <p class="text-4xl font-medium text-gray-500">初期設定を完了し、「ブラケットを描画する」を押してください</p>
                 </div>
 
-                <!-- ヘッダー：左側にPool情報、右上にURL・Contact表記 -->
+                <!-- ヘッダー -->
                 <div id="preview-header" class="hidden border-b-2 border-gray-800 pb-2 mb-5 flex justify-between items-end">
                     <div>
                         <h2 id="pool-title" class="text-2xl font-bold">Pool 1 - Double Elimination (24 players)</h2>
