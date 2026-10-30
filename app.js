@@ -866,8 +866,8 @@ updateRecommendedPrintConfig(true);
 applyPrintAndDrawOptions();
 fitToViewport();
 
-// === 勝者側 W1〜W6 終端構築ヘルパー（WR2の8試合の後をW数に応じて展開） ===
-function appendWinnersEndingByCount(wContainer, wr2Labels, wCountNum, lCountNum, targetPhaseName, nextLabel) {
+// === 勝者側 W1 / W2 / W4 終端構築ヘルパー ===
+function appendWinnersEndingByCount(wContainer, wCountNum, lCountNum, targetPhaseName, nextLabel) {
     const wr3 = createRoundColumn('Winners Quarter-Final', 'winners');
     const wr4 = createRoundColumn('Winners Semi-Final', 'winners');
     const wr5 = createRoundColumn('Winners Final', 'winners');
@@ -877,59 +877,27 @@ function appendWinnersEndingByCount(wContainer, wr2Labels, wCountNum, lCountNum,
     const wsfLabels = [];
     let wfLabel = null;
 
-    if (wCountNum >= 5) {
-        // W5またはW6: WR2(8試合)のうち、一部のみWQFを行い、残りはWR2勝利で通過
-        const matchesInWqf = 8 - wCountNum; // W6なら2試合、W5なら3試合
-        const directAdvanceGroups = 4 - matchesInWqf;
-
-        for (let i = 0; i < 4; i++) {
-            if (i < directAdvanceGroups) {
-                // このペアのWR2勝者2名はそのまま通過、WQF列には通過枠を配置
-                wr3.appendChild(createQualifierNode(wr2Labels[2 * i], targetPhaseName, 'W', false, 'straight'));
-                wr3.appendChild(createQualifierNode(wr2Labels[2 * i + 1], targetPhaseName, 'W', false, 'straight'));
-                wQual.appendChild(createSpacerNode());
-                wQual.appendChild(createSpacerNode());
-            } else {
-                const lbl = nextLabel();
-                wqfLabels.push(lbl);
-                wr3.appendChild(createMatchNode(lbl, '', '', '', '', 'branch'));
-                wQual.appendChild(createQualifierNode(lbl, targetPhaseName, 'W', false, 'straight'));
-            }
-        }
-        wContainer.append(wr3, wQual);
-        return { wqfLabels, wsfLabels, wfLabel };
-    }
-
-    // W1〜W4: WQFは4試合すべて実施
+    // WQF (4試合)
     for (let i = 0; i < 4; i++) {
         const lbl = nextLabel();
         wqfLabels.push(lbl);
         wr3.appendChild(createMatchNode(lbl, '', '', '', '', 'branch'));
     }
 
+    // L = 2W (W4L8, W2L4, W1L2) のときは勝者側最終ラウンドの敗者がそのまま [L] 枠に入る2段ボックスを描画
+    const includeLoserSlotOnFinalW = (lCountNum >= 2 * wCountNum && lCountNum > 0);
+
     if (wCountNum === 4) {
         for (let i = 0; i < 4; i++) {
-            wQual.appendChild(createQualifierNode(wqfLabels[i], targetPhaseName, 'W', false, 'straight'));
+            wQual.appendChild(createQualifierNode(wqfLabels[i], targetPhaseName, 'W', includeLoserSlotOnFinalW, 'straight'));
         }
         wContainer.append(wr3, wQual);
+        // start.ggの採番規則に合わせ、未実施のWSF(2) + WF(1) + GF(1) + GFR(1) = 5ラベル分をスキップ
+        for (let s = 0; s < 5; s++) nextLabel();
         return { wqfLabels, wsfLabels, wfLabel };
     }
 
-    if (wCountNum === 3) {
-        // W3: 上側2つのWQF勝者はそのまま通過、下側2つのWQF勝者でWSFを1試合実施
-        wr4.appendChild(createQualifierNode(wqfLabels[0], targetPhaseName, 'W', false, 'straight'));
-        wr4.appendChild(createQualifierNode(wqfLabels[1], targetPhaseName, 'W', false, 'straight'));
-        const lbl = nextLabel();
-        wsfLabels.push(lbl);
-        wr4.appendChild(createMatchNode(lbl, '', '', '', '', 'branch'));
-
-        wQual.appendChild(createSpacerNode());
-        wQual.appendChild(createQualifierNode(lbl, targetPhaseName, 'W', false, 'straight'));
-        wContainer.append(wr3, wr4, wQual);
-        return { wqfLabels, wsfLabels, wfLabel };
-    }
-
-    // W1またはW2: WSFは2試合すべて実施
+    // WSF (2試合)
     for (let i = 0; i < 2; i++) {
         const lbl = nextLabel();
         wsfLabels.push(lbl);
@@ -937,28 +905,135 @@ function appendWinnersEndingByCount(wContainer, wr2Labels, wCountNum, lCountNum,
     }
 
     if (wCountNum === 2) {
-        wQual.appendChild(createQualifierNode(wsfLabels[0], targetPhaseName, 'W', false, 'straight'));
-        wQual.appendChild(createQualifierNode(wsfLabels[1], targetPhaseName, 'W', false, 'straight'));
+        for (let i = 0; i < 2; i++) {
+            wQual.appendChild(createQualifierNode(wsfLabels[i], targetPhaseName, 'W', includeLoserSlotOnFinalW, 'straight'));
+        }
         wContainer.append(wr3, wr4, wQual);
-        nextLabel();
-        nextLabel();
-        nextLabel();
+        // 未実施のWF(1) + GF(1) + GFR(1) = 3ラベル分をスキップ
+        for (let s = 0; s < 3; s++) nextLabel();
         return { wqfLabels, wsfLabels, wfLabel };
     }
 
-    // W1: WFまで実施
+    // W1: WF (1試合) まで実施
     wfLabel = nextLabel();
     wr5.appendChild(createMatchNode(wfLabel, '', '', '', '', 'branch'));
-    // W1L2の標準形ではWF敗者がそのまま[L]1枠目になる2段ボックスを表示
-    const wfHasLoserQual = (lCountNum >= 2);
-    wQual.appendChild(createQualifierNode(wfLabel, targetPhaseName, 'W', wfHasLoserQual, 'straight'));
+    wQual.appendChild(createQualifierNode(wfLabel, targetPhaseName, 'W', includeLoserSlotOnFinalW, 'straight'));
     wContainer.append(wr3, wr4, wr5, wQual);
+    // 未実施のGF(1) + GFR(1) = 2ラベル分をスキップ
     nextLabel();
     nextLabel();
     return { wqfLabels, wsfLabels, wfLabel };
 }
 
-// === 17〜24人ブラケット生成関数（W1〜W6 / L1〜L6 対応） ===
+// === 敗者側の共通後半進行ヘルパー（4試合のLR2/LR3以降を W, L に応じて展開） ===
+function appendLosersAfter4Matches(lContainer, fourMatchLabels, wqfLabels, wsfLabels, wfLabel, wCountNum, lCountNum, targetPhaseName, nextLabel, roundNames) {
+    const lQual = createRoundColumn('', 'losers', true);
+
+    // 勝者側最終ラウンドで2段ボックス（Loser -> [L]）を使って既に W 人分の [L] を輩出している場合、
+    // 敗者側ブラケット本体からは残りの (lCountNum - wCountNum) 人（= W 人）を輩出する
+    const isFinalWLoserDirectQual = (lCountNum >= 2 * wCountNum);
+    const targetLosersBracketQuals = isFinalWLoserDirectQual ? Math.max(1, lCountNum - wCountNum) : lCountNum;
+
+    // 1) W4L8 (または L=8系): WQFの敗者4名はWQF直後の2段ボックスで [L] に入るため、4試合ラウンド勝者4名がそのまま [L] 通過
+    if (wCountNum === 4 && isFinalWLoserDirectQual) {
+        for (let k = 0; k < 4; k++) {
+            lQual.appendChild(createQualifierNode(fourMatchLabels[k], targetPhaseName, 'L', false, 'straight'));
+        }
+        lContainer.appendChild(lQual);
+        return;
+    }
+
+    // WQF敗者4名が落下するラウンド (4試合: 17-24人ではLR3、25-32人ではLR4)
+    const colWqfDrop = createRoundColumn(roundNames.wqfDrop, 'losers');
+    const wqfDropOrder = [wqfLabels[1], wqfLabels[0], wqfLabels[3], wqfLabels[2]];
+    const wqfDropRoundLabels = [];
+    for (let k = 0; k < 4; k++) {
+        const lbl = nextLabel();
+        wqfDropRoundLabels.push(lbl);
+        colWqfDrop.appendChild(createMatchNode(lbl, '', '', '', '', 'straight', `Loser of ${wqfDropOrder[k]}`));
+    }
+    lContainer.appendChild(colWqfDrop);
+
+    if (targetLosersBracketQuals >= 4) {
+        // W4L4 など: この4試合の勝者4名が [L] 通過
+        for (let k = 0; k < 4; k++) {
+            lQual.appendChild(createQualifierNode(wqfDropRoundLabels[k], targetPhaseName, 'L', false, 'straight'));
+        }
+        lContainer.appendChild(lQual);
+        return;
+    }
+
+    // 2試合に絞るラウンド (17-24人ではLR4、25-32人ではLQF)
+    const colConsolidate2 = createRoundColumn(roundNames.consolidate2, 'losers');
+    const consolidate2Labels = [];
+    for (let k = 0; k < 2; k++) {
+        const lbl = nextLabel();
+        consolidate2Labels.push(lbl);
+        colConsolidate2.appendChild(createMatchNode(lbl, '', '', '', '', 'branch'));
+    }
+    lContainer.appendChild(colConsolidate2);
+
+    // W2L4 または W4L2: WSF敗者が落下せず、この2試合の勝者2名がそのまま [L] 通過
+    if ((wCountNum === 2 && isFinalWLoserDirectQual) || (wCountNum === 4 && targetLosersBracketQuals === 2)) {
+        for (let k = 0; k < 2; k++) {
+            lQual.appendChild(createQualifierNode(consolidate2Labels[k], targetPhaseName, 'L', false, 'straight'));
+        }
+        lContainer.appendChild(lQual);
+        return;
+    }
+
+    // W4L1 の場合（WSFは行われないため、2試合の勝者同士で1試合を行って1名通過）
+    if (wCountNum === 4 && targetLosersBracketQuals === 1) {
+        const colFinal1 = createRoundColumn(roundNames.wsfDrop, 'losers');
+        const finalLbl = nextLabel();
+        colFinal1.appendChild(createMatchNode(finalLbl, '', '', '', '', 'branch'));
+        lQual.appendChild(createQualifierNode(finalLbl, targetPhaseName, 'L', false, 'straight'));
+        lContainer.append(colFinal1, lQual);
+        return;
+    }
+
+    // WSF敗者2名が落下するラウンド (2試合: 17-24人ではLQF、25-32人ではLSF)
+    const colWsfDrop = createRoundColumn(roundNames.wsfDrop, 'losers');
+    const wsfDropOrder = [wsfLabels[1], wsfLabels[0]];
+    const wsfDropRoundLabels = [];
+    for (let k = 0; k < 2; k++) {
+        const lbl = nextLabel();
+        wsfDropRoundLabels.push(lbl);
+        colWsfDrop.appendChild(createMatchNode(lbl, '', '', '', '', 'straight', `Loser of ${wsfDropOrder[k]}`));
+    }
+    lContainer.appendChild(colWsfDrop);
+
+    if (targetLosersBracketQuals === 2) {
+        // W2L2: この2試合の勝者2名が [L] 通過
+        for (let k = 0; k < 2; k++) {
+            lQual.appendChild(createQualifierNode(wsfDropRoundLabels[k], targetPhaseName, 'L', false, 'straight'));
+        }
+        lContainer.appendChild(lQual);
+        return;
+    }
+
+    // 1試合に絞るラウンド (17-24人ではLSF、25-32人ではLF)
+    const colConsolidate1 = createRoundColumn(roundNames.consolidate1, 'losers');
+    const consolidate1Label = nextLabel();
+    colConsolidate1.appendChild(createMatchNode(consolidate1Label, '', '', '', '', 'branch'));
+    lContainer.appendChild(colConsolidate1);
+
+    // W1L2 または W2L1: WF敗者は2段ボックスで既に [L] に入っている（またはW2L1でWF未実施）ため、この1試合の勝者が [L] 通過
+    if ((wCountNum === 1 && isFinalWLoserDirectQual) || wCountNum === 2) {
+        lQual.appendChild(createQualifierNode(consolidate1Label, targetPhaseName, 'L', false, 'straight'));
+        lContainer.appendChild(lQual);
+        return;
+    }
+
+    // W1L1: WF敗者が落下して最後の1枠を争うラウンド
+    const colWfDrop = createRoundColumn(roundNames.wfDrop, 'losers');
+    const wfDropLabel = nextLabel();
+    colWfDrop.appendChild(createMatchNode(wfDropLabel, '', '', '', '', 'straight', `Loser of ${wfLabel}`));
+    lQual.appendChild(createQualifierNode(wfDropLabel, targetPhaseName, 'L', false, 'straight'));
+    lContainer.append(colWfDrop, lQual);
+}
+
+// === 17〜24人ブラケット生成関数 ===
 function render17To24Bracket(container, playerCount, getPlayerName, targetPhaseName, wCountNum, lCountNum) {
     let labelCounter = 0;
     const nextLabel = () => indexToMatchLabel(labelCounter++);
@@ -999,7 +1074,7 @@ function render17To24Bracket(container, playerCount, getPlayerName, targetPhaseN
     }
 
     wContainer.append(wr1, wr2);
-    const { wqfLabels, wsfLabels } = appendWinnersEndingByCount(wContainer, wr2Labels, wCountNum, lCountNum, targetPhaseName, nextLabel);
+    const { wqfLabels, wsfLabels, wfLabel } = appendWinnersEndingByCount(wContainer, wCountNum, lCountNum, targetPhaseName, nextLabel);
     container.appendChild(wContainer);
 
     if (lCountNum === 0) return;
@@ -1008,11 +1083,6 @@ function render17To24Bracket(container, playerCount, getPlayerName, targetPhaseN
     const lContainer = createElement('div', 'bracket-container');
     const lr1 = createRoundColumn('Losers Round 1', 'losers');
     const lr2 = createRoundColumn('Losers Round 2', 'losers');
-    const lr3 = createRoundColumn('Losers Round 3', 'losers');
-    const lr4 = createRoundColumn('Losers Round 4', 'losers');
-    const lr5 = createRoundColumn('Losers Quarter-Final', 'losers');
-    const lr6 = createRoundColumn('Losers Semi-Final', 'losers');
-    const lQual = createRoundColumn('', 'losers', true);
 
     const lr1Labels = [];
     for (let j = 0; j < 8; j++) {
@@ -1049,80 +1119,35 @@ function render17To24Bracket(container, playerCount, getPlayerName, targetPhaseN
         }
     }
 
-    // LR3 (4試合)
-    const lr3DropOrder = wqfLabels.length === 4 ? [wqfLabels[1], wqfLabels[0], wqfLabels[3], wqfLabels[2]] : ['', '', '', ''];
-    const lr3Labels = [];
-    for (let k = 0; k < 4; k++) {
-        const lbl = nextLabel();
-        lr3Labels.push(lbl);
-        const dropText = lr3DropOrder[k] ? `Loser of ${lr3DropOrder[k]}` : '';
-        lr3.appendChild(createMatchNode(lbl, '', '', '', '', 'straight', dropText));
-    }
+    lContainer.append(lr1, lr2);
 
-    // LCountNum に応じて Losers の終端を切り替える
-    // W1のときはWF敗者が[L]1枠を取るため、Losersブラケット本体からは Math.max(1, lCountNum - 1) 枠（W1L1なら1枠、W1L2なら1枠）またはlCountNum枠を輩出
-    const effectiveLTarget = (wCountNum === 1 && lCountNum >= 2) ? (lCountNum - 1) : lCountNum;
-
-    if (effectiveLTarget >= 4) {
-        for (let k = 0; k < 4; k++) {
-            lQual.appendChild(createQualifierNode(lr3Labels[k], targetPhaseName, 'L', false, 'straight'));
+    appendLosersAfter4Matches(
+        lContainer,
+        lr2Labels,
+        wqfLabels,
+        wsfLabels,
+        wfLabel,
+        wCountNum,
+        lCountNum,
+        targetPhaseName,
+        nextLabel,
+        {
+            wqfDrop: 'Losers Round 3',
+            consolidate2: 'Losers Round 4',
+            wsfDrop: 'Losers Quarter-Final',
+            consolidate1: 'Losers Semi-Final',
+            wfDrop: 'Losers Final'
         }
-        lContainer.append(lr1, lr2, lr3, lQual);
-    } else if (effectiveLTarget === 3) {
-        lr4.appendChild(createQualifierNode(lr3Labels[0], targetPhaseName, 'L', false, 'straight'));
-        lr4.appendChild(createQualifierNode(lr3Labels[1], targetPhaseName, 'L', false, 'straight'));
-        const lbl = nextLabel();
-        lr4.appendChild(createMatchNode(lbl, '', '', '', '', 'branch'));
-        lQual.appendChild(createSpacerNode());
-        lQual.appendChild(createQualifierNode(lbl, targetPhaseName, 'L', false, 'straight'));
-        lContainer.append(lr1, lr2, lr3, lr4, lQual);
-    } else {
-        // LR4 (2試合)
-        const lr4Labels = [];
-        for (let k = 0; k < 2; k++) {
-            const lbl = nextLabel();
-            lr4Labels.push(lbl);
-            lr4.appendChild(createMatchNode(lbl, '', '', '', '', 'branch'));
-        }
-
-        if (wsfLabels.length < 2 && effectiveLTarget === 2) {
-            lQual.appendChild(createQualifierNode(lr4Labels[0], targetPhaseName, 'L', false, 'straight'));
-            lQual.appendChild(createQualifierNode(lr4Labels[1], targetPhaseName, 'L', false, 'straight'));
-            lContainer.append(lr1, lr2, lr3, lr4, lQual);
-        } else {
-            // LQF (2試合)
-            const lqfDropOrder = wsfLabels.length === 2 ? [wsfLabels[1], wsfLabels[0]] : ['', ''];
-            const lqfLabels = [];
-            for (let k = 0; k < 2; k++) {
-                const lbl = nextLabel();
-                lqfLabels.push(lbl);
-                const dropText = lqfDropOrder[k] ? `Loser of ${lqfDropOrder[k]}` : '';
-                lr5.appendChild(createMatchNode(lbl, '', '', '', '', 'straight', dropText));
-            }
-
-            if (effectiveLTarget === 2) {
-                lQual.appendChild(createQualifierNode(lqfLabels[0], targetPhaseName, 'L', false, 'straight'));
-                lQual.appendChild(createQualifierNode(lqfLabels[1], targetPhaseName, 'L', false, 'straight'));
-                lContainer.append(lr1, lr2, lr3, lr4, lr5, lQual);
-            } else {
-                // effectiveLTarget === 1 (W1L2 や W1L1 など)
-                const lsfLabel = nextLabel();
-                lr6.appendChild(createMatchNode(lsfLabel, '', '', '', '', 'branch'));
-                lQual.appendChild(createQualifierNode(lsfLabel, targetPhaseName, 'L', false, 'straight'));
-                lContainer.append(lr1, lr2, lr3, lr4, lr5, lr6, lQual);
-            }
-        }
-    }
+    );
 
     container.appendChild(lContainer);
 }
 
-// === 25〜32人ブラケット生成関数（25〜31人の動的変形＆W1〜W6 / L1〜L6 対応） ===
+// === 25〜32人ブラケット生成関数 ===
 function render25To32Bracket(container, playerCount, getPlayerName, targetPhaseName, wCountNum, lCountNum) {
     let labelCounter = 0;
     const nextLabel = () => indexToMatchLabel(labelCounter++);
 
-    // 8つのブロック基準シード
     const wr2TopSeeds = [1, 8, 4, 5, 2, 7, 3, 6];
 
     // 1. Winners Bracket
@@ -1130,13 +1155,12 @@ function render25To32Bracket(container, playerCount, getPlayerName, targetPhaseN
     const wr1 = createRoundColumn('Winners Round 1', 'winners');
     const wr2 = createRoundColumn('Winners Round 2', 'winners');
 
-    // 各ブロック i (0..7) の上側WR1 (s vs 33-s) と 下側WR1 (17-s vs 16+s) を判定
-    const wr1BlockMatches = []; // [{ topLbl, botLbl, topSeed, hasTopMatch }]
+    const wr1BlockMatches = [];
     for (let i = 0; i < 8; i++) {
         const s = wr2TopSeeds[i];
         const topOpp = 33 - s; // 25..32
         const botSeed1 = 17 - s; // 9..16
-        const botSeed2 = 16 + s; // 17..24 (25〜32人では常に存在する)
+        const botSeed2 = 16 + s; // 17..24
 
         const hasTopMatch = (topOpp <= playerCount);
         const pairGroup = createElement('div', 'pair-group');
@@ -1154,7 +1178,6 @@ function render25To32Bracket(container, playerCount, getPlayerName, targetPhaseN
         wr1BlockMatches.push({ topLbl, botLbl, topSeed: s, hasTopMatch });
     }
 
-    // WR2 (8試合): 上側WR1があるブロックは branch で空欄、上側WR1がないブロックは上段に topSeed が入り straight で接続
     const wr2Labels = [];
     for (let i = 0; i < 8; i++) {
         const lbl = nextLabel();
@@ -1169,7 +1192,7 @@ function render25To32Bracket(container, playerCount, getPlayerName, targetPhaseN
     }
 
     wContainer.append(wr1, wr2);
-    const { wqfLabels, wsfLabels } = appendWinnersEndingByCount(wContainer, wr2Labels, wCountNum, lCountNum, targetPhaseName, nextLabel);
+    const { wqfLabels, wsfLabels, wfLabel } = appendWinnersEndingByCount(wContainer, wCountNum, lCountNum, targetPhaseName, nextLabel);
     container.appendChild(wContainer);
 
     if (lCountNum === 0) return;
@@ -1179,13 +1202,7 @@ function render25To32Bracket(container, playerCount, getPlayerName, targetPhaseN
     const lr1 = createRoundColumn('Losers Round 1', 'losers');
     const lr2 = createRoundColumn('Losers Round 2', 'losers');
     const lr3 = createRoundColumn('Losers Round 3', 'losers');
-    const lr4 = createRoundColumn('Losers Round 4', 'losers');
-    const lr5 = createRoundColumn('Losers Quarter-Final', 'losers');
-    const lr6 = createRoundColumn('Losers Semi-Final', 'losers');
-    const lr7 = createRoundColumn('Losers Final', 'losers');
-    const lQual = createRoundColumn('', 'losers', true);
 
-    // LR1 (最大8試合): ブロック k で上側WR1と下側WR1の両方があった場合のみLR1に試合が存在する
     const lr1Labels = [];
     for (let k = 0; k < 8; k++) {
         const block = wr1BlockMatches[k];
@@ -1199,7 +1216,6 @@ function render25To32Bracket(container, playerCount, getPlayerName, targetPhaseN
         }
     }
 
-    // LR2 (8試合): LR1がある枠は straight で上段に Loser of WR2、LR1がない枠は上段に Loser of WR2・下段に Loser of WR1(bot)
     const lr2Labels = [];
     for (let k = 0; k < 8; k++) {
         const lbl = nextLabel();
@@ -1214,7 +1230,6 @@ function render25To32Bracket(container, playerCount, getPlayerName, targetPhaseN
         }
     }
 
-    // LR3 (4試合: LR2勝者同士が branch で対戦)
     const lr3Labels = [];
     for (let k = 0; k < 4; k++) {
         const lbl = nextLabel();
@@ -1222,61 +1237,26 @@ function render25To32Bracket(container, playerCount, getPlayerName, targetPhaseN
         lr3.appendChild(createMatchNode(lbl, '', '', '', '', 'branch'));
     }
 
-    // LR4 (4試合: WQF敗者が落下)
-    const lr4DropOrder = wqfLabels.length === 4 ? [wqfLabels[1], wqfLabels[0], wqfLabels[3], wqfLabels[2]] : ['', '', '', ''];
-    const lr4Labels = [];
-    for (let k = 0; k < 4; k++) {
-        const lbl = nextLabel();
-        lr4Labels.push(lbl);
-        const dropText = lr4DropOrder[k] ? `Loser of ${lr4DropOrder[k]}` : '';
-        lr4.appendChild(createMatchNode(lbl, '', '', '', '', 'straight', dropText));
-    }
+    lContainer.append(lr1, lr2, lr3);
 
-    const effectiveLTarget = (wCountNum === 1 && lCountNum >= 2) ? (lCountNum - 1) : lCountNum;
-
-    if (effectiveLTarget >= 4) {
-        for (let k = 0; k < 4; k++) {
-            lQual.appendChild(createQualifierNode(lr4Labels[k], targetPhaseName, 'L', false, 'straight'));
+    appendLosersAfter4Matches(
+        lContainer,
+        lr3Labels,
+        wqfLabels,
+        wsfLabels,
+        wfLabel,
+        wCountNum,
+        lCountNum,
+        targetPhaseName,
+        nextLabel,
+        {
+            wqfDrop: 'Losers Round 4',
+            consolidate2: 'Losers Quarter-Final',
+            wsfDrop: 'Losers Semi-Final',
+            consolidate1: 'Losers Final',
+            wfDrop: 'Losers Final 2'
         }
-        lContainer.append(lr1, lr2, lr3, lr4, lQual);
-    } else if (effectiveLTarget === 3) {
-        lr5.appendChild(createQualifierNode(lr4Labels[0], targetPhaseName, 'L', false, 'straight'));
-        lr5.appendChild(createQualifierNode(lr4Labels[1], targetPhaseName, 'L', false, 'straight'));
-        const lbl = nextLabel();
-        lr5.appendChild(createMatchNode(lbl, '', '', '', '', 'branch'));
-        lQual.appendChild(createSpacerNode());
-        lQual.appendChild(createQualifierNode(lbl, targetPhaseName, 'L', false, 'straight'));
-        lContainer.append(lr1, lr2, lr3, lr4, lr5, lQual);
-    } else {
-        // LQF (2試合)
-        const lqfLabels = [];
-        for (let k = 0; k < 2; k++) {
-            const lbl = nextLabel();
-            lqfLabels.push(lbl);
-            lr5.appendChild(createMatchNode(lbl, '', '', '', '', 'branch'));
-        }
-
-        // LSF (2試合: WSF敗者が落下)
-        const lsfDropOrder = wsfLabels.length === 2 ? [wsfLabels[1], wsfLabels[0]] : ['', ''];
-        const lsfLabels = [];
-        for (let k = 0; k < 2; k++) {
-            const lbl = nextLabel();
-            lsfLabels.push(lbl);
-            const dropText = lsfDropOrder[k] ? `Loser of ${lsfDropOrder[k]}` : '';
-            lr6.appendChild(createMatchNode(lbl, '', '', '', '', 'straight', dropText));
-        }
-
-        if (effectiveLTarget === 2) {
-            lQual.appendChild(createQualifierNode(lsfLabels[0], targetPhaseName, 'L', false, 'straight'));
-            lQual.appendChild(createQualifierNode(lsfLabels[1], targetPhaseName, 'L', false, 'straight'));
-            lContainer.append(lr1, lr2, lr3, lr4, lr5, lr6, lQual);
-        } else {
-            const lfLabel = nextLabel();
-            lr7.appendChild(createMatchNode(lfLabel, '', '', '', '', 'branch'));
-            lQual.appendChild(createQualifierNode(lfLabel, targetPhaseName, 'L', false, 'straight'));
-            lContainer.append(lr1, lr2, lr3, lr4, lr5, lr6, lr7, lQual);
-        }
-    }
+    );
 
     container.appendChild(lContainer);
 }
