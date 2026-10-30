@@ -41,7 +41,6 @@ const dynamicPrintStyle = document.getElementById('dynamic-print-style');
 const logoUpload = document.getElementById('logo-upload');
 const clearLogoBtn = document.getElementById('clear-logo-btn');
 const logoDisplayContainer = document.getElementById('logo-display-container');
-const logoDisplayImg = document.getElementById('logo-display-img');
 const addTextBtn = document.getElementById('add-text-btn');
 const customTextsLayer = document.getElementById('custom-texts-layer');
 
@@ -69,7 +68,7 @@ elimFormatSelect.addEventListener('change', () => {
     validateForm();
 });
 
-// === 推奨印刷設定の算出（ダブルエリミは横向きに統一して安定化） ===
+// === 推奨印刷設定の算出 ===
 function updateRecommendedPrintConfig(autoSelect = true) {
     const isSingleElim = elimFormatSelect.value === 'single';
     const n = maxPoolPlayerCount || 24;
@@ -190,7 +189,6 @@ function applyPrintAndDrawOptions() {
     let naturalWidth = 1900;
 
     if (isSheetDrawn) {
-        // 計測時は固定高さを解除し、コンテンツ本来の高さを取得（上端見切れ防止）
         previewArea.style.height = 'auto';
         previewArea.style.minHeight = '0px';
 
@@ -248,11 +246,16 @@ function applyPrintAndDrawOptions() {
         }
     `;
 
+    // ロゴ画像のDOM生成（空のimg要素を残さないことでhtml-to-imageのエラーを完全防止）
+    logoDisplayContainer.innerHTML = '';
     if (pendingLogoDataUrl) {
-        logoDisplayImg.src = pendingLogoDataUrl;
+        const img = document.createElement('img');
+        img.src = pendingLogoDataUrl;
+        img.alt = 'Tournament Logo';
+        img.className = 'max-w-[380px] max-h-[160px] object-contain';
+        logoDisplayContainer.appendChild(img);
         logoDisplayContainer.classList.remove('hidden');
     } else {
-        logoDisplayImg.src = '';
         logoDisplayContainer.classList.add('hidden');
     }
 
@@ -1320,7 +1323,7 @@ generateBtn.addEventListener('click', () => {
     requestAnimationFrame(fitToViewport);
 });
 
-// === JPG出力機能 ===
+// === JPG出力機能（非表示要素の除外 ＆ html2canvasへの確実なフォールバック付き） ===
 document.getElementById('export-btn').addEventListener('click', async () => {
     const btn = document.getElementById('export-btn');
     const originalText = btn.textContent;
@@ -1334,25 +1337,45 @@ document.getElementById('export-btn').addEventListener('click', async () => {
     previewArea.classList.add('exporting');
 
     try {
-        let dataUrl;
+        let dataUrl = null;
         const width = previewArea.offsetWidth;
         const height = previewArea.offsetHeight;
 
+        const filterNode = (node) => {
+            if (node.classList && (node.classList.contains('hidden') || node.classList.contains('text-box-controls'))) {
+                return false;
+            }
+            return true;
+        };
+
         if (window.htmlToImage) {
-            dataUrl = await htmlToImage.toJpeg(previewArea, {
-                quality: 0.95,
-                pixelRatio: 2,
+            try {
+                dataUrl = await htmlToImage.toJpeg(previewArea, {
+                    quality: 0.95,
+                    pixelRatio: 2,
+                    backgroundColor: '#ffffff',
+                    width: width,
+                    height: height,
+                    filter: filterNode,
+                    style: { transform: 'none', margin: '0' }
+                });
+            } catch (primaryErr) {
+                console.warn('html-to-image での変換に失敗したため、html2canvas にフォールバックします:', primaryErr);
+            }
+        }
+
+        if (!dataUrl) {
+            const canvas = await html2canvas(previewArea, {
+                scale: 2,
+                useCORS: true,
                 backgroundColor: '#ffffff',
                 width: width,
                 height: height,
-                style: { transform: 'none', margin: '0' }
-            });
-        } else {
-            const canvas = await html2canvas(previewArea, {
-                scale: 2, useCORS: true, backgroundColor: '#ffffff',
-                width: width, height: height,
-                windowWidth: width + 100, windowHeight: height + 100,
-                scrollX: 0, scrollY: 0
+                windowWidth: width + 100,
+                windowHeight: height + 100,
+                scrollX: 0,
+                scrollY: 0,
+                ignoreElements: (el) => el.classList && (el.classList.contains('hidden') || el.classList.contains('text-box-controls'))
             });
             dataUrl = canvas.toDataURL('image/jpeg', 0.95);
         }
