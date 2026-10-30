@@ -192,29 +192,40 @@ function applyPrintAndDrawOptions() {
     const rosterEl = document.getElementById('checkin-roster-container');
     const isSheetDrawn = !sheetBodyEl.classList.contains('hidden');
 
-    let contentHeight = 1598;
-    let contentWidth = 2070;
+    let naturalHeight = 1480;
+    let naturalWidth = 1800;
 
     if (isSheetDrawn) {
-        const measuredHeight = headerEl.offsetHeight + 20 + sheetBodyEl.offsetHeight;
-        if (measuredHeight > 0) contentHeight = measuredHeight;
+        // 一旦固定高さを解除し、コンテンツ本来の最小サイズを正確に計測する
+        previewArea.style.height = 'auto';
+        previewArea.style.minHeight = '0px';
 
-        const measuredWidth = bracketEl.offsetWidth + 48 + rosterEl.offsetWidth;
-        if (measuredWidth > 0) contentWidth = measuredWidth;
+        const wContainer = bracketEl.children[0];
+        const lContainer = bracketEl.children[1];
+
+        const wWidth = wContainer ? wContainer.scrollWidth : 0;
+        const lWidth = lContainer ? lContainer.scrollWidth : 0;
+        const rosterWidth = rosterEl ? rosterEl.offsetWidth : 0;
+
+        // 上段は「Winnersブラケット ＋ 余白 ＋ 名簿表」、下段は「Losersブラケット単独」で横幅を計算
+        naturalWidth = Math.max(wWidth + 40 + rosterWidth, lWidth);
+        naturalHeight = headerEl.offsetHeight + 20 + bracketEl.scrollHeight;
     }
 
     const paperRatio = Math.SQRT2;
     let canvasWidth, canvasHeight;
 
     if (orientation === 'landscape') {
-        canvasHeight = contentHeight + margin.v * 2;
-        canvasWidth = Math.max(contentWidth + margin.h * 2, Math.round(canvasHeight * paperRatio));
+        canvasHeight = Math.max(naturalHeight + margin.v * 2, Math.round((naturalWidth + margin.h * 2) / paperRatio));
+        canvasWidth = Math.round(canvasHeight * paperRatio);
     } else {
-        canvasWidth = contentWidth + margin.h * 2;
-        canvasHeight = Math.max(contentHeight + margin.v * 2, Math.round(canvasWidth * paperRatio));
+        canvasWidth = Math.max(naturalWidth + margin.h * 2, Math.round((naturalHeight + margin.v * 2) / paperRatio));
+        canvasHeight = Math.round(canvasWidth * paperRatio);
     }
 
+    // height を明示的に設定することで、内部の flex-1 ブラケットが用紙下端まで均等に広がる
     previewArea.style.width = `${canvasWidth}px`;
+    previewArea.style.height = `${canvasHeight}px`;
     previewArea.style.minHeight = `${canvasHeight}px`;
 
     const paperMm = PAPER_DIMENSIONS_MM[sizeKey] || PAPER_DIMENSIONS_MM.A3;
@@ -286,7 +297,7 @@ clearLogoBtn.addEventListener('click', () => {
     clearLogoBtn.classList.add('hidden');
 });
 
-function createDraggableTextBox(initialX = 1820, initialY = 820) {
+function createDraggableTextBox(initialX = 1400, initialY = 820) {
     const box = document.createElement('div');
     box.className = 'draggable-text-box pointer-events-auto';
     box.style.left = `${initialX}px`;
@@ -375,7 +386,7 @@ addTextBtn.addEventListener('click', () => {
     const isSheetDrawn = !document.getElementById('main-sheet-body').classList.contains('hidden');
     if (isSheetDrawn) {
         const offset = (customTextsLayer.children.length % 5) * 30;
-        createDraggableTextBox(1820 + offset, 820 + offset);
+        createDraggableTextBox(1400 + offset, 820 + offset);
     } else {
         pendingTextBoxesCount++;
         alert('テキストボックスを追加予約しました。「ブラケットを描画する」を押すとシート上に配置されます。');
@@ -641,6 +652,7 @@ const losersRoundOrder = [
     'Losers Round 2',
     'Losers Round 3',
     'Losers Round 4',
+    'Losers Round 5',
     'Losers Quarter-Final',
     'Losers Semi-Final',
     'Losers Final'
@@ -877,14 +889,12 @@ function appendWinnersEndingByCount(wContainer, wCountNum, lCountNum, targetPhas
     const wsfLabels = [];
     let wfLabel = null;
 
-    // WQF (4試合)
     for (let i = 0; i < 4; i++) {
         const lbl = nextLabel();
         wqfLabels.push(lbl);
         wr3.appendChild(createMatchNode(lbl, '', '', '', '', 'branch'));
     }
 
-    // L = 2W (W4L8, W2L4, W1L2) のときは勝者側最終ラウンドの敗者がそのまま [L] 枠に入る2段ボックスを描画
     const includeLoserSlotOnFinalW = (lCountNum >= 2 * wCountNum && lCountNum > 0);
 
     if (wCountNum === 4) {
@@ -892,12 +902,10 @@ function appendWinnersEndingByCount(wContainer, wCountNum, lCountNum, targetPhas
             wQual.appendChild(createQualifierNode(wqfLabels[i], targetPhaseName, 'W', includeLoserSlotOnFinalW, 'straight'));
         }
         wContainer.append(wr3, wQual);
-        // start.ggの採番規則に合わせ、未実施のWSF(2) + WF(1) + GF(1) + GFR(1) = 5ラベル分をスキップ
         for (let s = 0; s < 5; s++) nextLabel();
         return { wqfLabels, wsfLabels, wfLabel };
     }
 
-    // WSF (2試合)
     for (let i = 0; i < 2; i++) {
         const lbl = nextLabel();
         wsfLabels.push(lbl);
@@ -909,32 +917,26 @@ function appendWinnersEndingByCount(wContainer, wCountNum, lCountNum, targetPhas
             wQual.appendChild(createQualifierNode(wsfLabels[i], targetPhaseName, 'W', includeLoserSlotOnFinalW, 'straight'));
         }
         wContainer.append(wr3, wr4, wQual);
-        // 未実施のWF(1) + GF(1) + GFR(1) = 3ラベル分をスキップ
         for (let s = 0; s < 3; s++) nextLabel();
         return { wqfLabels, wsfLabels, wfLabel };
     }
 
-    // W1: WF (1試合) まで実施
     wfLabel = nextLabel();
     wr5.appendChild(createMatchNode(wfLabel, '', '', '', '', 'branch'));
     wQual.appendChild(createQualifierNode(wfLabel, targetPhaseName, 'W', includeLoserSlotOnFinalW, 'straight'));
     wContainer.append(wr3, wr4, wr5, wQual);
-    // 未実施のGF(1) + GFR(1) = 2ラベル分をスキップ
     nextLabel();
     nextLabel();
     return { wqfLabels, wsfLabels, wfLabel };
 }
 
-// === 敗者側の共通後半進行ヘルパー（4試合のLR2/LR3以降を W, L に応じて展開） ===
+// === 敗者側の共通後半進行ヘルパー ===
 function appendLosersAfter4Matches(lContainer, fourMatchLabels, wqfLabels, wsfLabels, wfLabel, wCountNum, lCountNum, targetPhaseName, nextLabel, roundNames) {
     const lQual = createRoundColumn('', 'losers', true);
 
-    // 勝者側最終ラウンドで2段ボックス（Loser -> [L]）を使って既に W 人分の [L] を輩出している場合、
-    // 敗者側ブラケット本体からは残りの (lCountNum - wCountNum) 人（= W 人）を輩出する
     const isFinalWLoserDirectQual = (lCountNum >= 2 * wCountNum);
     const targetLosersBracketQuals = isFinalWLoserDirectQual ? Math.max(1, lCountNum - wCountNum) : lCountNum;
 
-    // 1) W4L8 (または L=8系): WQFの敗者4名はWQF直後の2段ボックスで [L] に入るため、4試合ラウンド勝者4名がそのまま [L] 通過
     if (wCountNum === 4 && isFinalWLoserDirectQual) {
         for (let k = 0; k < 4; k++) {
             lQual.appendChild(createQualifierNode(fourMatchLabels[k], targetPhaseName, 'L', false, 'straight'));
@@ -943,7 +945,6 @@ function appendLosersAfter4Matches(lContainer, fourMatchLabels, wqfLabels, wsfLa
         return;
     }
 
-    // WQF敗者4名が落下するラウンド (4試合: 17-24人ではLR3、25-32人ではLR4)
     const colWqfDrop = createRoundColumn(roundNames.wqfDrop, 'losers');
     const wqfDropOrder = [wqfLabels[1], wqfLabels[0], wqfLabels[3], wqfLabels[2]];
     const wqfDropRoundLabels = [];
@@ -955,7 +956,6 @@ function appendLosersAfter4Matches(lContainer, fourMatchLabels, wqfLabels, wsfLa
     lContainer.appendChild(colWqfDrop);
 
     if (targetLosersBracketQuals >= 4) {
-        // W4L4 など: この4試合の勝者4名が [L] 通過
         for (let k = 0; k < 4; k++) {
             lQual.appendChild(createQualifierNode(wqfDropRoundLabels[k], targetPhaseName, 'L', false, 'straight'));
         }
@@ -963,7 +963,6 @@ function appendLosersAfter4Matches(lContainer, fourMatchLabels, wqfLabels, wsfLa
         return;
     }
 
-    // 2試合に絞るラウンド (17-24人ではLR4、25-32人ではLQF)
     const colConsolidate2 = createRoundColumn(roundNames.consolidate2, 'losers');
     const consolidate2Labels = [];
     for (let k = 0; k < 2; k++) {
@@ -973,7 +972,6 @@ function appendLosersAfter4Matches(lContainer, fourMatchLabels, wqfLabels, wsfLa
     }
     lContainer.appendChild(colConsolidate2);
 
-    // W2L4 または W4L2: WSF敗者が落下せず、この2試合の勝者2名がそのまま [L] 通過
     if ((wCountNum === 2 && isFinalWLoserDirectQual) || (wCountNum === 4 && targetLosersBracketQuals === 2)) {
         for (let k = 0; k < 2; k++) {
             lQual.appendChild(createQualifierNode(consolidate2Labels[k], targetPhaseName, 'L', false, 'straight'));
@@ -982,7 +980,6 @@ function appendLosersAfter4Matches(lContainer, fourMatchLabels, wqfLabels, wsfLa
         return;
     }
 
-    // W4L1 の場合（WSFは行われないため、2試合の勝者同士で1試合を行って1名通過）
     if (wCountNum === 4 && targetLosersBracketQuals === 1) {
         const colFinal1 = createRoundColumn(roundNames.wsfDrop, 'losers');
         const finalLbl = nextLabel();
@@ -992,7 +989,6 @@ function appendLosersAfter4Matches(lContainer, fourMatchLabels, wqfLabels, wsfLa
         return;
     }
 
-    // WSF敗者2名が落下するラウンド (2試合: 17-24人ではLQF、25-32人ではLSF)
     const colWsfDrop = createRoundColumn(roundNames.wsfDrop, 'losers');
     const wsfDropOrder = [wsfLabels[1], wsfLabels[0]];
     const wsfDropRoundLabels = [];
@@ -1004,7 +1000,6 @@ function appendLosersAfter4Matches(lContainer, fourMatchLabels, wqfLabels, wsfLa
     lContainer.appendChild(colWsfDrop);
 
     if (targetLosersBracketQuals === 2) {
-        // W2L2: この2試合の勝者2名が [L] 通過
         for (let k = 0; k < 2; k++) {
             lQual.appendChild(createQualifierNode(wsfDropRoundLabels[k], targetPhaseName, 'L', false, 'straight'));
         }
@@ -1012,20 +1007,17 @@ function appendLosersAfter4Matches(lContainer, fourMatchLabels, wqfLabels, wsfLa
         return;
     }
 
-    // 1試合に絞るラウンド (17-24人ではLSF、25-32人ではLF)
     const colConsolidate1 = createRoundColumn(roundNames.consolidate1, 'losers');
     const consolidate1Label = nextLabel();
     colConsolidate1.appendChild(createMatchNode(consolidate1Label, '', '', '', '', 'branch'));
     lContainer.appendChild(colConsolidate1);
 
-    // W1L2 または W2L1: WF敗者は2段ボックスで既に [L] に入っている（またはW2L1でWF未実施）ため、この1試合の勝者が [L] 通過
     if ((wCountNum === 1 && isFinalWLoserDirectQual) || wCountNum === 2) {
         lQual.appendChild(createQualifierNode(consolidate1Label, targetPhaseName, 'L', false, 'straight'));
         lContainer.appendChild(lQual);
         return;
     }
 
-    // W1L1: WF敗者が落下して最後の1枠を争うラウンド
     const colWfDrop = createRoundColumn(roundNames.wfDrop, 'losers');
     const wfDropLabel = nextLabel();
     colWfDrop.appendChild(createMatchNode(wfDropLabel, '', '', '', '', 'straight', `Loser of ${wfLabel}`));
@@ -1043,6 +1035,7 @@ function render17To24Bracket(container, playerCount, getPlayerName, targetPhaseN
 
     // 1. Winners Bracket
     const wContainer = createElement('div', 'bracket-container');
+    wContainer.style.flex = '1';
     const wr1 = createRoundColumn('Winners Round 1', 'winners');
     const wr2 = createRoundColumn('Winners Round 2', 'winners');
 
@@ -1081,6 +1074,7 @@ function render17To24Bracket(container, playerCount, getPlayerName, targetPhaseN
 
     // 2. Losers Bracket (17〜24人)
     const lContainer = createElement('div', 'bracket-container');
+    lContainer.style.flex = '1';
     const lr1 = createRoundColumn('Losers Round 1', 'losers');
     const lr2 = createRoundColumn('Losers Round 2', 'losers');
 
@@ -1150,8 +1144,9 @@ function render25To32Bracket(container, playerCount, getPlayerName, targetPhaseN
 
     const wr2TopSeeds = [1, 8, 4, 5, 2, 7, 3, 6];
 
-    // 1. Winners Bracket
+    // 1. Winners Bracket (縦16枠分なので flex: 2)
     const wContainer = createElement('div', 'bracket-container');
+    wContainer.style.flex = '2';
     const wr1 = createRoundColumn('Winners Round 1', 'winners');
     const wr2 = createRoundColumn('Winners Round 2', 'winners');
 
@@ -1197,8 +1192,9 @@ function render25To32Bracket(container, playerCount, getPlayerName, targetPhaseN
 
     if (lCountNum === 0) return;
 
-    // 2. Losers Bracket (25〜32人)
+    // 2. Losers Bracket (縦8枠分なので flex: 1)
     const lContainer = createElement('div', 'bracket-container');
+    lContainer.style.flex = '1';
     const lr1 = createRoundColumn('Losers Round 1', 'losers');
     const lr2 = createRoundColumn('Losers Round 2', 'losers');
     const lr3 = createRoundColumn('Losers Round 3', 'losers');
@@ -1239,6 +1235,7 @@ function render25To32Bracket(container, playerCount, getPlayerName, targetPhaseN
 
     lContainer.append(lr1, lr2, lr3);
 
+    const isW1L1 = (wCountNum === 1 && lCountNum === 1);
     appendLosersAfter4Matches(
         lContainer,
         lr3Labels,
@@ -1251,10 +1248,10 @@ function render25To32Bracket(container, playerCount, getPlayerName, targetPhaseN
         nextLabel,
         {
             wqfDrop: 'Losers Round 4',
-            consolidate2: 'Losers Quarter-Final',
-            wsfDrop: 'Losers Semi-Final',
-            consolidate1: 'Losers Final',
-            wfDrop: 'Losers Final 2'
+            consolidate2: isW1L1 ? 'Losers Round 5' : 'Losers Quarter-Final',
+            wsfDrop: isW1L1 ? 'Losers Quarter-Final' : 'Losers Semi-Final',
+            consolidate1: isW1L1 ? 'Losers Semi-Final' : 'Losers Final',
+            wfDrop: 'Losers Final'
         }
     );
 
@@ -1302,7 +1299,7 @@ generateBtn.addEventListener('click', () => {
     container.innerHTML = ''; 
     container.style.display = 'flex';
     container.style.flexDirection = 'column';
-    container.style.gap = '44px';
+    container.style.gap = '40px';
 
     if (playerCount >= 25) {
         render25To32Bracket(container, playerCount, getPlayerName, targetPhaseName, wCountNum, lCountNum);
@@ -1310,7 +1307,13 @@ generateBtn.addEventListener('click', () => {
         render17To24Bracket(container, playerCount, getPlayerName, targetPhaseName, wCountNum, lCountNum);
     }
 
-    // 右側 Check-in / Gamer Tag 名簿テーブルの描画
+    // 列数が7列以上になる場合（W1L1, W1L2, W2L2など）は自動的にコンパクトスタイルを適用
+    const maxCols = Math.max(
+        ...Array.from(container.children).map(c => c.children.length)
+    );
+    container.classList.toggle('compact-bracket', maxCols >= 7);
+
+    // 右上 Check-in / Gamer Tag 名簿テーブルの描画
     const rosterContainer = document.getElementById('checkin-roster-container');
     rosterContainer.innerHTML = '';
     rosterContainer.appendChild(createCheckinRosterTable(currentPool, playerCount));
