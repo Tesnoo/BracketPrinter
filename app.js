@@ -6,6 +6,7 @@ let baseBoValue = '';
 let isCustomBoConfirmed = false;
 let pendingLogoDataUrl = null;
 let pendingTextBoxesCount = 0;
+let isPrintingMode = false;
 
 let recommendedPrintConfig = {
     size: 'A3',
@@ -196,7 +197,6 @@ function applyPrintAndDrawOptions() {
     let naturalWidth = 1800;
 
     if (isSheetDrawn) {
-        // 一旦固定高さを解除し、コンテンツ本来の最小サイズを正確に計測する
         previewArea.style.height = 'auto';
         previewArea.style.minHeight = '0px';
 
@@ -207,7 +207,6 @@ function applyPrintAndDrawOptions() {
         const lWidth = lContainer ? lContainer.scrollWidth : 0;
         const rosterWidth = rosterEl ? rosterEl.offsetWidth : 0;
 
-        // 上段は「Winnersブラケット ＋ 余白 ＋ 名簿表」、下段は「Losersブラケット単独」で横幅を計算
         naturalWidth = Math.max(wWidth + 40 + rosterWidth, lWidth);
         naturalHeight = headerEl.offsetHeight + 20 + bracketEl.scrollHeight;
     }
@@ -223,7 +222,6 @@ function applyPrintAndDrawOptions() {
         canvasHeight = Math.round(canvasWidth * paperRatio);
     }
 
-    // height を明示的に設定することで、内部の flex-1 ブラケットが用紙下端まで均等に広がる
     previewArea.style.width = `${canvasWidth}px`;
     previewArea.style.height = `${canvasHeight}px`;
     previewArea.style.minHeight = `${canvasHeight}px`;
@@ -236,16 +234,20 @@ function applyPrintAndDrawOptions() {
     const targetPrintHeightPx = pageHeightMm * mmToPx;
     const targetPrintWidthPx = pageWidthMm * mmToPx;
 
-    const printScale = orientation === 'landscape'
-        ? (targetPrintHeightPx / canvasHeight)
-        : (targetPrintWidthPx / canvasWidth);
+    // 縦横どちらも1ページ内に確実に収まるよう安全マージン込みのスケールを算出
+    const printScale = Math.min(targetPrintWidthPx / canvasWidth, targetPrintHeightPx / canvasHeight) * 0.996;
 
+    // @page はトップレベルに記述してブラウザの印刷設定に確実に認識させる
     dynamicPrintStyle.textContent = `
+        @page {
+            size: ${sizeKey} ${orientation};
+            margin: 0mm;
+        }
         @media print {
-            @page { size: ${sizeKey} ${orientation}; margin: 0; }
             #preview-area {
                 width: ${canvasWidth}px !important;
                 height: ${canvasHeight}px !important;
+                min-height: ${canvasHeight}px !important;
                 transform: scale(${printScale.toFixed(5)}) !important;
                 transform-origin: top left !important;
             }
@@ -846,6 +848,7 @@ function createCheckinRosterTable(currentPool, playerCount) {
 
 // === ズームコントロール ===
 function setZoom(percent) {
+    if (isPrintingMode) return;
     const scale = percent / 100;
     zoomSlider.value = percent;
     zoomValue.textContent = `${percent}%`;
@@ -855,6 +858,7 @@ function setZoom(percent) {
 }
 
 function fitToViewport() {
+    if (isPrintingMode) return;
     const availableWidth = viewport.clientWidth - 48;
     const availableHeight = viewport.clientHeight - 48;
     const contentWidth = previewArea.offsetWidth;
@@ -873,6 +877,21 @@ zoomSlider.addEventListener('input', (e) => setZoom(Number(e.target.value)));
 document.getElementById('zoom-reset-btn').addEventListener('click', () => setZoom(100));
 document.getElementById('zoom-fit-btn').addEventListener('click', fitToViewport);
 window.addEventListener('resize', fitToViewport);
+
+// 印刷開始・終了時のズーム解除イベント（Ctrl+Pでの直接印刷にも対応）
+let savedZoomBeforePrint = 100;
+window.addEventListener('beforeprint', () => {
+    savedZoomBeforePrint = Number(zoomSlider.value);
+    isPrintingMode = true;
+    scaleWrapper.style.transform = 'none';
+    scaleWrapper.style.width = 'auto';
+    scaleWrapper.style.height = 'auto';
+});
+
+window.addEventListener('afterprint', () => {
+    isPrintingMode = false;
+    setZoom(savedZoomBeforePrint);
+});
 
 updateRecommendedPrintConfig(true);
 applyPrintAndDrawOptions();
@@ -1033,7 +1052,6 @@ function render17To24Bracket(container, playerCount, getPlayerName, targetPhaseN
     const wr2TopSeeds = [1, 8, 4, 5, 2, 7, 3, 6];
     const wr1SeedPairs = wr2TopSeeds.map(s => [17 - s, 33 - (17 - s)]);
 
-    // 1. Winners Bracket
     const wContainer = createElement('div', 'bracket-container');
     wContainer.style.flex = '1';
     const wr1 = createRoundColumn('Winners Round 1', 'winners');
@@ -1072,7 +1090,6 @@ function render17To24Bracket(container, playerCount, getPlayerName, targetPhaseN
 
     if (lCountNum === 0) return;
 
-    // 2. Losers Bracket (17〜24人)
     const lContainer = createElement('div', 'bracket-container');
     lContainer.style.flex = '1';
     const lr1 = createRoundColumn('Losers Round 1', 'losers');
@@ -1144,7 +1161,6 @@ function render25To32Bracket(container, playerCount, getPlayerName, targetPhaseN
 
     const wr2TopSeeds = [1, 8, 4, 5, 2, 7, 3, 6];
 
-    // 1. Winners Bracket (縦16枠分なので flex: 2)
     const wContainer = createElement('div', 'bracket-container');
     wContainer.style.flex = '2';
     const wr1 = createRoundColumn('Winners Round 1', 'winners');
@@ -1153,9 +1169,9 @@ function render25To32Bracket(container, playerCount, getPlayerName, targetPhaseN
     const wr1BlockMatches = [];
     for (let i = 0; i < 8; i++) {
         const s = wr2TopSeeds[i];
-        const topOpp = 33 - s; // 25..32
-        const botSeed1 = 17 - s; // 9..16
-        const botSeed2 = 16 + s; // 17..24
+        const topOpp = 33 - s;
+        const botSeed1 = 17 - s;
+        const botSeed2 = 16 + s;
 
         const hasTopMatch = (topOpp <= playerCount);
         const pairGroup = createElement('div', 'pair-group');
@@ -1192,7 +1208,6 @@ function render25To32Bracket(container, playerCount, getPlayerName, targetPhaseN
 
     if (lCountNum === 0) return;
 
-    // 2. Losers Bracket (縦8枠分なので flex: 1)
     const lContainer = createElement('div', 'bracket-container');
     lContainer.style.flex = '1';
     const lr1 = createRoundColumn('Losers Round 1', 'losers');
@@ -1307,13 +1322,11 @@ generateBtn.addEventListener('click', () => {
         render17To24Bracket(container, playerCount, getPlayerName, targetPhaseName, wCountNum, lCountNum);
     }
 
-    // 列数が7列以上になる場合（W1L1, W1L2, W2L2など）は自動的にコンパクトスタイルを適用
     const maxCols = Math.max(
         ...Array.from(container.children).map(c => c.children.length)
     );
     container.classList.toggle('compact-bracket', maxCols >= 7);
 
-    // 右上 Check-in / Gamer Tag 名簿テーブルの描画
     const rosterContainer = document.getElementById('checkin-roster-container');
     rosterContainer.innerHTML = '';
     rosterContainer.appendChild(createCheckinRosterTable(currentPool, playerCount));
@@ -1374,7 +1387,18 @@ document.getElementById('export-btn').addEventListener('click', async () => {
     }
 });
 
-// === PDF出力機能 ===
+// === PDF出力機能（ズームを一旦解除してから印刷ダイアログを起動） ===
 document.getElementById('export-pdf-btn').addEventListener('click', () => {
-    window.print();
+    applyPrintAndDrawOptions();
+    savedZoomBeforePrint = Number(zoomSlider.value);
+    isPrintingMode = true;
+    scaleWrapper.style.transform = 'none';
+    scaleWrapper.style.width = 'auto';
+    scaleWrapper.style.height = 'auto';
+
+    setTimeout(() => {
+        window.print();
+        isPrintingMode = false;
+        setZoom(savedZoomBeforePrint);
+    }, 50);
 });
