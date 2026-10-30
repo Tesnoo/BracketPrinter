@@ -62,11 +62,14 @@
             padding: 36px 40px;
             box-sizing: border-box;
             background-color: #ffffff;
+            display: flex;
+            flex-direction: column;
         }
 
         .bracket-container {
             display: flex;
             gap: 24px;
+            align-items: stretch;
         }
 
         .round-col {
@@ -91,6 +94,7 @@
             margin-bottom: 12px;
             width: 100%;
             color: #000000;
+            flex-shrink: 0;
         }
 
         .match-wrapper {
@@ -99,7 +103,7 @@
             flex-direction: column;
             justify-content: center;
             position: relative;
-            padding: 24px 0;
+            padding: 20px 0;
         }
 
         .pair-group {
@@ -107,7 +111,7 @@
             display: flex;
             flex-direction: column;
             justify-content: center;
-            min-height: 176px;
+            min-height: 160px;
         }
 
         .match-wrapper.branch-line::before {
@@ -200,6 +204,7 @@
             border-right: none;
             line-height: 1;
             box-sizing: border-box;
+            flex-shrink: 0;
         }
 
         .main-box-area {
@@ -218,6 +223,7 @@
             width: 28px;
             border-right: 1px solid #000;
             box-sizing: border-box;
+            flex-shrink: 0;
         }
         .checkbox-square {
             width: 14px;
@@ -268,6 +274,7 @@
             flex-direction: column;
             width: 22px;
             box-sizing: border-box;
+            flex-shrink: 0;
         }
         .score-box { flex: 1; }
         .score-box:first-child { border-bottom: 1px solid #000; }
@@ -294,7 +301,42 @@
             box-sizing: border-box;
         }
 
-        /* === Check-in / Gamer Tag 名簿テーブル（点線の幅・間隔を広めに設定） === */
+        /* === ラウンド数が多い時（7列以上）の自動スリム化スタイル === */
+        .compact-bracket .bracket-container {
+            gap: 18px;
+        }
+        .compact-bracket .round-col {
+            width: 204px;
+        }
+        .compact-bracket .round-col.qualifier-col {
+            width: 144px;
+        }
+        .compact-bracket .match-box {
+            width: 204px;
+        }
+        .compact-bracket .main-box-area {
+            width: 180px;
+        }
+        .compact-bracket .player-slots-area {
+            width: 130px;
+        }
+        .compact-bracket .qualifier-box {
+            width: 144px;
+        }
+        .compact-bracket .match-wrapper.branch-line::before {
+            left: -18px;
+            width: 9px;
+        }
+        .compact-bracket .match-wrapper.branch-line::after {
+            left: -9px;
+            width: 9px;
+        }
+        .compact-bracket .match-wrapper.straight-line::before {
+            left: -18px;
+            width: 18px;
+        }
+
+        /* === Check-in / Gamer Tag 名簿テーブル === */
         .checkin-table {
             width: 300px;
             border: 1px solid #000;
@@ -654,13 +696,13 @@
     <div id="preview-viewport" class="flex-1 p-6 overflow-auto bg-gray-200">
         <div id="preview-scale-wrapper" class="inline-block">
             <div id="preview-area" class="shadow-md text-gray-800 relative">
-                <div id="preview-placeholder" class="flex flex-col items-center justify-center h-[1550px] text-gray-400 font-bold text-6xl gap-6 text-center px-8">
+                <div id="preview-placeholder" class="flex flex-col items-center justify-center flex-1 text-gray-400 font-bold text-6xl gap-6 text-center px-8">
                     <p>⚠️ プレビューを表示できません。</p>
                     <p class="text-4xl font-medium text-gray-500">初期設定を完了し、「ブラケットを描画する」を押してください</p>
                 </div>
 
                 <!-- ヘッダー -->
-                <div id="preview-header" class="hidden border-b-2 border-gray-800 pb-2 mb-5 flex justify-between items-end">
+                <div id="preview-header" class="hidden border-b-2 border-gray-800 pb-2 mb-5 flex justify-between items-end shrink-0">
                     <div>
                         <h2 id="pool-title" class="text-2xl font-bold">Pool 1 - Double Elimination (24 players)</h2>
                         <p id="pool-subtitle" class="text-sm text-gray-600 font-medium">Winners side qualifier: 1 / Losers side qualifier: 2</p>
@@ -671,10 +713,10 @@
                     </div>
                 </div>
 
-                <!-- メインコンテンツ領域：左側にブラケット、右側にCheck-in名簿表 -->
-                <div id="main-sheet-body" class="hidden flex items-start justify-between gap-12">
-                    <div id="bracket-container"></div>
-                    <div id="checkin-roster-container" class="pr-6"></div>
+                <!-- メインコンテンツ領域：ブラケットは縦一杯に伸縮し、Check-in名簿は右上（勝者側の右横・敗者側の上方）に配置 -->
+                <div id="main-sheet-body" class="hidden flex-1 flex flex-col relative w-full">
+                    <div id="bracket-container" class="flex-1 flex flex-col justify-between w-full"></div>
+                    <div id="checkin-roster-container" class="absolute top-0 right-0 z-10"></div>
                 </div>
 
                 <!-- 右下ロゴ配置領域 -->
