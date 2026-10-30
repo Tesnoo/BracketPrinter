@@ -161,7 +161,7 @@ resetPrintRecBtn.addEventListener('click', () => {
     refreshPrintOptionDecorations();
 });
 
-// === 用紙サイズ・向き・余白の動的レイアウト計算 ===
+// === 用紙サイズ・向き・余白の動的レイアウト計算（1段 約6.0mm ＆ 完全ベクター印刷対応） ===
 const PAPER_DIMENSIONS_MM = {
     A3: { short: 297, long: 420 },
     B4: { short: 257, long: 364 },
@@ -171,9 +171,9 @@ const PAPER_DIMENSIONS_MM = {
 };
 
 const MARGIN_PRESETS = {
-    standard: { v: 36, h: 40 },
-    wide: { v: 56, h: 64 },
-    narrow: { v: 18, h: 20 }
+    standard: { v: 26, h: 30 },
+    wide: { v: 44, h: 48 },
+    narrow: { v: 14, h: 16 }
 };
 
 function applyPrintAndDrawOptions() {
@@ -193,8 +193,8 @@ function applyPrintAndDrawOptions() {
     const rosterEl = document.getElementById('checkin-roster-container');
     const isSheetDrawn = !sheetBodyEl.classList.contains('hidden');
 
-    let naturalHeight = 1480;
-    let naturalWidth = 1800;
+    let naturalHeight = 1520;
+    let naturalWidth = 1540;
 
     if (isSheetDrawn) {
         previewArea.style.height = 'auto';
@@ -203,12 +203,13 @@ function applyPrintAndDrawOptions() {
         const wContainer = bracketEl.children[0];
         const lContainer = bracketEl.children[1];
 
-        const wWidth = wContainer ? wContainer.scrollWidth : 0;
-        const lWidth = lContainer ? lContainer.scrollWidth : 0;
+        // width: max-content により、ブラケット列の純粋な実寸幅のみを取得
+        const wWidth = wContainer ? wContainer.offsetWidth : 0;
+        const lWidth = lContainer ? lContainer.offsetWidth : 0;
         const rosterWidth = rosterEl ? rosterEl.offsetWidth : 0;
 
-        naturalWidth = Math.max(wWidth + 40 + rosterWidth, lWidth);
-        naturalHeight = headerEl.offsetHeight + 20 + bracketEl.scrollHeight;
+        naturalWidth = Math.max(wWidth + 28 + rosterWidth, lWidth);
+        naturalHeight = headerEl.offsetHeight + 16 + bracketEl.scrollHeight;
     }
 
     const paperRatio = Math.SQRT2;
@@ -234,10 +235,9 @@ function applyPrintAndDrawOptions() {
     const targetPrintHeightPx = pageHeightMm * mmToPx;
     const targetPrintWidthPx = pageWidthMm * mmToPx;
 
-    // 縦横どちらも1ページ内に確実に収まるよう安全マージン込みのスケールを算出
-    const printScale = Math.min(targetPrintWidthPx / canvasWidth, targetPrintHeightPx / canvasHeight) * 0.996;
+    const printZoom = Math.min(targetPrintWidthPx / canvasWidth, targetPrintHeightPx / canvasHeight) * 0.996;
 
-    // @page はトップレベルに記述してブラウザの印刷設定に確実に認識させる
+    // transform: scale() ではなく zoom を使うことで、PDF出力時のビットマップ画像化（ボヤけ）を防ぎ完全ベクターで出力する
     dynamicPrintStyle.textContent = `
         @page {
             size: ${sizeKey} ${orientation};
@@ -248,8 +248,8 @@ function applyPrintAndDrawOptions() {
                 width: ${canvasWidth}px !important;
                 height: ${canvasHeight}px !important;
                 min-height: ${canvasHeight}px !important;
-                transform: scale(${printScale.toFixed(5)}) !important;
-                transform-origin: top left !important;
+                zoom: ${printZoom.toFixed(5)} !important;
+                transform: none !important;
             }
         }
     `;
@@ -299,7 +299,7 @@ clearLogoBtn.addEventListener('click', () => {
     clearLogoBtn.classList.add('hidden');
 });
 
-function createDraggableTextBox(initialX = 1400, initialY = 820) {
+function createDraggableTextBox(initialX = 1280, initialY = 820) {
     const box = document.createElement('div');
     box.className = 'draggable-text-box pointer-events-auto';
     box.style.left = `${initialX}px`;
@@ -388,7 +388,7 @@ addTextBtn.addEventListener('click', () => {
     const isSheetDrawn = !document.getElementById('main-sheet-body').classList.contains('hidden');
     if (isSheetDrawn) {
         const offset = (customTextsLayer.children.length % 5) * 30;
-        createDraggableTextBox(1400 + offset, 820 + offset);
+        createDraggableTextBox(1280 + offset, 820 + offset);
     } else {
         pendingTextBoxesCount++;
         alert('テキストボックスを追加予約しました。「ブラケットを描画する」を押すとシート上に配置されます。');
@@ -728,7 +728,7 @@ function indexToMatchLabel(index) {
 function createSpacerNode() {
     const wrapper = createElement('div', 'match-wrapper');
     const dummyBox = createElement('div', '');
-    dummyBox.style.height = '40px';
+    dummyBox.style.height = '64px';
     wrapper.appendChild(dummyBox);
     return wrapper;
 }
@@ -783,13 +783,14 @@ function createQualifierNode(matchSourceLabel, targetPhase, targetType = 'W', in
     box.appendChild(createElement('span', 'qual-drop-label-top', `Winner of ${matchSourceLabel}`));
 
     if (targetType === 'W' && includeLoserSlot) {
+        box.style.height = '64px';
         const slot1 = createElement('div', 'qualifier-slot border-b border-black', `${targetPhase} [W]`);
         box.appendChild(slot1);
         const slot2 = createElement('div', 'qualifier-slot', `${targetPhase} [L]`);
         box.appendChild(slot2);
         box.appendChild(createElement('span', 'qual-drop-label-bottom', `Loser of ${matchSourceLabel}`));
     } else {
-        box.style.height = '22px';
+        box.style.height = '34px';
         box.appendChild(createElement('div', 'qualifier-slot', `${targetPhase} [${targetType}]`));
     }
 
@@ -878,7 +879,6 @@ document.getElementById('zoom-reset-btn').addEventListener('click', () => setZoo
 document.getElementById('zoom-fit-btn').addEventListener('click', fitToViewport);
 window.addEventListener('resize', fitToViewport);
 
-// 印刷開始・終了時のズーム解除イベント（Ctrl+Pでの直接印刷にも対応）
 let savedZoomBeforePrint = 100;
 window.addEventListener('beforeprint', () => {
     savedZoomBeforePrint = Number(zoomSlider.value);
@@ -1314,7 +1314,7 @@ generateBtn.addEventListener('click', () => {
     container.innerHTML = ''; 
     container.style.display = 'flex';
     container.style.flexDirection = 'column';
-    container.style.gap = '40px';
+    container.style.gap = '28px';
 
     if (playerCount >= 25) {
         render25To32Bracket(container, playerCount, getPlayerName, targetPhaseName, wCountNum, lCountNum);
@@ -1322,10 +1322,16 @@ generateBtn.addEventListener('click', () => {
         render17To24Bracket(container, playerCount, getPlayerName, targetPhaseName, wCountNum, lCountNum);
     }
 
+    // 列数に応じて横幅スタイルを切り替え（縦の記入枠高さ6mmは常に維持）
     const maxCols = Math.max(
         ...Array.from(container.children).map(c => c.children.length)
     );
-    container.classList.toggle('compact-bracket', maxCols >= 7);
+    container.classList.remove('compact-bracket', 'ultra-compact-bracket');
+    if (maxCols >= 8) {
+        container.classList.add('ultra-compact-bracket');
+    } else if (maxCols === 7) {
+        container.classList.add('compact-bracket');
+    }
 
     const rosterContainer = document.getElementById('checkin-roster-container');
     rosterContainer.innerHTML = '';
@@ -1387,7 +1393,7 @@ document.getElementById('export-btn').addEventListener('click', async () => {
     }
 });
 
-// === PDF出力機能（ズームを一旦解除してから印刷ダイアログを起動） ===
+// === PDF出力機能 ===
 document.getElementById('export-pdf-btn').addEventListener('click', () => {
     applyPrintAndDrawOptions();
     savedZoomBeforePrint = Number(zoomSlider.value);
