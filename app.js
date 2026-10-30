@@ -61,9 +61,19 @@ function applyPrintAndDrawOptions() {
     logoDisplayContainer.style.bottom = `${margin.v}px`;
     logoDisplayContainer.style.right = `${margin.h}px`;
 
-    // ブラケット＋名簿表の基準サイズ（高さ 1598px / 横幅: ブラケット1708px + 間隔48px + 名簿314px = 2070px）
-    const baseContentHeight = 1598;
-    const baseContentWidth = 2070;
+    // 描画済みの場合は実際のブラケット高さを計測して基準にする（32人等の縦長ブラケットにも自動追従）
+    const headerEl = document.getElementById('preview-header');
+    const sheetBodyEl = document.getElementById('main-sheet-body');
+    const isSheetDrawn = !sheetBodyEl.classList.contains('hidden');
+
+    let baseContentHeight = 1598;
+    let baseContentWidth = 2070;
+
+    if (isSheetDrawn) {
+        const measuredHeight = headerEl.offsetHeight + 20 + sheetBodyEl.offsetHeight;
+        if (measuredHeight > 0) baseContentHeight = measuredHeight;
+    }
+
     const paperRatio = Math.SQRT2; // 420 / 297 ≒ 1.4142
 
     let canvasWidth, canvasHeight;
@@ -71,11 +81,11 @@ function applyPrintAndDrawOptions() {
     if (orientation === 'landscape') {
         // 横向き印刷時：ブラケットの「高さ」を用紙の高さに合わせる
         canvasHeight = baseContentHeight + margin.v * 2;
-        canvasWidth = Math.round(canvasHeight * paperRatio);
+        canvasWidth = Math.max(baseContentWidth + margin.h * 2, Math.round(canvasHeight * paperRatio));
     } else {
         // 縦向き印刷時：ブラケット＋名簿表の「横幅」を用紙の横幅に合わせる
         canvasWidth = baseContentWidth + margin.h * 2;
-        canvasHeight = Math.round(canvasWidth * paperRatio);
+        canvasHeight = Math.max(baseContentHeight + margin.v * 2, Math.round(canvasWidth * paperRatio));
     }
 
     previewArea.style.width = `${canvasWidth}px`;
@@ -525,7 +535,8 @@ const losersRoundOrder = [
     'Losers Round 3',
     'Losers Round 4',
     'Losers Quarter-Final',
-    'Losers Semi-Final'
+    'Losers Semi-Final',
+    'Losers Final'
 ];
 
 function getRoundBo(roundBaseName, bracketType) {
@@ -654,22 +665,22 @@ function createMatchNode(matchLabel, player1Name, player2Name, seed1 = '', seed2
     return wrapper;
 }
 
-// === 予選抜け専用ノード生成 ===
-function createQualifierNode(matchSourceLabel, targetPhase, targetType = 'W') {
+// === 予選抜け専用ノード生成（includeLoserSlot=trueならWとLの2段、falseなら1段） ===
+function createQualifierNode(matchSourceLabel, targetPhase, targetType = 'W', includeLoserSlot = false) {
     const wrapper = createElement('div', 'match-wrapper straight-line');
     const box = createElement('div', 'qualifier-box');
     
     box.appendChild(createElement('span', 'qual-drop-label-top', `Winner of ${matchSourceLabel}`));
 
-    if (targetType === 'W') {
+    if (targetType === 'W' && includeLoserSlot) {
         const slot1 = createElement('div', 'qualifier-slot border-b border-black', `${targetPhase} [W]`);
         box.appendChild(slot1);
         const slot2 = createElement('div', 'qualifier-slot', `${targetPhase} [L]`);
         box.appendChild(slot2);
         box.appendChild(createElement('span', 'qual-drop-label-bottom', `Loser of ${matchSourceLabel}`));
     } else {
-        box.style.height = '22px'; 
-        box.appendChild(createElement('div', 'qualifier-slot', `${targetPhase} [L]`));
+        box.style.height = '22px';
+        box.appendChild(createElement('div', 'qualifier-slot', `${targetPhase} [${targetType}]`));
     }
 
     wrapper.appendChild(box);
@@ -693,7 +704,7 @@ function createRoundColumn(roundName, bracketType = 'winners', isQualifier = fal
     return roundCol;
 }
 
-// === Check-in / Gamer Tag 名簿テーブル生成（M列のPrefix付きプレイヤー名をシード順に表示） ===
+// === Check-in / Gamer Tag 名簿テーブル生成 ===
 function createCheckinRosterTable(currentPool, playerCount) {
     const table = createElement('table', 'checkin-table');
 
@@ -705,7 +716,6 @@ function createCheckinRosterTable(currentPool, playerCount) {
     table.appendChild(thead);
 
     const tbody = createElement('tbody');
-    // シード順（1〜playerCount）にソートして出力
     const seeds = Object.keys(currentPool.playersBySeed)
         .map(Number)
         .sort((a, b) => a - b);
@@ -768,44 +778,8 @@ window.addEventListener('resize', fitToViewport);
 applyPrintAndDrawOptions();
 fitToViewport();
 
-// === 17〜24人ブラケット＆名簿生成メイン処理（追加オプションもここで一括反映） ===
-generateBtn.addEventListener('click', () => {
-    const selectedPoolName = poolSelect.value;
-    const currentPool = poolsData[selectedPoolName];
-    if (!currentPool) {
-        alert('プールデータが見つかりません。CSVを再読み込みしてください。');
-        return;
-    }
-
-    const playerCount = currentPool.count;
-    if (playerCount < 17 || playerCount > 24) {
-        alert(`現在のPool ${selectedPoolName} の人数は ${playerCount}人 です。（現在17〜24人トナメに対応しています）`);
-        return;
-    }
-
-    const getPlayerName = (seed) => {
-        const p = currentPool.playersBySeed[seed];
-        return p ? p.shortGamerTag : '';
-    };
-
-    const targetPhaseName = targetPhaseInput.value.trim();
-    const wCount = winnersAdvanceCount.value;
-    const lCount = losersAdvanceCount.value;
-
-    // プレースホルダーを隠してメイン領域を表示
-    document.getElementById('preview-placeholder').classList.add('hidden');
-    document.getElementById('preview-header').classList.remove('hidden');
-    document.getElementById('main-sheet-body').classList.remove('hidden');
-
-    document.getElementById('pool-title').textContent = `Pool ${selectedPoolName} - Double Elimination (${playerCount} players)`;
-    document.getElementById('pool-subtitle').textContent = `Winners side qualifier: ${wCount} / Losers side qualifier: ${lCount}`;
-
-    const container = document.getElementById('bracket-container');
-    container.innerHTML = ''; 
-    container.style.display = 'flex';
-    container.style.flexDirection = 'column';
-    container.style.gap = '44px';
-
+// === 17〜24人ブラケット生成関数 ===
+function render17To24Bracket(container, playerCount, getPlayerName, targetPhaseName, wCountNum) {
     let labelCounter = 0;
     const nextLabel = () => indexToMatchLabel(labelCounter++);
 
@@ -816,9 +790,7 @@ generateBtn.addEventListener('click', () => {
         return [wr1Top, wr1Bot];
     });
 
-    // ==========================================
-    // 1. Winners Bracket のラベル割当と構築
-    // ==========================================
+    // 1. Winners Bracket
     const wContainer = createElement('div', 'bracket-container');
     const wr1 = createRoundColumn('Winners Round 1', 'winners');
     const wr2 = createRoundColumn('Winners Round 2', 'winners');
@@ -868,19 +840,27 @@ generateBtn.addEventListener('click', () => {
         wr4.appendChild(createMatchNode(lbl, '', '', '', '', 'branch'));
     }
 
-    const wfLabel = nextLabel();
-    wr5.appendChild(createMatchNode(wfLabel, '', '', '', '', 'branch'));
+    if (wCountNum === 2) {
+        // W2L2の場合：Winners Semi-Finalで勝者側2名が通過
+        wQual.appendChild(createQualifierNode(wsfLabels[0], targetPhaseName, 'W', false));
+        wQual.appendChild(createQualifierNode(wsfLabels[1], targetPhaseName, 'W', false));
+        wContainer.append(wr1, wr2, wr3, wr4, wQual);
+        // WF, GF, GFR の3ラベルをスキップ
+        nextLabel();
+        nextLabel();
+        nextLabel();
+    } else {
+        // W1L2の場合：Winners Finalまで実施し、勝者が[W]、敗者が[L]
+        const wfLabel = nextLabel();
+        wr5.appendChild(createMatchNode(wfLabel, '', '', '', '', 'branch'));
+        wQual.appendChild(createQualifierNode(wfLabel, targetPhaseName, 'W', true));
+        wContainer.append(wr1, wr2, wr3, wr4, wr5, wQual);
+        // GF, GFR の2ラベルをスキップ
+        nextLabel();
+        nextLabel();
+    }
 
-    wQual.appendChild(createQualifierNode(wfLabel, targetPhaseName, 'W'));
-
-    wContainer.append(wr1, wr2, wr3, wr4, wr5, wQual);
-
-    // ==========================================
-    // 2. Losers Bracket のラベル割当と構築
-    // ==========================================
-    nextLabel();
-    nextLabel();
-
+    // 2. Losers Bracket
     const lContainer = createElement('div', 'bracket-container');
     const lr1 = createRoundColumn('Losers Round 1', 'losers');
     const lr2 = createRoundColumn('Losers Round 2', 'losers');
@@ -924,14 +904,12 @@ generateBtn.addEventListener('click', () => {
                 createMatchNode(lr1Labels[jBot], '', '', '', '', 'none', `Loser of ${wr2DropBot}`, `Loser of ${wr1Labels[jBot]}`)
             );
             lr1.appendChild(pairGroup);
-
             lr2.appendChild(createMatchNode(lr2Labels[k], '', '', '', '', 'branch'));
         } else if (hasTopLr1 && !hasBotLr1) {
             pairGroup.appendChild(
                 createMatchNode(lr1Labels[jTop], '', '', '', '', 'none', `Loser of ${wr2DropTop}`, `Loser of ${wr1Labels[jTop]}`)
             );
             lr1.appendChild(pairGroup);
-
             lr2.appendChild(createMatchNode(lr2Labels[k], '', '', '', '', 'straight', '', `Loser of ${wr2DropBot}`));
         } else {
             lr1.appendChild(pairGroup);
@@ -951,31 +929,246 @@ generateBtn.addEventListener('click', () => {
     }
 
     const lqfDropOrder = [wsfLabels[1], wsfLabels[0]];
+    const lqfLabels = [];
     for (let k = 0; k < 2; k++) {
         const lbl = nextLabel();
+        lqfLabels.push(lbl);
         lr5.appendChild(createMatchNode(lbl, '', '', '', '', 'straight', `Loser of ${lqfDropOrder[k]}`));
     }
 
-    const lsfLabel = nextLabel();
-    lr6.appendChild(createMatchNode(lsfLabel, '', '', '', '', 'branch'));
-
-    lQual.appendChild(createQualifierNode(lsfLabel, targetPhaseName, 'L'));
-
-    lContainer.append(lr1, lr2, lr3, lr4, lr5, lr6, lQual);
+    if (wCountNum === 2) {
+        // W2L2の場合：LQFの2試合の勝者がそのまま[L]通過
+        lQual.appendChild(createQualifierNode(lqfLabels[0], targetPhaseName, 'L', false));
+        lQual.appendChild(createQualifierNode(lqfLabels[1], targetPhaseName, 'L', false));
+        lContainer.append(lr1, lr2, lr3, lr4, lr5, lQual);
+    } else {
+        // W1L2の場合：LSFを実施し、その勝者が[L]通過
+        const lsfLabel = nextLabel();
+        lr6.appendChild(createMatchNode(lsfLabel, '', '', '', '', 'branch'));
+        lQual.appendChild(createQualifierNode(lsfLabel, targetPhaseName, 'L', false));
+        lContainer.append(lr1, lr2, lr3, lr4, lr5, lr6, lQual);
+    }
 
     container.appendChild(wContainer);
     container.appendChild(lContainer);
+}
+
+// === 32人ブラケット生成関数（W2L2ベース・W1L2にも対応） ===
+function render32Bracket(container, getPlayerName, targetPhaseName, wCountNum) {
+    let labelCounter = 0;
+    const nextLabel = () => indexToMatchLabel(labelCounter++);
+
+    // 8つのブロック基準シード (WR2で当たる上位シードの組み合わせ合計が17、WR1の各対戦合計が33)
+    const wr2TopSeeds = [1, 8, 4, 5, 2, 7, 3, 6];
+    const wr1SeedPairs = [];
+    wr2TopSeeds.forEach(s => {
+        // 上側の試合: s vs (33 - s)
+        wr1SeedPairs.push([s, 33 - s]);
+        // 下側の試合: (17 - s) vs (16 + s)
+        const partner = 17 - s;
+        wr1SeedPairs.push([partner, 33 - partner]);
+    });
 
     // ==========================================
-    // 3. 右側 Check-in / Gamer Tag 名簿テーブルの描画
+    // 1. Winners Bracket
     // ==========================================
+    const wContainer = createElement('div', 'bracket-container');
+    const wr1 = createRoundColumn('Winners Round 1', 'winners');
+    const wr2 = createRoundColumn('Winners Round 2', 'winners');
+    const wr3 = createRoundColumn('Winners Quarter-Final', 'winners');
+    const wr4 = createRoundColumn('Winners Semi-Final', 'winners');
+    const wr5 = createRoundColumn('Winners Final', 'winners');
+    const wQual = createRoundColumn('', 'winners', true);
+
+    // WR1 (16試合: A〜P)
+    const wr1Labels = [];
+    for (let i = 0; i < 16; i++) {
+        const [s1, s2] = wr1SeedPairs[i];
+        const lbl = nextLabel();
+        wr1Labels.push(lbl);
+        wr1.appendChild(createMatchNode(lbl, getPlayerName(s1), getPlayerName(s2), s1, s2, 'none'));
+    }
+
+    // WR2 (8試合: Q〜X / 全員WR1から上がるため音叉線で接続、事前配置なし)
+    const wr2Labels = [];
+    for (let i = 0; i < 8; i++) {
+        const lbl = nextLabel();
+        wr2Labels.push(lbl);
+        wr2.appendChild(createMatchNode(lbl, '', '', '', '', 'branch'));
+    }
+
+    // WQF (4試合: Y, Z, AA, AB)
+    const wqfLabels = [];
+    for (let i = 0; i < 4; i++) {
+        const lbl = nextLabel();
+        wqfLabels.push(lbl);
+        wr3.appendChild(createMatchNode(lbl, '', '', '', '', 'branch'));
+    }
+
+    // WSF (2試合: AC, AD)
+    const wsfLabels = [];
+    for (let i = 0; i < 2; i++) {
+        const lbl = nextLabel();
+        wsfLabels.push(lbl);
+        wr4.appendChild(createMatchNode(lbl, '', '', '', '', 'branch'));
+    }
+
+    if (wCountNum === 2) {
+        // W2L2（勝者側2名通過）：WSFの勝者2名がそれぞれ [W] として通過
+        wQual.appendChild(createQualifierNode(wsfLabels[0], targetPhaseName, 'W', false));
+        wQual.appendChild(createQualifierNode(wsfLabels[1], targetPhaseName, 'W', false));
+        wContainer.append(wr1, wr2, wr3, wr4, wQual);
+
+        // start.ggの採番規則に合わせ、未実施のWF, GF, GFR (AE, AF, AG) の3ラベル分をスキップ
+        nextLabel();
+        nextLabel();
+        nextLabel();
+    } else {
+        // W1L2（勝者側1名通過）：WFまで実施し、WF勝者が[W]、WF敗者が[L]
+        const wfLabel = nextLabel();
+        wr5.appendChild(createMatchNode(wfLabel, '', '', '', '', 'branch'));
+        wQual.appendChild(createQualifierNode(wfLabel, targetPhaseName, 'W', true));
+        wContainer.append(wr1, wr2, wr3, wr4, wr5, wQual);
+
+        // GF, GFR の2ラベル分をスキップ
+        nextLabel();
+        nextLabel();
+    }
+
+    // ==========================================
+    // 2. Losers Bracket
+    // ==========================================
+    const lContainer = createElement('div', 'bracket-container');
+    const lr1 = createRoundColumn('Losers Round 1', 'losers');
+    const lr2 = createRoundColumn('Losers Round 2', 'losers');
+    const lr3 = createRoundColumn('Losers Round 3', 'losers');
+    const lr4 = createRoundColumn('Losers Round 4', 'losers');
+    const lr5 = createRoundColumn('Losers Quarter-Final', 'losers');
+    const lr6 = createRoundColumn('Losers Semi-Final', 'losers');
+    const lr7 = createRoundColumn('Losers Final', 'losers');
+    const lQual = createRoundColumn('', 'losers', true);
+
+    // LR1 (8試合: WR1の敗者がそのまま上からペアで対戦 [Loser of A vs Loser of B] ... [Loser of O vs Loser of P])
+    const lr1Labels = [];
+    for (let k = 0; k < 8; k++) {
+        const lbl = nextLabel();
+        lr1Labels.push(lbl);
+        const dropTop = wr1Labels[2 * k];
+        const dropBot = wr1Labels[2 * k + 1];
+        lr1.appendChild(createMatchNode(lbl, '', '', '', '', 'none', `Loser of ${dropTop}`, `Loser of ${dropBot}`));
+    }
+
+    // LR2 (8試合: LR1勝者が直線で進出し、WR2の敗者が逆順 X, W, V, U, T, S, R, Q で上段に落下)
+    const lr2Labels = [];
+    for (let k = 0; k < 8; k++) {
+        const lbl = nextLabel();
+        lr2Labels.push(lbl);
+        const wr2Drop = wr2Labels[7 - k];
+        lr2.appendChild(createMatchNode(lbl, '', '', '', '', 'straight', `Loser of ${wr2Drop}`));
+    }
+
+    // LR3 (4試合: LR2勝者同士が音叉線で対戦)
+    const lr3Labels = [];
+    for (let k = 0; k < 4; k++) {
+        const lbl = nextLabel();
+        lr3Labels.push(lbl);
+        lr3.appendChild(createMatchNode(lbl, '', '', '', '', 'branch'));
+    }
+
+    // LR4 (4試合: LR3勝者が直線で進出し、WQF敗者が Z, Y, AB, AA の順で上段に落下)
+    const lr4DropOrder = [wqfLabels[1], wqfLabels[0], wqfLabels[3], wqfLabels[2]];
+    const lr4Labels = [];
+    for (let k = 0; k < 4; k++) {
+        const lbl = nextLabel();
+        lr4Labels.push(lbl);
+        lr4.appendChild(createMatchNode(lbl, '', '', '', '', 'straight', `Loser of ${lr4DropOrder[k]}`));
+    }
+
+    // LQF (2試合: LR4勝者同士が音叉線で対戦)
+    const lqfLabels = [];
+    for (let k = 0; k < 2; k++) {
+        const lbl = nextLabel();
+        lqfLabels.push(lbl);
+        lr5.appendChild(createMatchNode(lbl, '', '', '', '', 'branch'));
+    }
+
+    // LSF (2試合: LQF勝者が直線で進出し、WSF敗者が AD, AC の順で上段に落下)
+    const lsfDropOrder = [wsfLabels[1], wsfLabels[0]];
+    const lsfLabels = [];
+    for (let k = 0; k < 2; k++) {
+        const lbl = nextLabel();
+        lsfLabels.push(lbl);
+        lr6.appendChild(createMatchNode(lbl, '', '', '', '', 'straight', `Loser of ${lsfDropOrder[k]}`));
+    }
+
+    if (wCountNum === 2) {
+        // W2L2（敗者側2名通過）：LSFの勝者2名がそれぞれ [L] として通過
+        lQual.appendChild(createQualifierNode(lsfLabels[0], targetPhaseName, 'L', false));
+        lQual.appendChild(createQualifierNode(lsfLabels[1], targetPhaseName, 'L', false));
+        lContainer.append(lr1, lr2, lr3, lr4, lr5, lr6, lQual);
+    } else {
+        // W1L2：さらに1試合（Losers Final）を行い、その勝者が [L] 通過
+        const lfLabel = nextLabel();
+        lr7.appendChild(createMatchNode(lfLabel, '', '', '', '', 'branch'));
+        lQual.appendChild(createQualifierNode(lfLabel, targetPhaseName, 'L', false));
+        lContainer.append(lr1, lr2, lr3, lr4, lr5, lr6, lr7, lQual);
+    }
+
+    container.appendChild(wContainer);
+    container.appendChild(lContainer);
+}
+
+// === ブラケット＆名簿生成メイン処理 ===
+generateBtn.addEventListener('click', () => {
+    const selectedPoolName = poolSelect.value;
+    const currentPool = poolsData[selectedPoolName];
+    if (!currentPool) {
+        alert('プールデータが見つかりません。CSVを再読み込みしてください。');
+        return;
+    }
+
+    const playerCount = currentPool.count;
+    if ((playerCount < 17 || playerCount > 24) && playerCount !== 32) {
+        alert(`現在のPool ${selectedPoolName} の人数は ${playerCount}人 です。（現在17〜24人および32人トナメに対応しています）`);
+        return;
+    }
+
+    const getPlayerName = (seed) => {
+        const p = currentPool.playersBySeed[seed];
+        return p ? p.shortGamerTag : '';
+    };
+
+    const targetPhaseName = targetPhaseInput.value.trim();
+    const wCount = winnersAdvanceCount.value;
+    const lCount = losersAdvanceCount.value;
+    const wCountNum = parseInt(wCount, 10);
+
+    // プレースホルダーを隠してメイン領域を表示
+    document.getElementById('preview-placeholder').classList.add('hidden');
+    document.getElementById('preview-header').classList.remove('hidden');
+    document.getElementById('main-sheet-body').classList.remove('hidden');
+
+    document.getElementById('pool-title').textContent = `Pool ${selectedPoolName} - Double Elimination (${playerCount} players)`;
+    document.getElementById('pool-subtitle').textContent = `Winners side qualifier: ${wCount} / Losers side qualifier: ${lCount}`;
+
+    const container = document.getElementById('bracket-container');
+    container.innerHTML = ''; 
+    container.style.display = 'flex';
+    container.style.flexDirection = 'column';
+    container.style.gap = '44px';
+
+    if (playerCount === 32) {
+        render32Bracket(container, getPlayerName, targetPhaseName, wCountNum);
+    } else {
+        render17To24Bracket(container, playerCount, getPlayerName, targetPhaseName, wCountNum);
+    }
+
+    // 右側 Check-in / Gamer Tag 名簿テーブルの描画
     const rosterContainer = document.getElementById('checkin-roster-container');
     rosterContainer.innerHTML = '';
     rosterContainer.appendChild(createCheckinRosterTable(currentPool, playerCount));
 
-    // ==========================================
-    // 4. 印刷オプション・描画オプション（ロゴ・テキスト）の反映
-    // ==========================================
+    // 印刷オプション・描画オプション（ロゴ・テキスト）および用紙サイズの反映
     applyPrintAndDrawOptions();
     requestAnimationFrame(fitToViewport);
 });
