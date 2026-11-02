@@ -8,6 +8,10 @@ let pendingLogoDataUrl = null;
 let pendingTextBoxesCount = 0;
 let isPrintingMode = false;
 
+// start.gg API 関連の状態保持
+let startggPhasesList = [];
+let currentTargetGroupIdFromUrl = null;
+
 // ロゴ画像の縦ピクセル上限（横幅は無制限）と白黒判定の許容誤差
 const MAX_LOGO_HEIGHT = 160;
 const LOGO_COLOR_TOLERANCE = 15;
@@ -27,6 +31,11 @@ let recommendedPrintConfig = {
 };
 
 const csvUpload = document.getElementById('csv-upload');
+const startggTokenInput = document.getElementById('startgg-token-input');
+const startggUrlInput = document.getElementById('startgg-url-input');
+const fetchStartggBtn = document.getElementById('fetch-startgg-btn');
+const phaseSelectWrapper = document.getElementById('phase-select-wrapper');
+const phaseSelect = document.getElementById('phase-select');
 const csvStatus = document.getElementById('csv-status');
 const poolSelectWrapper = document.getElementById('pool-select-wrapper');
 const poolSelect = document.getElementById('pool-select');
@@ -61,6 +70,15 @@ const zoomValue = document.getElementById('zoom-value');
 const scaleWrapper = document.getElementById('preview-scale-wrapper');
 const previewArea = document.getElementById('preview-area');
 const viewport = document.getElementById('preview-viewport');
+
+// 保存済みのstart.gg APIトークンがあれば復元
+const savedToken = localStorage.getItem('bracket_printer_startgg_token');
+if (savedToken) {
+    startggTokenInput.value = savedToken;
+}
+startggTokenInput.addEventListener('change', () => {
+    localStorage.setItem('bracket_printer_startgg_token', startggTokenInput.value.trim());
+});
 
 // === トーナメント形式（ダブル/シングル）切り替え時のUI連動 ===
 elimFormatSelect.addEventListener('change', () => {
@@ -179,7 +197,7 @@ resetPrintRecBtn.addEventListener('click', () => {
     fitToViewport();
 });
 
-// === 用紙サイズ・向き・余白の動的レイアウト計算（1ページ完全収容保証） ===
+// === 用紙サイズ・向き・余白の動的レイアウト計算 ===
 const PAPER_DIMENSIONS_MM = {
     A3: { short: 297, long: 420 },
     B4: { short: 257, long: 364 },
@@ -293,7 +311,6 @@ function applyPrintAndDrawOptions() {
         }
     `;
 
-    // ロゴ画像のDOM生成（縦上限160px・横幅無制限で表示）
     logoDisplayContainer.innerHTML = '';
     if (pendingLogoDataUrl) {
         const img = document.createElement('img');
@@ -351,7 +368,6 @@ logoUpload.addEventListener('change', (e) => {
                 return;
             }
 
-            // 1. 元画像をCanvasに描画してピクセル単位で白黒（グレースケール）判定を行う
             const checkCanvas = document.createElement('canvas');
             checkCanvas.width = origW;
             checkCanvas.height = origH;
@@ -376,7 +392,6 @@ logoUpload.addEventListener('change', (e) => {
                 }
             }
 
-            // 2. 縦サイズが上限(160px)を超えている場合は、縦横比を維持したまま縦160pxへ自動縮小・圧縮する
             if (origH > MAX_LOGO_HEIGHT) {
                 const scale = MAX_LOGO_HEIGHT / origH;
                 const targetW = Math.max(1, Math.round(origW * scale));
@@ -537,13 +552,57 @@ winnersAdvanceCount.addEventListener('change', validateForm);
 losersAdvanceCount.addEventListener('change', validateForm);
 targetPhaseInput.addEventListener('input', validateForm);
 
-// === 手順1: CSVファイルの読み込みと検証 ===
+// === 共通：構築された poolsData をUI（プール選択プルダウン等）に適用するヘルパー ===
+function applyParsedPoolsData(parsedPools, preferredPoolName = null) {
+    const poolNames = Object.keys(parsedPools);
+    if (poolNames.length === 0) {
+        alert('エラー: 有効なプール・プレイヤーデータが見つかりませんでした。');
+        return false;
+    }
+
+    poolsData = parsedPools;
+    isCsvValid = true;
+
+    maxPoolPlayerCount = Math.max(...poolNames.map(pName => parsedPools[pName].count));
+    updateRecommendedPrintConfig(true);
+
+    poolSelect.innerHTML = '';
+    poolNames.forEach(pName => {
+        const opt = document.createElement('option');
+        opt.value = pName;
+        opt.textContent = `Pool ${pName} (${parsedPools[pName].count}人)`;
+        poolSelect.appendChild(opt);
+    });
+
+    if (preferredPoolName && parsedPools[preferredPoolName]) {
+        poolSelect.value = preferredPoolName;
+    }
+
+    if (poolNames.length > 1) {
+        poolSelectWrapper.classList.remove('hidden');
+    } else {
+        poolSelectWrapper.classList.add('hidden');
+    }
+
+    const activePool = poolSelect.value;
+    csvStatus.textContent = `✅ 読み込み完了: Pool ${activePool} (${parsedPools[activePool].count}人 / 最大${maxPoolPlayerCount}人基準)`;
+    csvStatus.className = 'text-[11px] text-green-600 font-bold';
+    csvStatus.classList.remove('hidden');
+
+    validateForm();
+    return true;
+}
+
+// === 手順1-A: CSVファイルの読み込みと検証 ===
 csvUpload.addEventListener('change', (e) => {
     const file = e.target.files[0];
     if (!file) {
         resetCsvInput();
         return;
     }
+
+    // CSVを選択した場合はフェーズ選択UIを隠す
+    phaseSelectWrapper.classList.add('hidden');
 
     Papa.parse(file, {
         header: false,
@@ -598,39 +657,9 @@ csvUpload.addEventListener('change', (e) => {
                 };
             }
 
-            const poolNames = Object.keys(parsedPools);
-            if (poolNames.length === 0) {
-                alert('エラー: 有効なプール・プレイヤーデータが見つかりませんでした。');
+            if (!applyParsedPoolsData(parsedPools)) {
                 resetCsvInput();
-                return;
             }
-
-            poolsData = parsedPools;
-            isCsvValid = true;
-
-            maxPoolPlayerCount = Math.max(...poolNames.map(pName => parsedPools[pName].count));
-            updateRecommendedPrintConfig(true);
-
-            poolSelect.innerHTML = '';
-            poolNames.forEach(pName => {
-                const opt = document.createElement('option');
-                opt.value = pName;
-                opt.textContent = `Pool ${pName} (${parsedPools[pName].count}人)`;
-                poolSelect.appendChild(opt);
-            });
-
-            if (poolNames.length > 1) {
-                poolSelectWrapper.classList.remove('hidden');
-            } else {
-                poolSelectWrapper.classList.add('hidden');
-            }
-
-            const firstPool = poolNames[0];
-            csvStatus.textContent = `✅ 読み込み完了: Pool ${firstPool} (${parsedPools[firstPool].count}人 / 最大${maxPoolPlayerCount}人基準)`;
-            csvStatus.className = 'text-[11px] text-green-600 font-bold';
-            csvStatus.classList.remove('hidden');
-
-            validateForm();
         },
         error: (err) => {
             console.error(err);
@@ -638,6 +667,259 @@ csvUpload.addEventListener('change', (e) => {
             resetCsvInput();
         }
     });
+});
+
+// === 手順1-B: start.gg GraphQL APIからのデータ取得 ===
+function parseStartggBracketUrl(rawUrl) {
+    const trimmed = rawUrl.trim();
+    const match = trimmed.match(/tournament\/([^\/]+)\/event\/([^\/\?\#]+)/);
+    if (!match) return null;
+
+    const eventSlug = `tournament/${match[1]}/event/${match[2]}`;
+    const bracketMatch = trimmed.match(/\/brackets\/(\d+)(?:\/(\d+))?/);
+
+    return {
+        eventSlug,
+        phaseId: bracketMatch ? bracketMatch[1] : null,
+        phaseGroupId: bracketMatch && bracketMatch[2] ? bracketMatch[2] : null
+    };
+}
+
+async function callStartggGraphQL(token, query, variables) {
+    const response = await fetch('https://api.start.gg/gql/alpha', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ query, variables })
+    });
+
+    if (!response.ok) {
+        throw new Error(`HTTPエラー (${response.status}): APIトークンが正しいか確認してください。`);
+    }
+
+    const json = await response.json();
+    if (json.errors && json.errors.length > 0) {
+        throw new Error(json.errors[0].message || 'GraphQLエラーが発生しました。');
+    }
+    return json.data;
+}
+
+async function loadPoolsFromStartggPhase(token, phaseId, targetPhaseGroupId = null) {
+    csvStatus.textContent = '⏳ start.ggからシード・プール情報を取得中...';
+    csvStatus.className = 'text-[11px] text-blue-600 font-bold';
+    csvStatus.classList.remove('hidden');
+
+    const query = `
+        query GetPhaseSeeds($phaseId: ID!, $page: Int!) {
+            phase(id: $phaseId) {
+                id
+                name
+                seeds(query: { page: $page, perPage: 100 }) {
+                    pageInfo {
+                        totalPages
+                    }
+                    nodes {
+                        id
+                        seedNum
+                        phaseGroup {
+                            id
+                            displayIdentifier
+                        }
+                        entrant {
+                            id
+                            name
+                            participants {
+                                prefix
+                                gamerTag
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    `;
+
+    let page = 1;
+    let totalPages = 1;
+    const allSeeds = [];
+
+    while (page <= totalPages) {
+        const data = await callStartggGraphQL(token, query, { phaseId, page });
+        const seedsObj = data?.phase?.seeds;
+        if (!seedsObj || !seedsObj.nodes) break;
+
+        totalPages = seedsObj.pageInfo?.totalPages || 1;
+        allSeeds.push(...seedsObj.nodes);
+        page++;
+    }
+
+    if (allSeeds.length === 0) {
+        throw new Error('このフェーズにはシード（参加者）が登録されていません。');
+    }
+
+    // phaseGroupごとにグループ化
+    const rawGroups = {};
+    let preferredPoolName = null;
+
+    allSeeds.forEach(seedNode => {
+        if (!seedNode.entrant) return; // BYE枠や空シードは除外
+        const pg = seedNode.phaseGroup;
+        const rawIdentifier = pg?.displayIdentifier ? String(pg.displayIdentifier).trim() : '1';
+        const poolName = rawIdentifier.replace(/00$/, '') || rawIdentifier;
+
+        if (targetPhaseGroupId && pg && String(pg.id) === String(targetPhaseGroupId)) {
+            preferredPoolName = poolName;
+        }
+
+        const p0 = seedNode.entrant.participants?.[0];
+        let shortTag = '';
+        let fullTag = '';
+
+        if (p0 && p0.gamerTag) {
+            shortTag = p0.gamerTag.trim();
+            fullTag = p0.prefix ? `${p0.prefix.trim()} | ${shortTag}` : shortTag;
+        } else {
+            const entrantName = (seedNode.entrant.name || '').trim();
+            fullTag = entrantName;
+            const parts = entrantName.split(' | ');
+            shortTag = parts[parts.length - 1].trim();
+        }
+
+        if (!rawGroups[poolName]) {
+            rawGroups[poolName] = [];
+        }
+        rawGroups[poolName].push({
+            phaseSeedNum: seedNode.seedNum || 999999,
+            gamerTag: fullTag,
+            shortGamerTag: shortTag
+        });
+    });
+
+    // 各プール内でフェーズ全体シード(phaseSeedNum)の昇順にソートし、1から順に「Pool Seed」を割り当てる
+    const parsedPools = {};
+    Object.keys(rawGroups)
+        .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
+        .forEach(poolName => {
+            const list = rawGroups[poolName];
+            list.sort((a, b) => a.phaseSeedNum - b.phaseSeedNum);
+
+            parsedPools[poolName] = {
+                count: list.length,
+                playersBySeed: {}
+            };
+
+            list.forEach((player, idx) => {
+                const poolSeed = idx + 1;
+                parsedPools[poolName].playersBySeed[poolSeed] = {
+                    gamerTag: player.gamerTag,
+                    shortGamerTag: player.shortGamerTag
+                };
+            });
+        });
+
+    applyParsedPoolsData(parsedPools, preferredPoolName);
+}
+
+fetchStartggBtn.addEventListener('click', async () => {
+    const token = startggTokenInput.value.trim();
+    const urlStr = startggUrlInput.value.trim();
+
+    if (!token) {
+        alert('start.gg API token を入力してください。');
+        startggTokenInput.focus();
+        return;
+    }
+    if (!urlStr) {
+        alert('Bracket URL を入力してください。');
+        startggUrlInput.focus();
+        return;
+    }
+
+    const parsedUrl = parseStartggBracketUrl(urlStr);
+    if (!parsedUrl) {
+        alert('URLの形式が正しくありません。\n(例) https://www.start.gg/tournament/vic-seekers-1/event/ultimate-singles');
+        startggUrlInput.focus();
+        return;
+    }
+
+    localStorage.setItem('bracket_printer_startgg_token', token);
+    csvUpload.value = ''; // CSV選択をクリア
+    currentTargetGroupIdFromUrl = parsedUrl.phaseGroupId;
+
+    const origBtnText = fetchStartggBtn.textContent;
+    fetchStartggBtn.textContent = '取得中...';
+    fetchStartggBtn.disabled = true;
+
+    try {
+        const eventQuery = `
+            query GetEventPhases($slug: String!) {
+                event(slug: $slug) {
+                    id
+                    name
+                    phases {
+                        id
+                        name
+                    }
+                }
+            }
+        `;
+
+        const data = await callStartggGraphQL(token, eventQuery, { slug: parsedUrl.eventSlug });
+        const eventObj = data?.event;
+        if (!eventObj) {
+            throw new Error('指定されたURLのイベントが見つかりませんでした。');
+        }
+        const phases = eventObj.phases || [];
+        if (phases.length === 0) {
+            throw new Error('このイベントにはフェーズ（ブラケット）が作成されていません。');
+        }
+
+        startggPhasesList = phases;
+        phaseSelect.innerHTML = '';
+        phases.forEach(ph => {
+            const opt = document.createElement('option');
+            opt.value = ph.id;
+            opt.textContent = ph.name || `Phase ${ph.id}`;
+            phaseSelect.appendChild(opt);
+        });
+
+        // URLに phaseId が含まれていればそのPhaseを選択、なければ最初のPhaseを選択
+        if (parsedUrl.phaseId && phases.some(ph => String(ph.id) === String(parsedUrl.phaseId))) {
+            phaseSelect.value = parsedUrl.phaseId;
+        } else {
+            phaseSelect.value = phases[0].id;
+        }
+
+        if (phases.length > 1) {
+            phaseSelectWrapper.classList.remove('hidden');
+        } else {
+            phaseSelectWrapper.classList.add('hidden');
+        }
+
+        await loadPoolsFromStartggPhase(token, phaseSelect.value, currentTargetGroupIdFromUrl);
+    } catch (err) {
+        console.error(err);
+        alert(`start.gg データ取得エラー:\n${err.message}`);
+        resetCsvInput();
+    } finally {
+        fetchStartggBtn.textContent = origBtnText;
+        fetchStartggBtn.disabled = false;
+    }
+});
+
+phaseSelect.addEventListener('change', async () => {
+    const token = startggTokenInput.value.trim();
+    const selectedPhaseId = phaseSelect.value;
+    if (!token || !selectedPhaseId) return;
+
+    try {
+        await loadPoolsFromStartggPhase(token, selectedPhaseId, null);
+    } catch (err) {
+        console.error(err);
+        alert(`フェーズ切り替えエラー:\n${err.message}`);
+    }
 });
 
 poolSelect.addEventListener('change', () => {
@@ -652,6 +934,7 @@ function resetCsvInput() {
     isCsvValid = false;
     poolsData = {};
     csvStatus.classList.add('hidden');
+    phaseSelectWrapper.classList.add('hidden');
     poolSelectWrapper.classList.add('hidden');
     validateForm();
 }
@@ -891,7 +1174,6 @@ function createMatchNode(matchLabel, player1Name, player2Name, seed1 = '', seed2
     return wrapper;
 }
 
-// 文字列の表示幅（全角＝2、半角＝1）を計算してフォントサイズを決定するヘルパー
 function getQualifierFontSize(text) {
     let units = 0;
     for (const ch of text) {
@@ -1417,7 +1699,7 @@ generateBtn.addEventListener('click', () => {
     const selectedPoolName = poolSelect.value;
     const currentPool = poolsData[selectedPoolName];
     if (!currentPool) {
-        alert('プールデータが見つかりません。CSVを再読み込みしてください。');
+        alert('プールデータが見つかりません。CSVまたはstart.gg APIからデータを読み込んでください。');
         return;
     }
 
