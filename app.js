@@ -1431,7 +1431,7 @@ poolSelect.addEventListener('change', () => {
     const totalPools = Object.keys(poolsData).length;
     if (poolsData[selected]) {
         const detectedPhaseName = poolsData[selected].phaseName || '';
-        let msg = `✅ 選択中: Pool ${selected} (${poolsData[selected].count}人 / 全${totalPools}プール)`;
+        let msg = `✅ 読み込み完了: Pool ${selected} (${poolsData[selected].count}人 / 全${totalPools}プール)`;
         if (detectedPhaseName) {
             msg += `\n📌 フェーズ名: ${detectedPhaseName}`;
         }
