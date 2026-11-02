@@ -22,6 +22,12 @@
             -webkit-font-smoothing: antialiased;
         }
 
+        /* 推奨設定バッジが絶対に回転しないよう保護 */
+        #print-rec-status-badge {
+            transform: none !important;
+            display: inline-block;
+        }
+
         @media print {
             * {
                 -webkit-print-color-adjust: exact !important;
@@ -48,7 +54,6 @@
                 background-color: #ffffff !important;
                 display: block !important;
             }
-            /* 一括印刷モード時は単一プレビューを隠して一括印刷コンテナのみ表示 */
             body.batch-printing #preview-viewport {
                 display: none !important;
             }
@@ -175,14 +180,16 @@
             box-sizing: border-box;
         }
 
-        /* フェーズ通過枠専用の太い点線コネクタ */
+        /* フェーズ通過枠専用の太い点線コネクタ（画像化・印刷でも絶対に潰れない明示的ドットパターン） */
         .match-wrapper.qualifier-line::before {
             content: '';
             position: absolute;
             left: -22px;
             top: 50%;
             width: 22px;
-            border-top: 3px dotted #000;
+            height: 3.5px;
+            border: none !important;
+            background-image: repeating-linear-gradient(to right, #000000 0px, #000000 4px, transparent 4px, transparent 8px);
             transform: translateY(-50%);
             box-sizing: border-box;
         }
@@ -466,23 +473,11 @@
                 <h1 class="text-2xl font-bold text-gray-800">Bracket Printer</h1>
             </div>
 
-            <!-- 手順1の前：大会名・フェーズ区分 (任意) -->
-            <div class="flex flex-col gap-2 bg-gray-50 p-2.5 rounded border border-gray-200 text-xs shrink-0">
-                <label class="font-bold text-gray-700">大会名・フェーズ区分 (任意)</label>
-                <div>
-                    <span class="text-[11px] text-gray-500 block mb-0.5">大会名</span>
-                    <input type="text" id="tournament-name-input" placeholder="(例) Weekly Smash Party" class="w-full border border-gray-300 rounded p-1.5 bg-white text-xs">
-                </div>
-                <div>
-                    <span class="text-[11px] text-gray-500 block mb-0.5">フェーズの区分</span>
-                    <select id="phase-category-select" class="w-full border border-gray-300 rounded p-1.5 bg-white text-xs">
-                        <option value="" selected>指定なし</option>
-                        <option value="予選">予選</option>
-                        <option value="本戦">本戦</option>
-                        <option value="custom">カスタム</option>
-                    </select>
-                    <input type="text" id="phase-category-custom-input" placeholder="(例) DAY 2/TOP 192" class="hidden w-full border border-gray-300 rounded p-1.5 bg-white text-xs mt-1.5">
-                </div>
+            <!-- 手順1の前：大会名 (任意) ※フェーズ名はCSVのA列またはAPIから自動取得 -->
+            <div class="flex flex-col gap-1.5 bg-gray-50 p-2.5 rounded border border-gray-200 text-xs shrink-0">
+                <label class="font-bold text-gray-700">大会名を入力 (任意)</label>
+                <input type="text" id="tournament-name-input" placeholder="(例) 第53回クロブラ" class="w-full border border-gray-300 rounded p-1.5 bg-white text-xs">
+                <span class="text-[10px] text-gray-500">※フェーズ名はCSV(A列)またはAPIから自動取得されます</span>
             </div>
 
             <hr class="border-gray-200 shrink-0">
@@ -656,14 +651,14 @@
 
             <hr class="border-gray-200 shrink-0">
 
-            <!-- アコーディオン：印刷オプション（矢印に .accordion-arrow を付与してバッジ反転を防止） -->
+            <!-- アコーディオン：印刷オプション -->
             <div class="border border-gray-200 rounded-lg shrink-0">
                 <button type="button" class="accordion-toggle w-full flex justify-between items-center p-2.5 bg-gray-50 hover:bg-gray-100 font-bold text-xs text-gray-700 transition rounded-t-lg">
                     <span class="flex items-center gap-1.5">
                         <span>🖨️ 印刷オプション</span>
                         <span id="print-rec-status-badge" class="bg-orange-100 text-[#FA8534] border border-orange-200 text-[10px] px-1.5 py-0.5 rounded font-bold">★推奨設定</span>
                     </span>
-                    <span class="accordion-arrow transform transition-transform duration-200">▼</span>
+                    <i class="accordion-arrow not-italic transform transition-transform duration-200 inline-block">▼</i>
                 </button>
                 <div class="accordion-content bg-white px-3 py-2.5 flex flex-col gap-2.5 text-xs border-t border-gray-200 rounded-b-lg" style="display: none;">
                     <div id="print-rec-reason-box" class="bg-orange-50 border border-orange-200 rounded p-1.5 text-[11px] text-orange-800 flex items-center justify-between">
@@ -705,6 +700,14 @@
                             <option value="narrow">狭い</option>
                         </select>
                     </div>
+
+                    <!-- フェーズ名の表示/非表示オプション -->
+                    <div class="pt-1.5 border-t border-gray-200">
+                        <label class="flex items-center gap-1.5 cursor-pointer font-semibold text-gray-700">
+                            <input type="checkbox" id="show-phase-name-checkbox" checked class="accent-[#FA8534]">
+                            <span>ヘッダーにフェーズ名を表示する</span>
+                        </label>
+                    </div>
                 </div>
             </div>
 
@@ -712,7 +715,7 @@
             <div class="border border-gray-200 rounded-lg shrink-0">
                 <button type="button" class="accordion-toggle w-full flex justify-between items-center p-2.5 bg-gray-50 hover:bg-gray-100 font-bold text-xs text-gray-700 transition rounded-t-lg">
                     <span>🎨 描画オプション(任意)</span>
-                    <span class="accordion-arrow transform transition-transform duration-200">▼</span>
+                    <i class="accordion-arrow not-italic transform transition-transform duration-200 inline-block">▼</i>
                 </button>
                 <div class="accordion-content bg-white px-3 py-2.5 flex flex-col gap-2.5 text-xs border-t border-gray-200 rounded-b-lg" style="display: none;">
                     <div>
