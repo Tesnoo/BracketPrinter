@@ -44,10 +44,9 @@ let recommendedPrintConfig = {
     reason: '17〜32人 ダブルエリミの推奨設定'
 };
 
-// 大会名・フェーズ区分入力要素
+// 大会名入力・フェーズ名表示チェックボックス要素
 const tournamentNameInput = document.getElementById('tournament-name-input');
-const phaseCategorySelect = document.getElementById('phase-category-select');
-const phaseCategoryCustomInput = document.getElementById('phase-category-custom-input');
+const showPhaseNameCheckbox = document.getElementById('show-phase-name-checkbox');
 
 const csvUpload = document.getElementById('csv-upload');
 const startggTokenInput = document.getElementById('startgg-token-input');
@@ -109,27 +108,40 @@ startggTokenInput.addEventListener('change', () => {
     localStorage.setItem('bracket_printer_startgg_token', startggTokenInput.value.trim());
 });
 
-// === フェーズ区分（予選 / 本戦 / カスタム）の切り替え制御 ===
-phaseCategorySelect.addEventListener('change', (e) => {
-    if (e.target.value === 'custom') {
-        phaseCategoryCustomInput.classList.remove('hidden');
-    } else {
-        phaseCategoryCustomInput.classList.add('hidden');
-    }
-});
-
-// 大会名とフェーズ区分を含めたヘッダータイトル文字列を生成するヘルパー
+// === 左上タイトル文字列を生成するヘルパー ===
+// 形式: 「{大会名} {フェーズ名} Pool {Pool名} - {Elimination} ({人数} players)」
 function buildPoolHeaderTitle(poolName, elimTitle, playerCount) {
-    const tName = tournamentNameInput.value.trim();
-    const pCatVal = phaseCategorySelect.value;
-    const pCat = (pCatVal === 'custom') ? phaseCategoryCustomInput.value.trim() : pCatVal;
+    const tName = tournamentNameInput ? tournamentNameInput.value.trim() : '';
+    const showPhase = showPhaseNameCheckbox ? showPhaseNameCheckbox.checked : true;
+    const rawPhaseName = poolsData[poolName]?.phaseName ? poolsData[poolName].phaseName.trim() : '';
 
     const prefixParts = [];
     if (tName) prefixParts.push(tName);
-    if (pCat) prefixParts.push(pCat);
+    if (showPhase && rawPhaseName) prefixParts.push(rawPhaseName);
 
     const basePoolStr = `Pool ${poolName} - ${elimTitle} (${playerCount} players)`;
-    return prefixParts.length > 0 ? `${prefixParts.join(' ')} - ${basePoolStr}` : basePoolStr;
+    return prefixParts.length > 0 ? `${prefixParts.join(' ')} ${basePoolStr}` : basePoolStr;
+}
+
+// 大会名入力やフェーズ名表示切替時に、既に描画されているプレビュータイトルをリアルタイム更新
+function refreshRenderedHeaderTitle() {
+    const isSheetDrawn = !document.getElementById('main-sheet-body').classList.contains('hidden');
+    if (!isSheetDrawn) return;
+
+    const selectedPoolName = poolSelect.value;
+    const currentPool = poolsData[selectedPoolName];
+    if (!currentPool) return;
+
+    const isSingle = elimFormatSelect.value === 'single';
+    const elimTitle = isSingle ? 'Single Elimination' : 'Double Elimination';
+    document.getElementById('pool-title').textContent = buildPoolHeaderTitle(selectedPoolName, elimTitle, currentPool.count);
+}
+
+if (tournamentNameInput) {
+    tournamentNameInput.addEventListener('input', refreshRenderedHeaderTitle);
+}
+if (showPhaseNameCheckbox) {
+    showPhaseNameCheckbox.addEventListener('change', refreshRenderedHeaderTitle);
 }
 
 // === 現在のPool人数を取得するヘルパー ===
@@ -443,6 +455,7 @@ function refreshPrintOptionDecorations() {
         printRecStatusBadge.className = 'bg-gray-200 text-gray-600 border border-gray-300 text-[10px] px-1.5 py-0.5 rounded font-bold';
         resetPrintRecBtn.classList.remove('hidden');
     }
+    printRecStatusBadge.style.transform = 'none';
 }
 
 printSizeSelect.addEventListener('change', () => {
@@ -893,7 +906,11 @@ function applyParsedPoolsData(parsedPools, preferredPoolName = null, extraStatus
     }
 
     const activePool = poolSelect.value;
+    const detectedPhaseName = parsedPools[activePool].phaseName || '';
     let statusMsg = `✅ 読み込み完了: Pool ${activePool} (${parsedPools[activePool].count}人 / 全${poolNames.length}プール)`;
+    if (detectedPhaseName) {
+        statusMsg += `\n📌 フェーズ名: ${detectedPhaseName}`;
+    }
     if (extraStatusLine) {
         statusMsg += `\n${extraStatusLine}`;
     }
@@ -906,7 +923,7 @@ function applyParsedPoolsData(parsedPools, preferredPoolName = null, extraStatus
     return true;
 }
 
-// === 手順1-A: CSVファイルの読み込みと検証 ===
+// === 手順1-A: CSVファイルの読み込みと検証（A列からフェーズ名を自動取得） ===
 csvUpload.addEventListener('change', (e) => {
     const file = e.target.files[0];
     if (!file) {
@@ -948,8 +965,9 @@ csvUpload.addEventListener('change', (e) => {
             const parsedPools = {};
             for (let i = 1; i < rows.length; i++) {
                 const row = rows[i];
-                const rawPoolName = (row[2] || '').trim();
-                const seedStr = (row[3] || '').trim();
+                const rawPhaseName = (row[0] || '').trim(); // A列：フェーズ名
+                const rawPoolName = (row[2] || '').trim();  // C列：Pool名
+                const seedStr = (row[3] || '').trim();      // D列：Pool Seed
                 if (!rawPoolName || !seedStr) continue;
 
                 const poolName = rawPoolName.replace(/00$/, '') || rawPoolName;
@@ -960,7 +978,9 @@ csvUpload.addEventListener('change', (e) => {
                 const shortGamerTag = (row[13] || '').trim();
 
                 if (!parsedPools[poolName]) {
-                    parsedPools[poolName] = { count: 0, playersBySeed: {} };
+                    parsedPools[poolName] = { count: 0, phaseName: rawPhaseName, playersBySeed: {} };
+                } else if (!parsedPools[poolName].phaseName && rawPhaseName) {
+                    parsedPools[poolName].phaseName = rawPhaseName;
                 }
                 parsedPools[poolName].count += 1;
                 parsedPools[poolName].playersBySeed[seed] = {
@@ -1203,10 +1223,14 @@ async function loadPoolsFromStartggPhase(token, phaseId, targetPhaseGroupId = nu
 
     let page = 1;
     let totalPages = 1;
+    let currentPhaseNameFromApi = '';
     const allSeeds = [];
 
     while (page <= totalPages) {
         const data = await callStartggGraphQL(token, query, { phaseId, page });
+        if (data?.phase?.name) {
+            currentPhaseNameFromApi = data.phase.name.trim();
+        }
         const seedsObj = data?.phase?.seeds;
         if (!seedsObj || !seedsObj.nodes) break;
 
@@ -1217,6 +1241,12 @@ async function loadPoolsFromStartggPhase(token, phaseId, targetPhaseGroupId = nu
 
     if (allSeeds.length === 0) {
         throw new Error('このフェーズにはシード（参加者）が登録されていません。');
+    }
+
+    // 対象フェーズ名（通過先のフェーズ名ではなく、現在選択中のフェーズ名）
+    if (!currentPhaseNameFromApi) {
+        const foundPhase = startggPhasesList.find(p => String(p.id) === String(phaseId));
+        if (foundPhase?.name) currentPhaseNameFromApi = foundPhase.name.trim();
     }
 
     const rawGroups = {};
@@ -1269,6 +1299,7 @@ async function loadPoolsFromStartggPhase(token, phaseId, targetPhaseGroupId = nu
 
             parsedPools[poolName] = {
                 count: list.length,
+                phaseName: currentPhaseNameFromApi,
                 playersBySeed: {}
             };
 
@@ -1343,7 +1374,6 @@ fetchStartggBtn.addEventListener('click', async () => {
             throw new Error('指定されたURLのイベントが見つかりませんでした。');
         }
 
-        // 大会名入力欄が未入力の場合は、start.gg上の大会名を自動セット
         if (!tournamentNameInput.value.trim() && eventObj.tournament?.name) {
             tournamentNameInput.value = eventObj.tournament.name;
         }
@@ -1402,7 +1432,11 @@ poolSelect.addEventListener('change', () => {
     const selected = poolSelect.value;
     const totalPools = Object.keys(poolsData).length;
     if (poolsData[selected]) {
+        const detectedPhaseName = poolsData[selected].phaseName || '';
         let msg = `✅ 選択中: Pool ${selected} (${poolsData[selected].count}人 / 全${totalPools}プール)`;
+        if (detectedPhaseName) {
+            msg += `\n📌 フェーズ名: ${detectedPhaseName}`;
+        }
         if (lastAutoConfigSummary) {
             msg += `\n${lastAutoConfigSummary}`;
         }
@@ -1557,17 +1591,24 @@ function getRoundBo(roundBaseName, bracketType) {
     return baseBoValue;
 }
 
-// === アコーディオン開閉（.accordion-arrow のみを回転させてバッジの反転を防止） ===
+// === アコーディオン開閉（矢印アイコンのみを確実に取得し、バッジは絶対回転させない） ===
 document.querySelectorAll('.accordion-toggle').forEach(button => {
     button.addEventListener('click', () => {
         const content = button.nextElementSibling;
-        const arrow = button.querySelector('.accordion-arrow');
+        const arrow = button.querySelector('.accordion-arrow') || button.lastElementChild;
         if (content.style.display === 'none' || content.style.display === '') {
             content.style.display = 'flex';
-            if (arrow) arrow.style.transform = 'rotate(180deg)';
+            if (arrow && arrow.id !== 'print-rec-status-badge') {
+                arrow.style.transform = 'rotate(180deg)';
+            }
         } else {
             content.style.display = 'none';
-            if (arrow) arrow.style.transform = 'rotate(0deg)';
+            if (arrow && arrow.id !== 'print-rec-status-badge') {
+                arrow.style.transform = 'rotate(0deg)';
+            }
+        }
+        if (printRecStatusBadge) {
+            printRecStatusBadge.style.transform = 'none';
         }
     });
 });
@@ -2853,7 +2894,6 @@ document.getElementById('export-all-pdf-btn').addEventListener('click', () => {
     scaleWrapper.style.transform = 'none';
     batchPrintContainer.innerHTML = '';
 
-    // 各プールを順番にレンダリング＆実寸計測し、1ページずつ印刷用コンテナに複製する
     poolNames.forEach((pName, idx) => {
         renderPoolSheet(pName);
         const { canvasWidth, canvasHeight, printScale, scaledBoxWidth, scaledBoxHeight } = lastComputedPrintMetrics;
@@ -2897,7 +2937,6 @@ document.getElementById('export-all-pdf-btn').addEventListener('click', () => {
         batchPrintContainer.appendChild(pageWrapper);
     });
 
-    // プレビュー表示を元の選択プールに戻す
     renderPoolSheet(originalPoolName);
     scaleWrapper.style.transform = 'none';
 
