@@ -11,6 +11,7 @@ let isPrintingMode = false;
 // start.gg API 関連の状態保持
 let startggPhasesList = [];
 let currentTargetGroupIdFromUrl = null;
+let lastAutoConfigSummary = '';
 
 // ロゴ画像の縦ピクセル上限（横幅は無制限）と白黒判定の許容誤差
 const MAX_LOGO_HEIGHT = 160;
@@ -81,7 +82,7 @@ startggTokenInput.addEventListener('change', () => {
 });
 
 // === トーナメント形式（ダブル/シングル）切り替え時のUI連動 ===
-elimFormatSelect.addEventListener('change', () => {
+function syncElimFormatUI() {
     const isSingle = elimFormatSelect.value === 'single';
     if (isSingle) {
         losersAdvanceCount.disabled = true;
@@ -96,7 +97,9 @@ elimFormatSelect.addEventListener('change', () => {
     }
     updateRecommendedPrintConfig(true);
     validateForm();
-});
+}
+
+elimFormatSelect.addEventListener('change', syncElimFormatUI);
 
 // === 推奨印刷設定の算出 ===
 function updateRecommendedPrintConfig(autoSelect = true) {
@@ -552,8 +555,8 @@ winnersAdvanceCount.addEventListener('change', validateForm);
 losersAdvanceCount.addEventListener('change', validateForm);
 targetPhaseInput.addEventListener('input', validateForm);
 
-// === 共通：構築された poolsData をUI（プール選択プルダウン等）に適用するヘルパー ===
-function applyParsedPoolsData(parsedPools, preferredPoolName = null) {
+// === 共通：構築された poolsData をUIに適用するヘルパー ===
+function applyParsedPoolsData(parsedPools, preferredPoolName = null, extraStatusLine = '') {
     const poolNames = Object.keys(parsedPools);
     if (poolNames.length === 0) {
         alert('エラー: 有効なプール・プレイヤーデータが見つかりませんでした。');
@@ -562,6 +565,7 @@ function applyParsedPoolsData(parsedPools, preferredPoolName = null) {
 
     poolsData = parsedPools;
     isCsvValid = true;
+    lastAutoConfigSummary = extraStatusLine;
 
     maxPoolPlayerCount = Math.max(...poolNames.map(pName => parsedPools[pName].count));
     updateRecommendedPrintConfig(true);
@@ -585,8 +589,12 @@ function applyParsedPoolsData(parsedPools, preferredPoolName = null) {
     }
 
     const activePool = poolSelect.value;
-    csvStatus.textContent = `✅ 読み込み完了: Pool ${activePool} (${parsedPools[activePool].count}人 / 最大${maxPoolPlayerCount}人基準)`;
-    csvStatus.className = 'text-[11px] text-green-600 font-bold';
+    let statusMsg = `✅ 読み込み完了: Pool ${activePool} (${parsedPools[activePool].count}人 / 最大${maxPoolPlayerCount}人基準)`;
+    if (extraStatusLine) {
+        statusMsg += `\n${extraStatusLine}`;
+    }
+    csvStatus.textContent = statusMsg;
+    csvStatus.className = 'text-[11px] text-green-600 font-bold whitespace-pre-line leading-relaxed';
     csvStatus.classList.remove('hidden');
 
     validateForm();
@@ -601,7 +609,6 @@ csvUpload.addEventListener('change', (e) => {
         return;
     }
 
-    // CSVを選択した場合はフェーズ選択UIを隠す
     phaseSelectWrapper.classList.add('hidden');
 
     Papa.parse(file, {
@@ -669,7 +676,7 @@ csvUpload.addEventListener('change', (e) => {
     });
 });
 
-// === 手順1-B: start.gg GraphQL APIからのデータ取得 ===
+// === 手順1-B: start.gg GraphQL APIからのデータ＆トーナメント設定（形式・通過人数・進出先フェーズ名）自動取得 ===
 function parseStartggBracketUrl(rawUrl) {
     const trimmed = rawUrl.trim();
     const match = trimmed.match(/tournament\/([^\/]+)\/event\/([^\/\?\#]+)/);
@@ -706,9 +713,165 @@ async function callStartggGraphQL(token, query, variables) {
     return json.data;
 }
 
+// 取得したセット一覧またはprogressionsOutから、勝者側・敗者側の通過人数(W, L)を自動解析するヘルパー
+function deduceAdvanceCountsFromGroup(setsNodes, progressionsCount, isSingleElim) {
+    let wCount = null;
+    let lCount = null;
+
+    if (Array.isArray(setsNodes) && setsNodes.length > 0) {
+        // Grand Final系を除いた通常の勝者側・敗者側セットを抽出
+        const validSets = setsNodes.filter(s => {
+            const txt = (s.fullRoundText || '').toLowerCase();
+            return !txt.includes('grand final') && !txt.includes('reset');
+        });
+
+        const wSets = validSets.filter(s => typeof s.round === 'number' && s.round > 0);
+        const lSets = validSets.filter(s => typeof s.round === 'number' && s.round < 0);
+
+        if (wSets.length > 0) {
+            const maxWRound = Math.max(...wSets.map(s => s.round));
+            const finalWMatches = wSets.filter(s => s.round === maxWRound).length;
+            if ([1, 2, 4].includes(finalWMatches)) {
+                wCount = finalWMatches;
+            }
+        }
+
+        if (!isSingleElim && lSets.length > 0 && wCount !== null) {
+            const minLRound = Math.min(...lSets.map(s => s.round));
+            const finalLMatches = lSets.filter(s => s.round === minLRound).length;
+            const prevLMatches = lSets.filter(s => s.round === minLRound + 1).length;
+
+            // 最終ラウンドと同じ試合数のラウンドが直前にもある場合、勝者側最終戦の敗者が敗者側へ落下している (L = finalLMatches)
+            // 直前のラウンドから試合数が半減して終了している場合、勝者側最終戦の敗者はそのまま[L]通過している (L = finalLMatches + wCount)
+            let deducedL = (finalLMatches === prevLMatches) ? finalLMatches : (finalLMatches + wCount);
+            if ([1, 2, 4, 8].includes(deducedL)) {
+                lCount = deducedL;
+            } else if ([1, 2, 4, 8].includes(finalLMatches)) {
+                lCount = finalLMatches;
+            }
+        }
+    }
+
+    // もしセットが未生成でも、progressionsOut（通過枠数）が取得できていれば逆算する
+    if ((wCount === null || (!isSingleElim && lCount === null)) && progressionsCount > 0) {
+        if (isSingleElim) {
+            if ([1, 2, 4].includes(progressionsCount)) wCount = progressionsCount;
+        } else {
+            // ダブルエリミ定石の合計通過人数マップ (2->W1L1, 3->W1L2, 4->W2L2, 6->W2L4, 8->W4L4, 12->W4L8)
+            const totalMap = {
+                2: { w: 1, l: 1 },
+                3: { w: 1, l: 2 },
+                4: { w: 2, l: 2 },
+                6: { w: 2, l: 4 },
+                8: { w: 4, l: 4 },
+                12: { w: 4, l: 8 }
+            };
+            if (totalMap[progressionsCount]) {
+                if (wCount === null) wCount = totalMap[progressionsCount].w;
+                if (lCount === null) lCount = totalMap[progressionsCount].l;
+            }
+        }
+    }
+
+    return { wCount, lCount };
+}
+
+async function autoDetectBracketConfig(token, phaseId, samplePhaseGroupId) {
+    const currentPhaseObj = startggPhasesList.find(p => String(p.id) === String(phaseId));
+    let bracketType = currentPhaseObj?.bracketType || null;
+    let nextPhaseName = '';
+    let wCount = null;
+    let lCount = null;
+
+    // 1. イベント内のフェーズ順序 (phaseOrder) から次のフェーズ名を特定
+    if (currentPhaseObj && startggPhasesList.length > 1) {
+        const sortedPhases = [...startggPhasesList].sort((a, b) => (a.phaseOrder || 0) - (b.phaseOrder || 0));
+        const idx = sortedPhases.findIndex(p => String(p.id) === String(phaseId));
+        if (idx >= 0 && idx + 1 < sortedPhases.length) {
+            nextPhaseName = sortedPhases[idx + 1].name || '';
+        }
+    }
+
+    // 2. サンプルPhaseGroupから progressionsOut と sets を取得して通過人数と進出先フェーズを特定
+    if (samplePhaseGroupId) {
+        try {
+            const pgQuery = `
+                query GetPhaseGroupAutoConfig($pgId: ID!) {
+                    phaseGroup(id: $pgId) {
+                        id
+                        bracketType
+                        progressionsOut {
+                            originPlacement
+                        }
+                        sets(page: 1, perPage: 90) {
+                            nodes {
+                                round
+                                fullRoundText
+                            }
+                        }
+                    }
+                }
+            `;
+            const pgData = await callStartggGraphQL(token, pgQuery, { pgId: samplePhaseGroupId });
+            const pg = pgData?.phaseGroup;
+            if (pg) {
+                if (!bracketType && pg.bracketType) bracketType = pg.bracketType;
+                const isSingle = bracketType === 'SINGLE_ELIMINATION';
+                const progCount = Array.isArray(pg.progressionsOut) ? pg.progressionsOut.length : 0;
+                const setsNodes = pg.sets?.nodes || [];
+
+                const deduced = deduceAdvanceCountsFromGroup(setsNodes, progCount, isSingle);
+                wCount = deduced.wCount;
+                lCount = deduced.lCount;
+            }
+        } catch (subErr) {
+            console.warn('PhaseGroup詳細からの自動判定をスキップしました:', subErr);
+        }
+    }
+
+    // 3. フォームUIへ自動反映
+    const summaryParts = [];
+
+    if (bracketType === 'SINGLE_ELIMINATION') {
+        elimFormatSelect.value = 'single';
+        syncElimFormatUI();
+        summaryParts.push('シングルエリミ');
+    } else if (bracketType === 'DOUBLE_ELIMINATION') {
+        elimFormatSelect.value = 'double';
+        syncElimFormatUI();
+        summaryParts.push('ダブルエリミ');
+    }
+
+    if (wCount !== null && [1, 2, 4].includes(wCount)) {
+        winnersAdvanceCount.value = String(wCount);
+    }
+    if (elimFormatSelect.value !== 'single' && lCount !== null && [1, 2, 4, 8].includes(lCount)) {
+        losersAdvanceCount.value = String(lCount);
+    }
+
+    if (winnersAdvanceCount.value) {
+        if (elimFormatSelect.value === 'single') {
+            summaryParts.push(`${winnersAdvanceCount.value}人抜け`);
+        } else if (losersAdvanceCount.value) {
+            summaryParts.push(`W${winnersAdvanceCount.value}L${losersAdvanceCount.value}`);
+        }
+    }
+
+    if (nextPhaseName) {
+        targetPhaseInput.value = nextPhaseName;
+        summaryParts.push(`通過先: ${nextPhaseName}`);
+    } else if (!targetPhaseInput.value.trim() && currentPhaseObj?.name) {
+        // 最終フェーズ等で次のフェーズが存在しない場合のフォールバック
+        targetPhaseInput.value = 'Final Stage';
+    }
+
+    validateForm();
+    return summaryParts.length > 0 ? `⚡ 自動設定: ${summaryParts.join(' / ')}` : '';
+}
+
 async function loadPoolsFromStartggPhase(token, phaseId, targetPhaseGroupId = null) {
-    csvStatus.textContent = '⏳ start.ggからシード・プール情報を取得中...';
-    csvStatus.className = 'text-[11px] text-blue-600 font-bold';
+    csvStatus.textContent = '⏳ start.ggからシード・ブラケット設定を取得中...';
+    csvStatus.className = 'text-[11px] text-blue-600 font-bold whitespace-pre-line leading-relaxed';
     csvStatus.classList.remove('hidden');
 
     const query = `
@@ -716,6 +879,7 @@ async function loadPoolsFromStartggPhase(token, phaseId, targetPhaseGroupId = nu
             phase(id: $phaseId) {
                 id
                 name
+                bracketType
                 seeds(query: { page: $page, perPage: 100 }) {
                     pageInfo {
                         totalPages
@@ -759,16 +923,19 @@ async function loadPoolsFromStartggPhase(token, phaseId, targetPhaseGroupId = nu
         throw new Error('このフェーズにはシード（参加者）が登録されていません。');
     }
 
-    // phaseGroupごとにグループ化
     const rawGroups = {};
     let preferredPoolName = null;
+    let samplePhaseGroupId = targetPhaseGroupId || null;
 
     allSeeds.forEach(seedNode => {
-        if (!seedNode.entrant) return; // BYE枠や空シードは除外
+        if (!seedNode.entrant) return;
         const pg = seedNode.phaseGroup;
         const rawIdentifier = pg?.displayIdentifier ? String(pg.displayIdentifier).trim() : '1';
         const poolName = rawIdentifier.replace(/00$/, '') || rawIdentifier;
 
+        if (!samplePhaseGroupId && pg?.id) {
+            samplePhaseGroupId = pg.id;
+        }
         if (targetPhaseGroupId && pg && String(pg.id) === String(targetPhaseGroupId)) {
             preferredPoolName = poolName;
         }
@@ -797,7 +964,6 @@ async function loadPoolsFromStartggPhase(token, phaseId, targetPhaseGroupId = nu
         });
     });
 
-    // 各プール内でフェーズ全体シード(phaseSeedNum)の昇順にソートし、1から順に「Pool Seed」を割り当てる
     const parsedPools = {};
     Object.keys(rawGroups)
         .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
@@ -819,7 +985,10 @@ async function loadPoolsFromStartggPhase(token, phaseId, targetPhaseGroupId = nu
             });
         });
 
-    applyParsedPoolsData(parsedPools, preferredPoolName);
+    // エリミネーション形式・通過人数(W/L)・通過先フェーズ名を自動検出して反映
+    const autoConfigSummary = await autoDetectBracketConfig(token, phaseId, samplePhaseGroupId);
+
+    applyParsedPoolsData(parsedPools, preferredPoolName, autoConfigSummary);
 }
 
 fetchStartggBtn.addEventListener('click', async () => {
@@ -845,7 +1014,7 @@ fetchStartggBtn.addEventListener('click', async () => {
     }
 
     localStorage.setItem('bracket_printer_startgg_token', token);
-    csvUpload.value = ''; // CSV選択をクリア
+    csvUpload.value = '';
     currentTargetGroupIdFromUrl = parsedUrl.phaseGroupId;
 
     const origBtnText = fetchStartggBtn.textContent;
@@ -861,6 +1030,8 @@ fetchStartggBtn.addEventListener('click', async () => {
                     phases {
                         id
                         name
+                        bracketType
+                        phaseOrder
                     }
                 }
             }
@@ -885,7 +1056,6 @@ fetchStartggBtn.addEventListener('click', async () => {
             phaseSelect.appendChild(opt);
         });
 
-        // URLに phaseId が含まれていればそのPhaseを選択、なければ最初のPhaseを選択
         if (parsedUrl.phaseId && phases.some(ph => String(ph.id) === String(parsedUrl.phaseId))) {
             phaseSelect.value = parsedUrl.phaseId;
         } else {
@@ -925,7 +1095,11 @@ phaseSelect.addEventListener('change', async () => {
 poolSelect.addEventListener('change', () => {
     const selected = poolSelect.value;
     if (poolsData[selected]) {
-        csvStatus.textContent = `✅ 選択中: Pool ${selected} (${poolsData[selected].count}人 / 最大${maxPoolPlayerCount}人基準)`;
+        let msg = `✅ 選択中: Pool ${selected} (${poolsData[selected].count}人 / 最大${maxPoolPlayerCount}人基準)`;
+        if (lastAutoConfigSummary) {
+            msg += `\n${lastAutoConfigSummary}`;
+        }
+        csvStatus.textContent = msg;
     }
 });
 
@@ -933,6 +1107,7 @@ function resetCsvInput() {
     csvUpload.value = '';
     isCsvValid = false;
     poolsData = {};
+    lastAutoConfigSummary = '';
     csvStatus.classList.add('hidden');
     phaseSelectWrapper.classList.add('hidden');
     poolSelectWrapper.classList.add('hidden');
