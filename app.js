@@ -1940,9 +1940,9 @@ function appendLosersAfter2Matches(lContainer, twoMatchLabels, wsfLabels, wfLabe
         return;
     }
 
-    // WSF敗者2名が交差順 (wsfLabels[1], wsfLabels[0]) で落下するラウンド (2試合)
+    // 9〜16人では前段(WQF敗者の落下時点)で既に上下の山が反転しているため、LQFへは順方向 (wsfLabels[0], wsfLabels[1]) で落下する
     const colWsfDrop = createRoundColumn(roundNames.wsfDrop, 'losers');
-    const wsfDropOrder = [wsfLabels[1], wsfLabels[0]];
+    const wsfDropOrder = [wsfLabels[0], wsfLabels[1]];
     const wsfDropRoundLabels = [];
     for (let k = 0; k < 2; k++) {
         const lbl = nextLabel();
