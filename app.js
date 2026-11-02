@@ -365,7 +365,6 @@ logoUpload.addEventListener('change', (e) => {
                 const b = imageData[i + 2];
                 const a = imageData[i + 3];
 
-                // 透明ピクセル(a < 16)は無視し、可視ピクセルに色味(RGB差 > 15)がある場合はエラー
                 if (a >= 16) {
                     const maxChannel = Math.max(r, g, b);
                     const minChannel = Math.min(r, g, b);
@@ -892,6 +891,17 @@ function createMatchNode(matchLabel, player1Name, player2Name, seed1 = '', seed2
     return wrapper;
 }
 
+// 文字列の表示幅（全角＝2、半角＝1）を計算してフォントサイズを決定するヘルパー
+function getQualifierFontSize(text) {
+    let units = 0;
+    for (const ch of text) {
+        units += ch.charCodeAt(0) > 255 ? 2 : 1;
+    }
+    if (units > 28) return '11px';
+    if (units > 20) return '12px';
+    return '13px';
+}
+
 function createQualifierNode(matchSourceLabel, targetPhase, targetType = 'W', includeLoserSlot = false, lineType = 'straight') {
     const wrapper = createElement('div', 'match-wrapper');
     if (lineType === 'straight') wrapper.classList.add('straight-line');
@@ -899,16 +909,27 @@ function createQualifierNode(matchSourceLabel, targetPhase, targetType = 'W', in
     const box = createElement('div', 'qualifier-box');
     box.appendChild(createElement('span', 'qual-drop-label-top', `Winner of ${matchSourceLabel}`));
 
+    const textW = `${targetPhase} [W]`;
+    const textL = `${targetPhase} [L]`;
+    const textSingle = `${targetPhase} [${targetType}]`;
+
     if (targetType === 'W' && includeLoserSlot) {
         box.style.height = '48px';
-        const slot1 = createElement('div', 'qualifier-slot border-b border-black', `${targetPhase} [W]`);
+        const fontSize = getQualifierFontSize(textW.length >= textL.length ? textW : textL);
+        const slot1 = createElement('div', 'qualifier-slot border-b border-black', textW);
+        slot1.style.fontSize = fontSize;
         box.appendChild(slot1);
-        const slot2 = createElement('div', 'qualifier-slot', `${targetPhase} [L]`);
+
+        const slot2 = createElement('div', 'qualifier-slot', textL);
+        slot2.style.fontSize = fontSize;
         box.appendChild(slot2);
+
         box.appendChild(createElement('span', 'qual-drop-label-bottom', `Loser of ${matchSourceLabel}`));
     } else {
         box.style.height = '26px';
-        box.appendChild(createElement('div', 'qualifier-slot', `${targetPhase} [${targetType}]`));
+        const slot = createElement('div', 'qualifier-slot', textSingle);
+        slot.style.fontSize = getQualifierFontSize(textSingle);
+        box.appendChild(slot);
     }
 
     wrapper.appendChild(box);
