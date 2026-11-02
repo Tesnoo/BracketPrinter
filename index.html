@@ -71,7 +71,7 @@
 
         #preview-area {
             width: 2362px;
-            min-height: 1670px;
+            min-height: 1000px;
             padding: 24px 30px;
             box-sizing: border-box;
             background-color: #ffffff;
@@ -557,7 +557,7 @@
                 </div>
             </div>
 
-            <!-- 手順5: 途中で最大セット数を変更 -->
+            <!-- 手順5: 途中で最大セット数を変更（存在するラウンドのみ動的にリストアップ） -->
             <div class="flex flex-col gap-2 text-xs shrink-0">
                 <label class="font-bold text-gray-700">5. 途中で最大セット数を変更</label>
                 <div class="flex gap-4">
@@ -574,11 +574,6 @@
                         <span class="text-[11px] font-semibold text-gray-700">どのラウンドから変更しますか？ (勝者側)</span>
                         <select id="winners-round-select" class="w-full border border-gray-300 rounded p-1 bg-white text-[11px]">
                             <option value="none" selected>勝者側は変更しない</option>
-                            <option value="Winners Round 1">Winners Round 1 以降</option>
-                            <option value="Winners Round 2">Winners Round 2 以降</option>
-                            <option value="Winners Quarter-Final">Winners Quarter-Final 以降</option>
-                            <option value="Winners Semi-Final">Winners Semi-Final 以降</option>
-                            <option value="Winners Final">Winners Final のみ</option>
                         </select>
                         <div class="flex items-center gap-1 mt-1">
                             <select id="winners-bo-select" class="flex-1 border border-gray-300 rounded p-1 bg-white text-[11px]">
@@ -594,14 +589,6 @@
                         <span class="text-[11px] font-semibold text-gray-700">どのラウンドから変更しますか？ (敗者側)</span>
                         <select id="losers-round-select" class="w-full border border-gray-300 rounded p-1 bg-white text-[11px]">
                             <option value="none" selected>敗者側は変更しない</option>
-                            <option value="Losers Round 1">Losers Round 1 以降</option>
-                            <option value="Losers Round 2">Losers Round 2 以降</option>
-                            <option value="Losers Round 3">Losers Round 3 以降</option>
-                            <option value="Losers Round 4">Losers Round 4 以降</option>
-                            <option value="Losers Round 5">Losers Round 5 以降</option>
-                            <option value="Losers Quarter-Final">Losers Quarter-Final 以降</option>
-                            <option value="Losers Semi-Final">Losers Semi-Final 以降</option>
-                            <option value="Losers Final">Losers Final のみ</option>
                         </select>
                         <div class="flex items-center gap-1 mt-1">
                             <select id="losers-bo-select" class="flex-1 border border-gray-300 rounded p-1 bg-white text-[11px]">
