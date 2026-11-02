@@ -17,7 +17,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
     <style>
-        body, #preview-area {
+        body, #preview-area, .batch-print-sheet {
             font-family: 'Roboto', sans-serif;
             -webkit-font-smoothing: antialiased;
         }
@@ -34,7 +34,7 @@
                 height: auto !important;
                 background-color: #ffffff !important;
                 display: block !important;
-                overflow: hidden !important;
+                overflow: visible !important;
             }
             #sidebar-panel {
                 display: none !important;
@@ -44,8 +44,15 @@
                 padding: 0 !important;
                 width: 100% !important;
                 height: auto !important;
-                overflow: hidden !important;
+                overflow: visible !important;
                 background-color: #ffffff !important;
+                display: block !important;
+            }
+            /* 一括印刷モード時は単一プレビューを隠して一括印刷コンテナのみ表示 */
+            body.batch-printing #preview-viewport {
+                display: none !important;
+            }
+            body.batch-printing #batch-print-container {
                 display: block !important;
             }
             .text-box-controls {
@@ -69,7 +76,7 @@
             transform-origin: top left;
         }
 
-        #preview-area {
+        #preview-area, .batch-print-sheet {
             width: 2362px;
             min-height: 1000px;
             padding: 24px 30px;
@@ -168,6 +175,18 @@
             box-sizing: border-box;
         }
 
+        /* フェーズ通過枠専用の太い点線コネクタ */
+        .match-wrapper.qualifier-line::before {
+            content: '';
+            position: absolute;
+            left: -22px;
+            top: 50%;
+            width: 22px;
+            border-top: 3px dotted #000;
+            transform: translateY(-50%);
+            box-sizing: border-box;
+        }
+
         .match-box {
             display: flex;
             align-items: center;
@@ -207,7 +226,7 @@
 
         .qual-drop-label-top {
             position: absolute;
-            top: -14px;
+            top: -15px;
             left: 2px;
             font-size: 11px;
             font-weight: 500;
@@ -217,7 +236,7 @@
         }
         .qual-drop-label-bottom {
             position: absolute;
-            bottom: -14px;
+            bottom: -15px;
             left: 2px;
             font-size: 11px;
             font-weight: 500;
@@ -317,12 +336,13 @@
         .score-box { flex: 1; }
         .score-box:first-child { border-bottom: 1px solid #000; }
 
+        /* フェーズ名が入るブロックの枠を二重線 (4px double #000) に設定 */
         .qualifier-box {
             display: flex;
             flex-direction: column;
             width: 100%;
             min-width: 164px;
-            border: 1.5px solid #000;
+            border: 4px double #000;
             background-color: white;
             position: relative;
             z-index: 10;
@@ -337,7 +357,7 @@
             justify-content: center;
             font-size: 13px;
             font-weight: 700;
-            height: 23px;
+            height: 22px;
             white-space: nowrap;
             line-height: 1;
             box-sizing: border-box;
@@ -445,6 +465,27 @@
                 <img src="BracketPrinter_logo.png" alt="Bracket Printer Logo" class="w-8 h-8 object-contain">
                 <h1 class="text-2xl font-bold text-gray-800">Bracket Printer</h1>
             </div>
+
+            <!-- 手順1の前：大会名・フェーズ区分 (任意) -->
+            <div class="flex flex-col gap-2 bg-gray-50 p-2.5 rounded border border-gray-200 text-xs shrink-0">
+                <label class="font-bold text-gray-700">大会名・フェーズ区分 (任意)</label>
+                <div>
+                    <span class="text-[11px] text-gray-500 block mb-0.5">大会名</span>
+                    <input type="text" id="tournament-name-input" placeholder="(例) Weekly Smash Party" class="w-full border border-gray-300 rounded p-1.5 bg-white text-xs">
+                </div>
+                <div>
+                    <span class="text-[11px] text-gray-500 block mb-0.5">フェーズの区分</span>
+                    <select id="phase-category-select" class="w-full border border-gray-300 rounded p-1.5 bg-white text-xs">
+                        <option value="" selected>指定なし</option>
+                        <option value="予選">予選</option>
+                        <option value="本戦">本戦</option>
+                        <option value="custom">カスタム</option>
+                    </select>
+                    <input type="text" id="phase-category-custom-input" placeholder="(例) DAY 2/TOP 192" class="hidden w-full border border-gray-300 rounded p-1.5 bg-white text-xs mt-1.5">
+                </div>
+            </div>
+
+            <hr class="border-gray-200 shrink-0">
             
             <!-- 手順1: CSVファイル読み込み または start.gg API連携 -->
             <div class="flex flex-col gap-2 shrink-0">
@@ -557,7 +598,7 @@
                 </div>
             </div>
 
-            <!-- 手順5: 途中で最大セット数を変更（存在するラウンドのみ動的にリストアップ） -->
+            <!-- 手順5: 途中で最大セット数を変更 -->
             <div class="flex flex-col gap-2 text-xs shrink-0">
                 <label class="font-bold text-gray-700">5. 途中で最大セット数を変更</label>
                 <div class="flex gap-4">
@@ -615,14 +656,14 @@
 
             <hr class="border-gray-200 shrink-0">
 
-            <!-- アコーディオン：印刷オプション -->
+            <!-- アコーディオン：印刷オプション（矢印に .accordion-arrow を付与してバッジ反転を防止） -->
             <div class="border border-gray-200 rounded-lg shrink-0">
-                <button class="accordion-toggle w-full flex justify-between items-center p-2.5 bg-gray-50 hover:bg-gray-100 font-bold text-xs text-gray-700 transition rounded-t-lg">
+                <button type="button" class="accordion-toggle w-full flex justify-between items-center p-2.5 bg-gray-50 hover:bg-gray-100 font-bold text-xs text-gray-700 transition rounded-t-lg">
                     <span class="flex items-center gap-1.5">
                         <span>🖨️ 印刷オプション</span>
                         <span id="print-rec-status-badge" class="bg-orange-100 text-[#FA8534] border border-orange-200 text-[10px] px-1.5 py-0.5 rounded font-bold">★推奨設定</span>
                     </span>
-                    <span class="transform transition-transform duration-200">▼</span>
+                    <span class="accordion-arrow transform transition-transform duration-200">▼</span>
                 </button>
                 <div class="accordion-content bg-white px-3 py-2.5 flex flex-col gap-2.5 text-xs border-t border-gray-200 rounded-b-lg" style="display: none;">
                     <div id="print-rec-reason-box" class="bg-orange-50 border border-orange-200 rounded p-1.5 text-[11px] text-orange-800 flex items-center justify-between">
@@ -669,9 +710,9 @@
 
             <!-- アコーディオン：描画オプション -->
             <div class="border border-gray-200 rounded-lg shrink-0">
-                <button class="accordion-toggle w-full flex justify-between items-center p-2.5 bg-gray-50 hover:bg-gray-100 font-bold text-xs text-gray-700 transition rounded-t-lg">
+                <button type="button" class="accordion-toggle w-full flex justify-between items-center p-2.5 bg-gray-50 hover:bg-gray-100 font-bold text-xs text-gray-700 transition rounded-t-lg">
                     <span>🎨 描画オプション(任意)</span>
-                    <span class="transform transition-transform duration-200">▼</span>
+                    <span class="accordion-arrow transform transition-transform duration-200">▼</span>
                 </button>
                 <div class="accordion-content bg-white px-3 py-2.5 flex flex-col gap-2.5 text-xs border-t border-gray-200 rounded-b-lg" style="display: none;">
                     <div>
@@ -719,7 +760,10 @@
                     画像 (JPG) として保存
                 </button>
                 <button id="export-pdf-btn" class="bg-red-600 text-white px-4 py-2 rounded shadow hover:bg-red-700 transition font-bold text-sm">
-                    PDFとして出力 (印刷)
+                    現在のPoolをPDF出力 (印刷)
+                </button>
+                <button id="export-all-pdf-btn" class="bg-purple-700 text-white px-4 py-2 rounded shadow hover:bg-purple-800 transition font-bold text-sm">
+                    全PoolをPDF一括出力 (印刷)
                 </button>
             </div>
         </div>
@@ -760,6 +804,9 @@
             </div>
         </div>
     </div>
+
+    <!-- 複数プールPDF一括印刷用の非表示コンテナ -->
+    <div id="batch-print-container" class="hidden"></div>
 
     <script src="app.js"></script>
 </body>
