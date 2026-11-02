@@ -95,8 +95,10 @@
             flex-shrink: 0;
         }
 
+        /* 進出先フェーズ列：文字数に応じて横幅が自動で伸びるよう設定 */
         .round-col.qualifier-col {
-            width: 164px;
+            width: max-content;
+            min-width: 164px;
         }
 
         .round-header {
@@ -206,7 +208,7 @@
 
         .qual-drop-label-top {
             position: absolute;
-            top: -13px;
+            top: -14px;
             left: 2px;
             font-size: 11px;
             font-weight: 500;
@@ -216,7 +218,7 @@
         }
         .qual-drop-label-bottom {
             position: absolute;
-            bottom: -13px;
+            bottom: -14px;
             left: 2px;
             font-size: 11px;
             font-weight: 500;
@@ -316,10 +318,12 @@
         .score-box { flex: 1; }
         .score-box:first-child { border-bottom: 1px solid #000; }
 
+        /* 進出先フェーズ枠：折り返しを禁止し、文字数に応じて枠の横幅を自動拡張 */
         .qualifier-box {
             display: flex;
             flex-direction: column;
-            width: 164px;
+            width: 100%;
+            min-width: 164px;
             border: 1.5px solid #000;
             background-color: white;
             position: relative;
@@ -329,19 +333,21 @@
         }
         .qualifier-slot {
             flex: 1;
-            padding: 0 6px;
+            padding: 0 10px;
             display: flex;
             align-items: center;
             justify-content: center;
             font-size: 13px;
             font-weight: 700;
             height: 23px;
+            white-space: nowrap;
+            line-height: 1;
             box-sizing: border-box;
         }
 
-        /* === Check-in / Gamer Tag 名簿テーブル === */
+        /* === Check-in / Gamer Tag 名簿テーブル（Check-inの1行固定 ＆ GamerTag幅を約5文字分拡大） === */
         .checkin-table {
-            width: 280px;
+            width: 356px;
             border: 1.5px solid #000;
             border-collapse: collapse;
             background-color: #ffffff;
@@ -351,13 +357,14 @@
             font-size: 13px;
             font-weight: 700;
             text-align: center;
-            padding: 5px 6px;
+            padding: 5px 8px;
             border-bottom: 1.5px solid #000;
             color: #000;
             line-height: 1.2;
+            white-space: nowrap;
         }
         .checkin-table th:first-child {
-            width: 62px;
+            width: 76px;
             border-right: 1px solid #000;
         }
         .checkin-table td {
@@ -385,7 +392,7 @@
         }
         .gamertag-cell-text {
             display: block;
-            width: 200px;
+            width: 264px;
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
