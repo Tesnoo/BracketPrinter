@@ -17,7 +17,7 @@ let lastAutoConfigSummary = '';
 let currentActiveWinnersRounds = [];
 let currentActiveLosersRounds = [];
 
-// 印刷計算パラメータ保持（一括印刷用）
+// 印刷計算パラメータ保持
 let lastComputedPrintMetrics = {
     canvasWidth: 2362,
     canvasHeight: 1670,
@@ -109,7 +109,6 @@ startggTokenInput.addEventListener('change', () => {
 });
 
 // === 左上タイトル文字列を生成するヘルパー ===
-// 形式: 「{大会名} {フェーズ名} Pool {Pool名} - {Elimination} ({人数} players)」
 function buildPoolHeaderTitle(poolName, elimTitle, playerCount) {
     const tName = tournamentNameInput ? tournamentNameInput.value.trim() : '';
     const showPhase = showPhaseNameCheckbox ? showPhaseNameCheckbox.checked : true;
@@ -508,6 +507,27 @@ function applyPrintAndDrawOptions() {
     logoDisplayContainer.style.bottom = `${margin.v}px`;
     logoDisplayContainer.style.right = `${margin.h}px`;
 
+    // ロゴの配置（既に同じsrcのimgが存在する場合は再生成しないことでデコード切れを防ぐ）
+    if (pendingLogoDataUrl) {
+        let existingImg = logoDisplayContainer.querySelector('img');
+        if (!existingImg) {
+            existingImg = document.createElement('img');
+            existingImg.alt = 'Tournament Logo';
+            existingImg.style.maxHeight = `${MAX_LOGO_HEIGHT}px`;
+            existingImg.style.width = 'auto';
+            existingImg.style.height = 'auto';
+            existingImg.className = 'object-contain block';
+            logoDisplayContainer.appendChild(existingImg);
+        }
+        if (existingImg.getAttribute('src') !== pendingLogoDataUrl) {
+            existingImg.src = pendingLogoDataUrl;
+        }
+        logoDisplayContainer.classList.remove('hidden');
+    } else {
+        logoDisplayContainer.innerHTML = '';
+        logoDisplayContainer.classList.add('hidden');
+    }
+
     const headerEl = document.getElementById('preview-header');
     const sheetBodyEl = document.getElementById('main-sheet-body');
     const bracketEl = document.getElementById('bracket-container');
@@ -518,6 +538,10 @@ function applyPrintAndDrawOptions() {
     let naturalWidth = 1900;
 
     if (isSheetDrawn) {
+        // 前のプールの幅・高さ影響をリセットしてから正確に自然サイズを計測
+        const prevTransform = scaleWrapper.style.transform;
+        scaleWrapper.style.transform = 'none';
+        previewArea.style.width = '2400px';
         previewArea.style.height = 'auto';
         previewArea.style.minHeight = '0px';
 
@@ -528,10 +552,14 @@ function applyPrintAndDrawOptions() {
         const lWidth = lContainer ? lContainer.offsetWidth : 0;
         const rosterWidth = rosterEl ? rosterEl.offsetWidth : 0;
         const rosterHeight = rosterEl ? rosterEl.offsetHeight : 0;
+        const logoHeight = pendingLogoDataUrl ? (MAX_LOGO_HEIGHT + 16) : 0;
 
         naturalWidth = Math.max(wWidth + 32 + rosterWidth, lWidth);
         const bracketTotalHeight = bracketEl.offsetHeight;
-        naturalHeight = headerEl.offsetHeight + 14 + Math.max(bracketTotalHeight, rosterHeight);
+        const rightColumnTotalHeight = rosterHeight + logoHeight;
+        naturalHeight = headerEl.offsetHeight + 14 + Math.max(bracketTotalHeight, rightColumnTotalHeight);
+
+        scaleWrapper.style.transform = prevTransform;
     }
 
     const paperRatio = Math.SQRT2;
@@ -574,50 +602,7 @@ function applyPrintAndDrawOptions() {
             size: ${sizeKey} ${orientation};
             margin: 6mm;
         }
-        @media print {
-            #preview-scale-wrapper {
-                position: relative !important;
-                width: ${scaledBoxWidth}px !important;
-                height: ${scaledBoxHeight}px !important;
-                max-width: ${scaledBoxWidth}px !important;
-                max-height: ${scaledBoxHeight}px !important;
-                overflow: hidden !important;
-                transform: none !important;
-                margin: 0 auto !important;
-                padding: 0 !important;
-                display: block !important;
-                page-break-inside: avoid !important;
-                break-inside: avoid !important;
-            }
-            #preview-area {
-                position: absolute !important;
-                left: 0 !important;
-                top: 0 !important;
-                width: ${canvasWidth}px !important;
-                height: ${canvasHeight}px !important;
-                min-height: ${canvasHeight}px !important;
-                transform: scale(${printScale.toFixed(5)}) !important;
-                transform-origin: top left !important;
-                margin: 0 !important;
-                box-shadow: none !important;
-            }
-        }
     `;
-
-    logoDisplayContainer.innerHTML = '';
-    if (pendingLogoDataUrl) {
-        const img = document.createElement('img');
-        img.src = pendingLogoDataUrl;
-        img.alt = 'Tournament Logo';
-        img.style.maxHeight = `${MAX_LOGO_HEIGHT}px`;
-        img.style.width = 'auto';
-        img.style.height = 'auto';
-        img.className = 'object-contain block';
-        logoDisplayContainer.appendChild(img);
-        logoDisplayContainer.classList.remove('hidden');
-    } else {
-        logoDisplayContainer.classList.add('hidden');
-    }
 
     while (pendingTextBoxesCount > 0) {
         createDraggableTextBox();
@@ -627,13 +612,14 @@ function applyPrintAndDrawOptions() {
     setZoom(Number(zoomSlider.value));
 }
 
-// === ロゴ画像の白黒判定・縦サイズ上限(160px)自動縮小処理 ===
+// === ロゴ画像の白黒判定・白背景合成による透過排除＆軽量JPEG圧縮処理 ===
 function resetLogoInput() {
     logoUpload.value = '';
     pendingLogoDataUrl = null;
     clearLogoBtn.classList.add('hidden');
     logoStatus.classList.add('hidden');
     logoStatus.textContent = '';
+    applyPrintAndDrawOptions();
 }
 
 logoUpload.addEventListener('change', (e) => {
@@ -685,28 +671,33 @@ logoUpload.addEventListener('change', (e) => {
                 }
             }
 
+            // 出力サイズ決定（縦上限160px）
+            const scale = origH > MAX_LOGO_HEIGHT ? (MAX_LOGO_HEIGHT / origH) : 1;
+            const targetW = Math.max(1, Math.round(origW * scale));
+            const targetH = Math.max(1, Math.round(origH * scale));
+
+            // 印刷時の透過ラスタライズ（ファイルサイズ3倍化）を防ぐため、白背景(#ffffff)で塗りつぶして不透明軽量JPEGに変換
+            const outCanvas = document.createElement('canvas');
+            outCanvas.width = targetW;
+            outCanvas.height = targetH;
+            const outCtx = outCanvas.getContext('2d');
+            outCtx.fillStyle = '#ffffff';
+            outCtx.fillRect(0, 0, targetW, targetH);
+            outCtx.imageSmoothingEnabled = true;
+            outCtx.imageSmoothingQuality = 'high';
+            outCtx.drawImage(img, 0, 0, targetW, targetH);
+
+            pendingLogoDataUrl = outCanvas.toDataURL('image/jpeg', 0.85);
+
             if (origH > MAX_LOGO_HEIGHT) {
-                const scale = MAX_LOGO_HEIGHT / origH;
-                const targetW = Math.max(1, Math.round(origW * scale));
-                const targetH = MAX_LOGO_HEIGHT;
-
-                const resizeCanvas = document.createElement('canvas');
-                resizeCanvas.width = targetW;
-                resizeCanvas.height = targetH;
-                const resizeCtx = resizeCanvas.getContext('2d');
-                resizeCtx.imageSmoothingEnabled = true;
-                resizeCtx.imageSmoothingQuality = 'high';
-                resizeCtx.drawImage(img, 0, 0, targetW, targetH);
-
-                pendingLogoDataUrl = resizeCanvas.toDataURL('image/png');
-                logoStatus.textContent = `✅ 自動縮小済: ${origW}×${origH}px → ${targetW}×${targetH}px`;
+                logoStatus.textContent = `✅ 自動縮小＆軽量化済: ${origW}×${origH}px → ${targetW}×${targetH}px`;
             } else {
-                pendingLogoDataUrl = checkCanvas.toDataURL('image/png');
-                logoStatus.textContent = `✅ 読み込み完了: ${origW}×${origH}px`;
+                logoStatus.textContent = `✅ 読み込み＆軽量化完了: ${origW}×${origH}px`;
             }
 
             logoStatus.classList.remove('hidden');
             clearLogoBtn.classList.remove('hidden');
+            applyPrintAndDrawOptions();
         };
 
         img.onerror = () => {
@@ -1431,7 +1422,7 @@ poolSelect.addEventListener('change', () => {
     const totalPools = Object.keys(poolsData).length;
     if (poolsData[selected]) {
         const detectedPhaseName = poolsData[selected].phaseName || '';
-        let msg = `✅ 読み込み完了: Pool ${selected} (${poolsData[selected].count}人 / 全${totalPools}プール)`;
+        let msg = `✅ 選択中: Pool ${selected} (${poolsData[selected].count}人 / 全${totalPools}プール)`;
         if (detectedPhaseName) {
             msg += `\n📌 フェーズ名: ${detectedPhaseName}`;
         }
@@ -1589,7 +1580,7 @@ function getRoundBo(roundBaseName, bracketType) {
     return baseBoValue;
 }
 
-// === アコーディオン開閉（矢印アイコンのみを回転させ、★推奨設定バッジは絶対回転させない） ===
+// === アコーディオン開閉 ===
 document.querySelectorAll('.accordion-toggle').forEach(button => {
     button.addEventListener('click', () => {
         const content = button.nextElementSibling;
@@ -1702,7 +1693,7 @@ function createQualifierNode(matchSourceLabel, targetPhase, targetType = 'W', in
     const textSingle = `${targetPhase} [${targetType}]`;
 
     if (targetType === 'W' && includeLoserSlot) {
-        box.style.height = '48px';
+        box.style.height = '52px';
         const fontSize = getQualifierFontSize(textW.length >= textL.length ? textW : textL);
         const slot1 = createElement('div', 'qualifier-slot border-b border-black', textW);
         slot1.style.fontSize = fontSize;
@@ -1714,7 +1705,7 @@ function createQualifierNode(matchSourceLabel, targetPhase, targetType = 'W', in
 
         box.appendChild(createElement('span', 'qual-drop-label-bottom', `Loser of ${matchSourceLabel}`));
     } else {
-        box.style.height = '26px';
+        box.style.height = '30px';
         const slot = createElement('div', 'qualifier-slot', textSingle);
         slot.style.fontSize = getQualifierFontSize(textSingle);
         box.appendChild(slot);
@@ -1804,23 +1795,6 @@ zoomSlider.addEventListener('input', (e) => setZoom(Number(e.target.value)));
 document.getElementById('zoom-reset-btn').addEventListener('click', () => setZoom(100));
 document.getElementById('zoom-fit-btn').addEventListener('click', fitToViewport);
 window.addEventListener('resize', fitToViewport);
-
-let savedZoomBeforePrint = 100;
-window.addEventListener('beforeprint', () => {
-    if (!document.body.classList.contains('batch-printing')) {
-        applyPrintAndDrawOptions();
-    }
-    savedZoomBeforePrint = Number(zoomSlider.value);
-    isPrintingMode = true;
-    scaleWrapper.style.transform = 'none';
-});
-
-window.addEventListener('afterprint', () => {
-    isPrintingMode = false;
-    document.body.classList.remove('batch-printing');
-    batchPrintContainer.innerHTML = '';
-    setZoom(savedZoomBeforePrint);
-});
 
 updateRecommendedPrintConfig(true);
 updateRoundSelectOptions();
@@ -2748,7 +2722,7 @@ function renderPoolSheet(poolName) {
     container.innerHTML = ''; 
     container.style.display = 'flex';
     container.style.flexDirection = 'column';
-    container.style.gap = '24px';
+    container.style.gap = '28px';
 
     if (playerCount >= 25) {
         render25To32Bracket(container, playerCount, getPlayerName, targetPhaseName, wCountNum, lCountNum);
@@ -2855,28 +2829,9 @@ document.getElementById('export-btn').addEventListener('click', async () => {
     }
 });
 
-// === 単一プール PDF出力機能 ===
-document.getElementById('export-pdf-btn').addEventListener('click', () => {
-    const isSheetDrawn = !document.getElementById('main-sheet-body').classList.contains('hidden');
-    if (!isSheetDrawn && !generateBtn.disabled) {
-        renderPoolSheet(poolSelect.value);
-    }
-    applyPrintAndDrawOptions();
-    savedZoomBeforePrint = Number(zoomSlider.value);
-    isPrintingMode = true;
-    scaleWrapper.style.transform = 'none';
-
-    setTimeout(() => {
-        window.print();
-        isPrintingMode = false;
-        setZoom(savedZoomBeforePrint);
-    }, 50);
-});
-
-// === 複数プール PDF一括出力機能 ===
-document.getElementById('export-all-pdf-btn').addEventListener('click', () => {
-    const poolNames = Object.keys(poolsData);
-    if (poolNames.length === 0) {
+// === 単一・複数共通の軽量ベクターPDF印刷実行関数 ===
+async function executePrintPools(targetPoolNames) {
+    if (!targetPoolNames || targetPoolNames.length === 0) {
         alert('プールデータが読み込まれていません。手順1でCSVまたはstart.ggからデータを読み込んでください。');
         return;
     }
@@ -2885,13 +2840,14 @@ document.getElementById('export-all-pdf-btn').addEventListener('click', () => {
         return;
     }
 
-    const originalPoolName = poolSelect.value || poolNames[0];
-    savedZoomBeforePrint = Number(zoomSlider.value);
+    const originalPoolName = poolSelect.value || targetPoolNames[0];
+    const savedZoomBeforePrint = Number(zoomSlider.value);
     isPrintingMode = true;
     scaleWrapper.style.transform = 'none';
     batchPrintContainer.innerHTML = '';
 
-    poolNames.forEach((pName, idx) => {
+    for (let idx = 0; idx < targetPoolNames.length; idx++) {
+        const pName = targetPoolNames[idx];
         renderPoolSheet(pName);
         const { canvasWidth, canvasHeight, printScale, scaledBoxWidth, scaledBoxHeight } = lastComputedPrintMetrics;
 
@@ -2904,10 +2860,11 @@ document.getElementById('export-all-pdf-btn').addEventListener('click', () => {
         pageWrapper.style.overflow = 'hidden';
         pageWrapper.style.margin = '0 auto';
         pageWrapper.style.padding = '0';
+        pageWrapper.style.backgroundColor = '#ffffff';
         pageWrapper.style.pageBreakInside = 'avoid';
         pageWrapper.style.breakInside = 'avoid';
 
-        if (idx < poolNames.length - 1) {
+        if (idx < targetPoolNames.length - 1) {
             pageWrapper.style.pageBreakAfter = 'always';
             pageWrapper.style.breakAfter = 'page';
         } else {
@@ -2918,6 +2875,10 @@ document.getElementById('export-all-pdf-btn').addEventListener('click', () => {
         const clonedSheet = previewArea.cloneNode(true);
         clonedSheet.removeAttribute('id');
         clonedSheet.querySelectorAll('[id]').forEach(el => el.removeAttribute('id'));
+
+        // 非表示要素や操作用UIをDOMから完全削除し、PDFオブジェクト数を最小化
+        clonedSheet.querySelectorAll('.hidden, .text-box-controls').forEach(el => el.remove());
+
         clonedSheet.className = 'batch-print-sheet text-gray-800 relative';
         clonedSheet.style.position = 'absolute';
         clonedSheet.style.left = '0';
@@ -2932,12 +2893,25 @@ document.getElementById('export-all-pdf-btn').addEventListener('click', () => {
 
         pageWrapper.appendChild(clonedSheet);
         batchPrintContainer.appendChild(pageWrapper);
-    });
+    }
 
+    // プレビュー表示を元の選択プールに戻す
     renderPoolSheet(originalPoolName);
-    scaleWrapper.style.transform = 'none';
 
     document.body.classList.add('batch-printing');
+
+    // 全ページのロゴ画像(<img>)のデコード完了を確実に待機してから印刷ダイアログを起動
+    const allPrintImgs = Array.from(batchPrintContainer.querySelectorAll('img'));
+    await Promise.all(allPrintImgs.map(img => {
+        if (img.complete && img.naturalHeight > 0) return Promise.resolve();
+        if (img.decode) {
+            return img.decode().catch(() => {});
+        }
+        return new Promise(resolve => {
+            img.onload = resolve;
+            img.onerror = resolve;
+        });
+    }));
 
     setTimeout(() => {
         window.print();
@@ -2945,5 +2919,16 @@ document.getElementById('export-all-pdf-btn').addEventListener('click', () => {
         batchPrintContainer.innerHTML = '';
         isPrintingMode = false;
         setZoom(savedZoomBeforePrint);
-    }, 80);
+    }, 60);
+}
+
+// === 現在のPoolをPDF出力ボタン ===
+document.getElementById('export-pdf-btn').addEventListener('click', () => {
+    const activePool = poolSelect.value || Object.keys(poolsData)[0];
+    executePrintPools(activePool ? [activePool] : []);
+});
+
+// === 全PoolをPDF一括出力ボタン ===
+document.getElementById('export-all-pdf-btn').addEventListener('click', () => {
+    executePrintPools(Object.keys(poolsData));
 });
