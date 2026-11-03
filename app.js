@@ -44,8 +44,26 @@ let recommendedPrintConfig = {
     reason: '17〜32人 ダブルエリミの推奨設定'
 };
 
+// === 主要大会プリセット定義 ===
+const TOURNAMENT_PRESETS = {
+    'Vic-Seekers': {
+        logoFile: 'vix_logo_black_outline.png',
+        logoRawUrl: 'https://raw.githubusercontent.com/Tesnoo/BracketPrinter/main/vix_logo_black_outline.png',
+        formatName: (n) => n ? `Vic-Seekers #${n}` : 'Vic-Seekers',
+        formatUrl: (n) => n ? `https://www.start.gg/tournament/vic-seekers-${n}/event/ultimate-singles` : ''
+    },
+    'クロブラ': {
+        logoFile: 'kurobra_logo.png',
+        logoRawUrl: 'https://raw.githubusercontent.com/Tesnoo/BracketPrinter/main/kurobra_logo.png',
+        formatName: (n) => n ? `第${n}回クロブラ` : 'クロブラ',
+        formatUrl: (n) => n ? `https://www.start.gg/tournament/${n}-kurobra${n}/event/kurobra-sp-1on1` : ''
+    }
+};
+
 // プリセット・大会名入力・フェーズ名表示チェックボックス要素
 const presetSelect = document.getElementById('preset-select');
+const presetNumberWrapper = document.getElementById('preset-number-wrapper');
+const presetNumberInput = document.getElementById('preset-number-input');
 const tournamentNameInput = document.getElementById('tournament-name-input');
 const showPhaseNameCheckbox = document.getElementById('show-phase-name-checkbox');
 
@@ -109,20 +127,121 @@ startggTokenInput.addEventListener('change', () => {
     localStorage.setItem('bracket_printer_startgg_token', startggTokenInput.value.trim());
 });
 
-// === 主要大会プリセット選択イベント（詳細仕様の拡張用フック） ===
+// === プリセット用ロゴ画像の自動読み込み・軽量化処理 ===
+function loadPresetLogo(presetConfig, presetKey) {
+    if (!presetConfig || (!presetConfig.logoFile && !presetConfig.logoRawUrl)) return;
+
+    const processImageToLogo = (img) => {
+        const origW = img.naturalWidth || img.width;
+        const origH = img.naturalHeight || img.height;
+        if (origW === 0 || origH === 0) return;
+
+        const scale = origH > MAX_LOGO_HEIGHT ? (MAX_LOGO_HEIGHT / origH) : 1;
+        const targetW = Math.max(1, Math.round(origW * scale));
+        const targetH = Math.max(1, Math.round(origH * scale));
+
+        const outCanvas = document.createElement('canvas');
+        outCanvas.width = targetW;
+        outCanvas.height = targetH;
+        const outCtx = outCanvas.getContext('2d');
+        outCtx.fillStyle = '#ffffff';
+        outCtx.fillRect(0, 0, targetW, targetH);
+        outCtx.imageSmoothingEnabled = true;
+        outCtx.imageSmoothingQuality = 'high';
+        outCtx.drawImage(img, 0, 0, targetW, targetH);
+
+        pendingLogoDataUrl = outCanvas.toDataURL('image/jpeg', 0.85);
+        logoUpload.value = '';
+        logoStatus.textContent = `✅ プリセットロゴ適用済 (${presetKey}: ${targetW}×${targetH}px)`;
+        logoStatus.classList.remove('hidden');
+        clearLogoBtn.classList.remove('hidden');
+        applyPrintAndDrawOptions();
+    };
+
+    // 同一リポジトリ内の相対パスを優先し、失敗時はGitHub Raw URLにフォールバック
+    const imgLocal = new Image();
+    imgLocal.crossOrigin = 'anonymous';
+    imgLocal.onload = () => processImageToLogo(imgLocal);
+    imgLocal.onerror = () => {
+        if (!presetConfig.logoRawUrl) return;
+        const imgRemote = new Image();
+        imgRemote.crossOrigin = 'anonymous';
+        imgRemote.onload = () => processImageToLogo(imgRemote);
+        imgRemote.onerror = () => {
+            console.warn(`プリセットロゴ (${presetKey}) の読み込みに失敗しました。`);
+        };
+        imgRemote.src = presetConfig.logoRawUrl;
+    };
+    imgLocal.src = presetConfig.logoFile || presetConfig.logoRawUrl;
+}
+
+// === プリセット選択・ナンバリング入力時の自動反映処理 ===
+function applyPresetFields() {
+    if (!presetSelect) return;
+    const selectedPreset = presetSelect.value;
+    const numStr = presetNumberInput ? presetNumberInput.value.trim() : '';
+
+    if (!selectedPreset) {
+        if (presetNumberWrapper) presetNumberWrapper.classList.add('hidden');
+        return;
+    }
+
+    if (presetNumberWrapper) presetNumberWrapper.classList.remove('hidden');
+
+    const config = TOURNAMENT_PRESETS[selectedPreset];
+    if (config) {
+        if (tournamentNameInput) {
+            tournamentNameInput.value = config.formatName(numStr);
+        }
+        if (startggUrlInput) {
+            startggUrlInput.value = config.formatUrl(numStr);
+        }
+    } else {
+        if (tournamentNameInput) {
+            tournamentNameInput.value = numStr ? `${selectedPreset} #${numStr}` : selectedPreset;
+        }
+    }
+
+    refreshRenderedHeaderTitle();
+}
+
 if (presetSelect) {
     presetSelect.addEventListener('change', () => {
         const selectedPreset = presetSelect.value;
-        if (selectedPreset && tournamentNameInput && !tournamentNameInput.value.trim()) {
-            tournamentNameInput.placeholder = `(例) ${selectedPreset} #1`;
-        } else if (tournamentNameInput && !selectedPreset) {
-            tournamentNameInput.placeholder = '(例) Vic-Seekers #1';
+        if (!selectedPreset) {
+            if (presetNumberWrapper) presetNumberWrapper.classList.add('hidden');
+            if (presetNumberInput) presetNumberInput.value = '';
+            if (tournamentNameInput) tournamentNameInput.placeholder = '(例) Vic-Seekers #1';
+            return;
         }
+
+        if (presetNumberWrapper) presetNumberWrapper.classList.remove('hidden');
+        applyPresetFields();
+
+        const config = TOURNAMENT_PRESETS[selectedPreset];
+        if (config) {
+            loadPresetLogo(config, selectedPreset);
+        }
+        if (presetNumberInput) {
+            presetNumberInput.focus();
+        }
+    });
+}
+
+if (presetNumberInput) {
+    presetNumberInput.addEventListener('input', (e) => {
+        // 半角数字以外の文字を即時除去
+        const cleaned = e.target.value.replace(/[^0-9]/g, '');
+        if (e.target.value !== cleaned) {
+            e.target.value = cleaned;
+        }
+        applyPresetFields();
     });
 }
 
 // === 左上タイトル文字列を生成するヘルパー ===
 // 形式: 「{大会名} {フェーズ名} Pool {Pool名} - {Elimination} ({人数} players)」
+// ※フェーズ名（または大会名）とPool番号の間は全角スペース1個（\u3000）で区切る
 function buildPoolHeaderTitle(poolName, elimTitle, playerCount) {
     const tName = tournamentNameInput ? tournamentNameInput.value.trim() : '';
     const showPhase = showPhaseNameCheckbox ? showPhaseNameCheckbox.checked : true;
@@ -133,7 +252,7 @@ function buildPoolHeaderTitle(poolName, elimTitle, playerCount) {
     if (showPhase && rawPhaseName) prefixParts.push(rawPhaseName);
 
     const basePoolStr = `Pool ${poolName} - ${elimTitle} (${playerCount} players)`;
-    return prefixParts.length > 0 ? `${prefixParts.join(' ')} ${basePoolStr}` : basePoolStr;
+    return prefixParts.length > 0 ? `${prefixParts.join(' ')}\u3000${basePoolStr}` : basePoolStr;
 }
 
 function refreshRenderedHeaderTitle() {
