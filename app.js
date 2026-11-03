@@ -13,7 +13,7 @@ let startggPhasesList = [];
 let currentTargetGroupIdFromUrl = null;
 let lastAutoConfigSummary = '';
 
-// 現在アクティブなラウンド一覧（手順5の動的プルダウン＆Bo判定用）
+// 現在アクティブなラウンド一覧（最大セット数変更の動的プルダウン＆Bo判定用）
 let currentActiveWinnersRounds = [];
 let currentActiveLosersRounds = [];
 
@@ -44,7 +44,8 @@ let recommendedPrintConfig = {
     reason: '17〜32人 ダブルエリミの推奨設定'
 };
 
-// 大会名入力・フェーズ名表示チェックボックス要素
+// プリセット・大会名入力・フェーズ名表示チェックボックス要素
+const presetSelect = document.getElementById('preset-select');
 const tournamentNameInput = document.getElementById('tournament-name-input');
 const showPhaseNameCheckbox = document.getElementById('show-phase-name-checkbox');
 
@@ -108,7 +109,20 @@ startggTokenInput.addEventListener('change', () => {
     localStorage.setItem('bracket_printer_startgg_token', startggTokenInput.value.trim());
 });
 
+// === 主要大会プリセット選択イベント（詳細仕様の拡張用フック） ===
+if (presetSelect) {
+    presetSelect.addEventListener('change', () => {
+        const selectedPreset = presetSelect.value;
+        if (selectedPreset && tournamentNameInput && !tournamentNameInput.value.trim()) {
+            tournamentNameInput.placeholder = `(例) ${selectedPreset} #1`;
+        } else if (tournamentNameInput && !selectedPreset) {
+            tournamentNameInput.placeholder = '(例) Vic-Seekers #1';
+        }
+    });
+}
+
 // === 左上タイトル文字列を生成するヘルパー ===
+// 形式: 「{大会名} {フェーズ名} Pool {Pool名} - {Elimination} ({人数} players)」
 function buildPoolHeaderTitle(poolName, elimTitle, playerCount) {
     const tName = tournamentNameInput ? tournamentNameInput.value.trim() : '';
     const showPhase = showPhaseNameCheckbox ? showPhaseNameCheckbox.checked : true;
@@ -304,7 +318,7 @@ function computeActiveRounds(playerCount, isSingle, wCountNum, lCountNum) {
     }
 }
 
-// === 手順5のラウンド選択プルダウンを動的に更新する関数 ===
+// === ラウンド選択プルダウンを動的に更新する関数 ===
 function updateRoundSelectOptions() {
     updateAdvanceCountConstraints();
 
@@ -507,7 +521,7 @@ function applyPrintAndDrawOptions() {
     logoDisplayContainer.style.bottom = `${margin.v}px`;
     logoDisplayContainer.style.right = `${margin.h}px`;
 
-    // ロゴの配置（既に同じsrcのimgが存在する場合は再生成しないことでデコード切れを防ぐ）
+    // ロゴの配置（同一srcの場合は要素を再利用しデコード状態を守る）
     if (pendingLogoDataUrl) {
         let existingImg = logoDisplayContainer.querySelector('img');
         if (!existingImg) {
@@ -538,7 +552,6 @@ function applyPrintAndDrawOptions() {
     let naturalWidth = 1900;
 
     if (isSheetDrawn) {
-        // 前のプールの幅・高さ影響をリセットしてから正確に自然サイズを計測
         const prevTransform = scaleWrapper.style.transform;
         scaleWrapper.style.transform = 'none';
         previewArea.style.width = '2400px';
@@ -597,10 +610,25 @@ function applyPrintAndDrawOptions() {
         scaledBoxHeight
     };
 
+    // 単一印刷と一括印刷の両方でブラウザの二重縮小（Shrink-to-Fit誤作動）を完全防止
     dynamicPrintStyle.textContent = `
         @page {
             size: ${sizeKey} ${orientation};
             margin: 6mm;
+        }
+        @media print {
+            html, body {
+                width: ${scaledBoxWidth}px !important;
+                max-width: ${scaledBoxWidth}px !important;
+                margin: 0 auto !important;
+                overflow: hidden !important;
+            }
+            #batch-print-container {
+                width: ${scaledBoxWidth}px !important;
+                max-width: ${scaledBoxWidth}px !important;
+                margin: 0 auto !important;
+                overflow: hidden !important;
+            }
         }
     `;
 
@@ -671,12 +699,11 @@ logoUpload.addEventListener('change', (e) => {
                 }
             }
 
-            // 出力サイズ決定（縦上限160px）
             const scale = origH > MAX_LOGO_HEIGHT ? (MAX_LOGO_HEIGHT / origH) : 1;
             const targetW = Math.max(1, Math.round(origW * scale));
             const targetH = Math.max(1, Math.round(origH * scale));
 
-            // 印刷時の透過ラスタライズ（ファイルサイズ3倍化）を防ぐため、白背景(#ffffff)で塗りつぶして不透明軽量JPEGに変換
+            // 透過PNGによるPDF肥大化を防ぐため白背景(#ffffff)で合成し軽量JPEGデータ化
             const outCanvas = document.createElement('canvas');
             outCanvas.width = targetW;
             outCanvas.height = targetH;
@@ -913,7 +940,7 @@ function applyParsedPoolsData(parsedPools, preferredPoolName = null, extraStatus
     return true;
 }
 
-// === 手順1-A: CSVファイルの読み込みと検証（A列からフェーズ名を自動取得） ===
+// === CSVファイルの読み込みと検証（A列からフェーズ名を自動取得） ===
 csvUpload.addEventListener('change', (e) => {
     const file = e.target.files[0];
     if (!file) {
@@ -991,7 +1018,7 @@ csvUpload.addEventListener('change', (e) => {
     });
 });
 
-// === 手順1-B: start.gg GraphQL APIからのデータ＆トーナメント設定自動取得 ===
+// === start.gg GraphQL APIからのデータ＆トーナメント設定自動取得 ===
 function parseStartggBracketUrl(rawUrl) {
     const trimmed = rawUrl.trim();
     const match = trimmed.match(/tournament\/([^\/]+)\/event\/([^\/\?\#]+)/);
@@ -1450,7 +1477,7 @@ function resetCsvInput() {
     validateForm();
 }
 
-// === 手順4: 基本Bo設定と奇数チェック ===
+// === 基本Bo設定と奇数チェック ===
 const customBoContainer = document.getElementById('custom-bo-container');
 const customBoInput = document.getElementById('custom-bo-input');
 const customBoApplyBtn = document.getElementById('custom-bo-apply-btn');
@@ -1514,7 +1541,7 @@ customBoConfirmNo.addEventListener('click', () => {
     validateForm();
 });
 
-// === 手順5: 途中で最大セット数を変更 ===
+// === 途中で最大セット数を変更 ===
 changeModeRadios.forEach(radio => {
     radio.addEventListener('change', (e) => {
         if (e.target.value === 'yes') {
@@ -2832,11 +2859,11 @@ document.getElementById('export-btn').addEventListener('click', async () => {
 // === 単一・複数共通の軽量ベクターPDF印刷実行関数 ===
 async function executePrintPools(targetPoolNames) {
     if (!targetPoolNames || targetPoolNames.length === 0) {
-        alert('プールデータが読み込まれていません。手順1でCSVまたはstart.ggからデータを読み込んでください。');
+        alert('プールデータが読み込まれていません。CSVまたはstart.ggからデータを読み込んでください。');
         return;
     }
     if (generateBtn.disabled) {
-        alert('初期設定（手順1〜6）をすべて完了させてから実行してください。');
+        alert('必須設定をすべて完了させてから実行してください。');
         return;
     }
 
@@ -2852,12 +2879,14 @@ async function executePrintPools(targetPoolNames) {
         const { canvasWidth, canvasHeight, printScale, scaledBoxWidth, scaledBoxHeight } = lastComputedPrintMetrics;
 
         const pageWrapper = document.createElement('div');
+        pageWrapper.className = 'print-page-wrapper';
         pageWrapper.style.position = 'relative';
         pageWrapper.style.width = `${scaledBoxWidth}px`;
         pageWrapper.style.height = `${scaledBoxHeight}px`;
         pageWrapper.style.maxWidth = `${scaledBoxWidth}px`;
         pageWrapper.style.maxHeight = `${scaledBoxHeight}px`;
         pageWrapper.style.overflow = 'hidden';
+        pageWrapper.style.contain = 'strict';
         pageWrapper.style.margin = '0 auto';
         pageWrapper.style.padding = '0';
         pageWrapper.style.backgroundColor = '#ffffff';
@@ -2898,28 +2927,32 @@ async function executePrintPools(targetPoolNames) {
     // プレビュー表示を元の選択プールに戻す
     renderPoolSheet(originalPoolName);
 
+    // 印刷コンテナを可視化してレンダリングツリーに乗せ、全ページのロゴ画像を確実にデコード＆描画させる
+    batchPrintContainer.classList.remove('hidden');
     document.body.classList.add('batch-printing');
 
-    // 全ページのロゴ画像(<img>)のデコード完了を確実に待機してから印刷ダイアログを起動
     const allPrintImgs = Array.from(batchPrintContainer.querySelectorAll('img'));
     await Promise.all(allPrintImgs.map(img => {
-        if (img.complete && img.naturalHeight > 0) return Promise.resolve();
         if (img.decode) {
             return img.decode().catch(() => {});
         }
+        if (img.complete && img.naturalHeight > 0) return Promise.resolve();
         return new Promise(resolve => {
             img.onload = resolve;
             img.onerror = resolve;
         });
     }));
 
-    setTimeout(() => {
-        window.print();
-        document.body.classList.remove('batch-printing');
-        batchPrintContainer.innerHTML = '';
-        isPrintingMode = false;
-        setZoom(savedZoomBeforePrint);
-    }, 60);
+    // ブラウザのコンポジタが全ページの画像を確実に描画し終えるまで2フレーム待機
+    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+
+    window.print();
+
+    document.body.classList.remove('batch-printing');
+    batchPrintContainer.classList.add('hidden');
+    batchPrintContainer.innerHTML = '';
+    isPrintingMode = false;
+    setZoom(savedZoomBeforePrint);
 }
 
 // === 現在のPoolをPDF出力ボタン ===
