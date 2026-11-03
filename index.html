@@ -26,7 +26,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
     <style>
-        /* Webフォント埋め込みによるPDF肥大化を防ぐため、OS標準の高速ベクターフォントを使用 */
+        /* OS標準の高速ベクターフォントを使用 */
         body, #preview-area, .batch-print-sheet {
             font-family: Arial, Helvetica, "Hiragino Kaku Gothic ProN", "Hiragino Sans", "Yu Gothic", "Meiryo", sans-serif;
             -webkit-font-smoothing: antialiased;
@@ -54,14 +54,37 @@
                 display: block !important;
                 overflow: visible !important;
             }
-            #sidebar-panel, #preview-viewport {
+            #sidebar-panel {
                 display: none !important;
             }
-            #batch-print-container {
+            #preview-viewport {
+                margin: 0 !important;
+                padding: 0 !important;
+                width: 100% !important;
+                height: auto !important;
+                overflow: hidden !important;
+                background-color: #ffffff !important;
+                display: block !important;
+            }
+            body.batch-printing #preview-viewport {
+                display: none !important;
+            }
+            body.batch-printing #batch-print-container {
                 display: block !important;
                 width: 100% !important;
                 margin: 0 !important;
                 padding: 0 !important;
+                overflow: hidden !important;
+            }
+            .print-page-wrapper {
+                position: relative !important;
+                overflow: hidden !important;
+                contain: strict !important;
+                margin: 0 auto !important;
+                padding: 0 !important;
+                background-color: #ffffff !important;
+                page-break-inside: avoid !important;
+                break-inside: avoid !important;
             }
             .text-box-controls {
                 display: none !important;
@@ -183,7 +206,7 @@
             box-sizing: border-box;
         }
 
-        /* フェーズ通過枠専用の太い点線コネクタ（PDF肥大化を防ぐ純粋ベクター破線） */
+        /* フェーズ通過枠専用の太い点線コネクタ */
         .match-wrapper.qualifier-line::before {
             content: '';
             position: absolute;
@@ -475,18 +498,36 @@
                 <h1 class="text-2xl font-bold text-gray-800">Bracket Printer</h1>
             </div>
 
-            <!-- 手順1の前：大会名を入力 (任意) -->
-            <div class="flex flex-col gap-1.5 bg-gray-50 p-2.5 rounded border border-gray-200 text-xs shrink-0">
-                <label class="font-bold text-gray-700">大会名を入力 (任意)</label>
-                <input type="text" id="tournament-name-input" placeholder="(例) 第53回クロブラ" class="w-full border border-gray-300 rounded p-1.5 bg-white text-xs">
-                <span class="text-[10px] text-gray-500">※フェーズ名はCSV(A列)またはAPIから自動取得されます</span>
+            <!-- 主要大会プリセット ＆ 大会名入力 -->
+            <div class="flex flex-col gap-2.5 bg-gray-50 p-3 rounded border border-gray-200 text-xs shrink-0">
+                <div class="flex flex-col gap-1">
+                    <label class="text-sm font-bold text-gray-800">主要大会プリセット</label>
+                    <select id="preset-select" class="w-full border border-gray-300 rounded p-1.5 bg-white text-xs">
+                        <option value="" selected>選択しない（カスタム）</option>
+                        <option value="篝火">篝火</option>
+                        <option value="ウメブラ">ウメブラ</option>
+                        <option value="スマバト">スマバト</option>
+                        <option value="クロブラ">クロブラ</option>
+                        <option value="マエスマ'TOP">マエスマ'TOP</option>
+                        <option value="IMPACT MAJOR">IMPACT MAJOR</option>
+                        <option value="Vic-Seekers">Vic-Seekers</option>
+                    </select>
+                </div>
+
+                <div class="flex flex-col gap-1 pt-1 border-t border-gray-200">
+                    <label class="text-sm font-bold text-gray-800">大会名を入力 (任意)</label>
+                    <input type="text" id="tournament-name-input" placeholder="(例) Vic-Seekers #1" class="w-full border border-gray-300 rounded p-1.5 bg-white text-xs">
+                </div>
             </div>
 
             <hr class="border-gray-200 shrink-0">
             
-            <!-- 手順1: CSVファイル読み込み または start.gg API連携 -->
+            <!-- データアップロード または start.gg API連携 -->
             <div class="flex flex-col gap-2 shrink-0">
-                <label class="block text-xs font-bold text-gray-700">1. CSVファイル読み込み</label>
+                <div class="flex flex-col gap-0.5">
+                    <label class="block text-sm font-bold text-gray-800">データアップロード</label>
+                    <span class="text-xs font-semibold text-gray-600">シードCSVをアップロード</span>
+                </div>
                 <input type="file" id="csv-upload" accept=".csv" class="block w-full text-xs text-gray-500 file:mr-2 file:py-1.5 file:px-2.5 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer border border-gray-300 rounded">
 
                 <div class="flex items-center gap-2 my-0.5">
@@ -495,7 +536,7 @@
                     <hr class="flex-1 border-gray-200">
                 </div>
 
-                <label class="block text-xs font-bold text-gray-700">start.ggのAPIトークンとBracket URLを貼り付ける</label>
+                <label class="block text-sm font-bold text-gray-800">start.gg APIでデータを取得する</label>
                 <div class="flex flex-col gap-1.5">
                     <div class="flex items-stretch border border-gray-300 rounded overflow-hidden bg-white">
                         <span class="bg-gray-100 text-gray-700 text-[11px] font-semibold px-2 py-1.5 border-r border-gray-300 whitespace-nowrap flex items-center">
@@ -533,9 +574,9 @@
 
             <hr class="border-gray-200 shrink-0">
 
-            <!-- 手順2: トーナメント形式を選択 -->
+            <!-- トーナメント形式を選択 -->
             <div class="flex flex-col gap-1.5 text-xs shrink-0">
-                <label class="font-bold text-gray-700">2. トーナメント形式を選択</label>
+                <label class="text-sm font-bold text-gray-800">トーナメント形式を選択</label>
                 <select id="elim-format-select" class="w-full border border-gray-300 rounded p-1.5 bg-white">
                     <option value="" disabled selected>選択してください</option>
                     <option value="double">ダブルエリミネーション</option>
@@ -543,9 +584,9 @@
                 </select>
             </div>
 
-            <!-- 手順3: フェーズ通過人数を指定 -->
+            <!-- フェーズ通過人数を指定 -->
             <div class="flex flex-col gap-2 text-xs shrink-0">
-                <label class="font-bold text-gray-700">3. フェーズ通過人数を指定</label>
+                <label class="text-sm font-bold text-gray-800">フェーズ通過人数を指定</label>
                 <div class="grid grid-cols-2 gap-2">
                     <div>
                         <span class="text-[11px] text-gray-500 block mb-0.5">勝者側 (Winners)</span>
@@ -569,9 +610,9 @@
                 </div>
             </div>
 
-            <!-- 手順4: 基本最大セット数を指定 -->
+            <!-- 基本最大セット数を指定 -->
             <div class="flex flex-col gap-2 text-xs shrink-0">
-                <label class="font-bold text-gray-700">4. 基本最大セット数を指定 (奇数のみ)</label>
+                <label class="text-sm font-bold text-gray-800">基本最大セット数を指定 (奇数のみ)</label>
                 <select id="base-bo-select" class="w-full border border-gray-300 rounded p-1.5 bg-white">
                     <option value="" disabled selected>選択してください</option>
                     <option value="5">Bo5 / 3本先取</option>
@@ -595,9 +636,9 @@
                 </div>
             </div>
 
-            <!-- 手順5: 途中で最大セット数を変更 -->
+            <!-- 途中で最大セット数を変更 -->
             <div class="flex flex-col gap-2 text-xs shrink-0">
-                <label class="font-bold text-gray-700">5. 途中で最大セット数を変更</label>
+                <label class="text-sm font-bold text-gray-800">途中で最大セット数を変更</label>
                 <div class="flex gap-4">
                     <label class="flex items-center gap-1 cursor-pointer">
                         <input type="radio" name="change-mode" value="no" checked class="accent-[#FA8534]"> 変更しない
@@ -640,9 +681,9 @@
                 </div>
             </div>
 
-            <!-- 手順6: 通過先のフェーズ名を入力 -->
+            <!-- 通過先のフェーズ名を入力 -->
             <div class="flex flex-col gap-1 text-xs shrink-0">
-                <label class="font-bold text-gray-700">6. 通過先のフェーズ名を入力</label>
+                <label class="text-sm font-bold text-gray-800">通過先のフェーズ名を入力</label>
                 <input type="text" id="target-phase-input" value="" placeholder="例: Day2 / TOP192" class="border border-gray-300 rounded p-1.5 text-xs">
             </div>
 
@@ -795,7 +836,7 @@
                     </div>
                 </div>
 
-                <!-- メインコンテンツ領域（上詰めで余白バランスを全プール統一） -->
+                <!-- メインコンテンツ領域 -->
                 <div id="main-sheet-body" class="hidden flex-1 flex flex-col justify-start relative w-full">
                     <div id="bracket-container" class="flex flex-col justify-start w-full"></div>
                     <div id="checkin-roster-container" class="absolute top-0 right-0 z-10"></div>
@@ -810,7 +851,7 @@
         </div>
     </div>
 
-    <!-- 単一・一括共通のPDF印刷専用コンテナ -->
+    <!-- 複数プールPDF一括印刷用のコンテナ -->
     <div id="batch-print-container" class="hidden"></div>
 
     <script src="app.js"></script>
