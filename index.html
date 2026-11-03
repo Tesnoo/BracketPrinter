@@ -12,7 +12,7 @@
     <meta property="og:image" content="https://tesnoo.github.io/BracketPrinter/BracketPrinter_logo.png">
     <meta property="og:url" content="https://tesnoo.github.io/BracketPrinter/">
     <meta property="og:type" content="website">
-    <meta property="og:color" content="#FF69B4"> <!-- Discord埋め込みの左側バー用カラー -->
+    <meta property="og:color" content="#FF69B4">
     <meta name="theme-color" content="#FF69B4">
 
     <meta name="twitter:card" content="summary">
@@ -20,19 +20,15 @@
     <meta name="twitter:description" content="start.ggを使ったトーナメント表を見やすく！使いやすく！そんな夢を叶えるPDF作成アプリ">
     <meta name="twitter:image" content="https://tesnoo.github.io/BracketPrinter/BracketPrinter_logo.png">
 
-    <!-- Google Fonts: Roboto -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,400;0,500;0,700;0,900;1,400;1,700;1,900&display=swap" rel="stylesheet" crossorigin="anonymous">
-
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html-to-image/1.11.11/html-to-image.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
     <style>
+        /* Webフォント埋め込みによるPDF肥大化を防ぐため、OS標準の高速ベクターフォントを使用 */
         body, #preview-area, .batch-print-sheet {
-            font-family: 'Roboto', sans-serif;
+            font-family: Arial, Helvetica, "Hiragino Kaku Gothic ProN", "Hiragino Sans", "Yu Gothic", "Meiryo", sans-serif;
             -webkit-font-smoothing: antialiased;
         }
 
@@ -46,6 +42,8 @@
             * {
                 -webkit-print-color-adjust: exact !important;
                 print-color-adjust: exact !important;
+                box-shadow: none !important;
+                text-shadow: none !important;
             }
             html, body {
                 margin: 0 !important;
@@ -56,23 +54,14 @@
                 display: block !important;
                 overflow: visible !important;
             }
-            #sidebar-panel {
+            #sidebar-panel, #preview-viewport {
                 display: none !important;
             }
-            #preview-viewport {
+            #batch-print-container {
+                display: block !important;
+                width: 100% !important;
                 margin: 0 !important;
                 padding: 0 !important;
-                width: 100% !important;
-                height: auto !important;
-                overflow: visible !important;
-                background-color: #ffffff !important;
-                display: block !important;
-            }
-            body.batch-printing #preview-viewport {
-                display: none !important;
-            }
-            body.batch-printing #batch-print-container {
-                display: block !important;
             }
             .text-box-controls {
                 display: none !important;
@@ -194,16 +183,15 @@
             box-sizing: border-box;
         }
 
-        /* フェーズ通過枠専用の太い点線コネクタ */
+        /* フェーズ通過枠専用の太い点線コネクタ（PDF肥大化を防ぐ純粋ベクター破線） */
         .match-wrapper.qualifier-line::before {
             content: '';
             position: absolute;
             left: -22px;
             top: 50%;
             width: 22px;
-            height: 3.5px;
-            border: none !important;
-            background-image: repeating-linear-gradient(to right, #000000 0px, #000000 4px, transparent 4px, transparent 8px);
+            height: 0;
+            border-top: 3px dashed #000000;
             transform: translateY(-50%);
             box-sizing: border-box;
         }
@@ -443,7 +431,7 @@
             position: absolute;
             z-index: 30;
             border: 1px dashed #9ca3af;
-            background-color: rgba(255, 255, 255, 0.85);
+            background-color: #ffffff;
             border-radius: 4px;
             min-width: 160px;
         }
@@ -807,9 +795,9 @@
                     </div>
                 </div>
 
-                <!-- メインコンテンツ領域 -->
-                <div id="main-sheet-body" class="hidden flex-1 flex flex-col relative w-full">
-                    <div id="bracket-container" class="flex flex-col justify-between w-full"></div>
+                <!-- メインコンテンツ領域（上詰めで余白バランスを全プール統一） -->
+                <div id="main-sheet-body" class="hidden flex-1 flex flex-col justify-start relative w-full">
+                    <div id="bracket-container" class="flex flex-col justify-start w-full"></div>
                     <div id="checkin-roster-container" class="absolute top-0 right-0 z-10"></div>
                 </div>
 
@@ -822,7 +810,7 @@
         </div>
     </div>
 
-    <!-- 複数プールPDF一括印刷用の非表示コンテナ -->
+    <!-- 単一・一括共通のPDF印刷専用コンテナ -->
     <div id="batch-print-container" class="hidden"></div>
 
     <script src="app.js"></script>
