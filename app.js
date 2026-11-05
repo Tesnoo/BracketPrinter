@@ -30,12 +30,16 @@ let lastComputedPrintMetrics = {
 const MAX_LOGO_HEIGHT = 160;
 const LOGO_COLOR_TOLERANCE = 15;
 
-// 6〜24人用のスロット高（48pxボックス + 余白34px = 82px）
+// 6〜24人用の基本スロット高（48pxボックス + 余白34px = 82px）
 const SLOT_HEIGHT_24 = 82;
-// 25〜32人用のスロット高（勝者側は68px、敗者側は74px）
+// 25〜32人用の基本スロット高（勝者側は68px、敗者側は74px）
 const WINNERS_SLOT_HEIGHT_32 = 68;
 const LOSERS_SLOT_HEIGHT_32 = 74;
 const ROUND_HEADER_TOTAL_HEIGHT = 34;
+
+// 現在の描画に応じた動的スロット高・ボックス高（W0L0等で下の余白を活かして記入欄を4mm以上に拡大）
+let currentDynamicSlotHeight24 = SLOT_HEIGHT_24;
+let currentDynamicMatchBoxHeight = 48;
 
 let recommendedPrintConfig = {
     size: 'A3',
@@ -299,7 +303,7 @@ function isCompleteBracketMode() {
     return wVal === '0' && lVal === '0';
 }
 
-// === 通過先フェーズ名入力欄の有効/無効状態同步 ===
+// === 通過先フェーズ名入力欄の有効/無効状態同期 ===
 function syncTargetPhaseUI() {
     const isComplete = isCompleteBracketMode();
     if (isComplete) {
@@ -379,7 +383,6 @@ function computeActiveRounds(playerCount, isSingle, wCountNum, lCountNum) {
         return { winnersRounds, losersRounds: [] };
     }
 
-    // ダブルエリミネーションの敗者側ラウンド算出（W0L0時はW1L1と同じくLosers Finalまで進行）
     const effectiveW = (wCountNum === 0) ? 1 : wCountNum;
     const effectiveL = (lCountNum === 0) ? 1 : lCountNum;
     const isFinalWLoserDirectQual = (effectiveL >= 2 * effectiveW);
@@ -673,6 +676,43 @@ const MARGIN_PRESETS = {
     wide: { v: 40, h: 48 },
     narrow: { v: 12, h: 16 }
 };
+
+// 下側の余白が生じる構成（6〜16人のW0L0やW1系など）で、記入欄の高さを4mm以上に引き上げる計算ヘルパー
+function updateDynamicBoxAndSlotHeights(playerCount, wCountNum, lCountNum, isSingle) {
+    const isGF = (!isSingle && wCountNum === 0 && lCountNum === 0);
+
+    if (playerCount <= 12) {
+        if (isGF) {
+            // 6列＋名簿で横幅が約2,018pxになるため、下側の余白を活かしてボックス高を68px（1人34px＝A4横で4.0mm）に拡大
+            currentDynamicMatchBoxHeight = 68;
+            currentDynamicSlotHeight24 = 112;
+        } else if (!isSingle && wCountNum <= 1) {
+            // W1L1 / W1L2（5列＋名簿）でもA4横で4mm以上になるよう拡大
+            currentDynamicMatchBoxHeight = 58;
+            currentDynamicSlotHeight24 = 96;
+        } else {
+            currentDynamicMatchBoxHeight = 48;
+            currentDynamicSlotHeight24 = SLOT_HEIGHT_24;
+        }
+    } else if (playerCount <= 16) {
+        if (isGF) {
+            // 13〜16人 W0L0（合計12スロット）でも縦余白の範囲内でボックス高を62pxに拡大
+            currentDynamicMatchBoxHeight = 62;
+            currentDynamicSlotHeight24 = 96;
+        } else if (!isSingle && wCountNum <= 1) {
+            currentDynamicMatchBoxHeight = 54;
+            currentDynamicSlotHeight24 = 88;
+        } else {
+            currentDynamicMatchBoxHeight = 48;
+            currentDynamicSlotHeight24 = SLOT_HEIGHT_24;
+        }
+    } else {
+        currentDynamicMatchBoxHeight = 48;
+        currentDynamicSlotHeight24 = SLOT_HEIGHT_24;
+    }
+
+    previewArea.style.setProperty('--match-box-h', `${currentDynamicMatchBoxHeight}px`);
+}
 
 function applyPrintAndDrawOptions() {
     const sizeKey = printSizeSelect.value || 'A3';
@@ -1010,7 +1050,6 @@ function validateForm() {
     if (isSingle) {
         isAdvanceReady = (wVal !== '' && wVal !== null);
     } else {
-        // ダブルエリミでは「両方0人（GFまで進行）」または「両方1人以上」の場合に有効
         if (wVal === '0' || lVal === '0') {
             isAdvanceReady = (wVal === '0' && lVal === '0');
         } else {
@@ -1035,7 +1074,6 @@ function validateForm() {
 }
 
 winnersAdvanceCount.addEventListener('change', () => {
-    // ダブルエリミで勝者側を0人にしたら敗者側も自動で0人に連動（逆も同様）
     if (elimFormatSelect.value !== 'single') {
         if (winnersAdvanceCount.value === '0' && losersAdvanceCount.value !== '0') {
             losersAdvanceCount.value = '0';
@@ -1248,7 +1286,6 @@ async function callStartggGraphQL(token, query, variables) {
 }
 
 function deduceAdvanceCountsFromGroup(setsNodes, progressionsCount, isSingleElim, hasNextPhase) {
-    // 進出設定 (progressionsOut) が0件かつ次フェーズが存在しない場合は、GFまで完結するブラケット (W0L0) と判定
     if (progressionsCount === 0 && !hasNextPhase) {
         return { wCount: 0, lCount: 0 };
     }
@@ -2111,7 +2148,7 @@ function appendWinnersEndingByCount(wContainer, wCountNum, lCountNum, targetPhas
             const gfLabel = nextLabel();
             const gfrLabel = nextLabel();
             gfNode = createMatchNode(gfLabel, '', '', '', '', 'straight');
-            const gfrNode = createMatchNode(gfrLabel, '', '', '', '', 'straight');
+            const gfrNode = createMatchNode(gfrLabel, '', '', '', '', 'straight', `Winner of ${gfLabel}`, `Loser of ${gfLabel}`);
             gfCol.appendChild(gfNode);
             gfrCol.appendChild(gfrNode);
             wContainer.append(wr3, wr4, wr5, gfCol, gfrCol);
@@ -2176,7 +2213,7 @@ function appendWinnersEndingFromWQF(wContainer, wqfLabels, wCountNum, lCountNum,
             const gfLabel = nextLabel();
             const gfrLabel = nextLabel();
             gfNode = createMatchNode(gfLabel, '', '', '', '', 'straight');
-            const gfrNode = createMatchNode(gfrLabel, '', '', '', '', 'straight');
+            const gfrNode = createMatchNode(gfrLabel, '', '', '', '', 'straight', `Winner of ${gfLabel}`, `Loser of ${gfLabel}`);
             gfCol.appendChild(gfNode);
             gfrCol.appendChild(gfrNode);
             wContainer.append(wsfCol, wfCol, gfCol, gfrCol);
@@ -2384,7 +2421,7 @@ function render6To8Bracket(container, playerCount, getPlayerName, targetPhaseNam
     const wr1BlockMatches = [];
 
     if (playerCount === 6) {
-        wContainer.style.height = `${2 * SLOT_HEIGHT_24 + ROUND_HEADER_TOTAL_HEIGHT}px`;
+        wContainer.style.height = `${2 * currentDynamicSlotHeight24 + ROUND_HEADER_TOTAL_HEIGHT}px`;
         const pairs6 = [[4, 5], [3, 6]];
         const wr1Labels6 = [];
 
@@ -2407,7 +2444,7 @@ function render6To8Bracket(container, playerCount, getPlayerName, targetPhaseNam
             { topLbl: null, botLbl: wr1Labels6[1], topSeed: 2, hasTopMatch: false }
         );
     } else {
-        wContainer.style.height = `${4 * SLOT_HEIGHT_24 + ROUND_HEADER_TOTAL_HEIGHT}px`;
+        wContainer.style.height = `${4 * currentDynamicSlotHeight24 + ROUND_HEADER_TOTAL_HEIGHT}px`;
         for (let i = 0; i < 2; i++) {
             const s = wsfTopSeeds[i];
             const topOpp = 9 - s;
@@ -2437,7 +2474,7 @@ function render6To8Bracket(container, playerCount, getPlayerName, targetPhaseNam
             if (block.hasTopMatch) {
                 wsfCol.appendChild(createMatchNode(lbl, '', '', '', '', 'branch'));
             } else {
-                wsfCol.appendChild(createMatchNode(lbl, getPlayerName(block.topSeed), '', block.topSeed, '', 'straight'));
+                wsfCol.appendChild(createMatchNode(block.topSeed ? lbl : lbl, getPlayerName(block.topSeed), '', block.topSeed, '', 'straight'));
             }
         }
     }
@@ -2463,7 +2500,7 @@ function render6To8Bracket(container, playerCount, getPlayerName, targetPhaseNam
                 const gfLabel = nextLabel();
                 const gfrLabel = nextLabel();
                 gfNode = createMatchNode(gfLabel, '', '', '', '', 'straight');
-                const gfrNode = createMatchNode(gfrLabel, '', '', '', '', 'straight');
+                const gfrNode = createMatchNode(gfrLabel, '', '', '', '', 'straight', `Winner of ${gfLabel}`, `Loser of ${gfLabel}`);
                 gfCol.appendChild(gfNode);
                 gfrCol.appendChild(gfrNode);
                 wContainer.append(wr1, wsfCol, wfCol, gfCol, gfrCol);
@@ -2481,7 +2518,7 @@ function render6To8Bracket(container, playerCount, getPlayerName, targetPhaseNam
     if (isSingle) return;
 
     const lContainer = createElement('div', 'bracket-container');
-    lContainer.style.height = `${2 * SLOT_HEIGHT_24 + ROUND_HEADER_TOTAL_HEIGHT}px`;
+    lContainer.style.height = `${2 * currentDynamicSlotHeight24 + ROUND_HEADER_TOTAL_HEIGHT}px`;
     const lQual = createRoundColumn('', 'losers', true);
 
     let twoMatchLabels = [];
@@ -2574,7 +2611,7 @@ function render9To12Bracket(container, playerCount, getPlayerName, targetPhaseNa
     const wr1SeedPairs = wqfTopSeeds.map(s => [9 - s, 17 - (9 - s)]);
 
     const wContainer = createElement('div', 'bracket-container');
-    wContainer.style.height = `${4 * SLOT_HEIGHT_24 + ROUND_HEADER_TOTAL_HEIGHT}px`;
+    wContainer.style.height = `${4 * currentDynamicSlotHeight24 + ROUND_HEADER_TOTAL_HEIGHT}px`;
     const wr1 = createRoundColumn('Winners Round 1', 'winners');
     const wqfCol = createRoundColumn('Winners Quarter-Final', 'winners');
 
@@ -2615,7 +2652,7 @@ function render9To12Bracket(container, playerCount, getPlayerName, targetPhaseNa
     const losersUnitSlots = hasAnyDoubleLr1Pair ? 4 : 2;
 
     const lContainer = createElement('div', 'bracket-container');
-    lContainer.style.height = `${losersUnitSlots * SLOT_HEIGHT_24 + ROUND_HEADER_TOTAL_HEIGHT}px`;
+    lContainer.style.height = `${losersUnitSlots * currentDynamicSlotHeight24 + ROUND_HEADER_TOTAL_HEIGHT}px`;
     const lr1 = createRoundColumn('Losers Round 1', 'losers');
     const lr2 = createRoundColumn('Losers Round 2', 'losers');
 
@@ -2687,7 +2724,7 @@ function render13To16Bracket(container, playerCount, getPlayerName, targetPhaseN
     const wqfTopSeeds = [1, 4, 2, 3];
 
     const wContainer = createElement('div', 'bracket-container');
-    wContainer.style.height = `${8 * SLOT_HEIGHT_24 + ROUND_HEADER_TOTAL_HEIGHT}px`;
+    wContainer.style.height = `${8 * currentDynamicSlotHeight24 + ROUND_HEADER_TOTAL_HEIGHT}px`;
     const wr1 = createRoundColumn('Winners Round 1', 'winners');
     const wqfCol = createRoundColumn('Winners Quarter-Final', 'winners');
 
@@ -2734,7 +2771,7 @@ function render13To16Bracket(container, playerCount, getPlayerName, targetPhaseN
     if (isSingle) return;
 
     const lContainer = createElement('div', 'bracket-container');
-    lContainer.style.height = `${4 * SLOT_HEIGHT_24 + ROUND_HEADER_TOTAL_HEIGHT}px`;
+    lContainer.style.height = `${4 * currentDynamicSlotHeight24 + ROUND_HEADER_TOTAL_HEIGHT}px`;
     const lr1 = createRoundColumn('Losers Round 1', 'losers');
     const lr2 = createRoundColumn('Losers Round 2', 'losers');
     const lr3 = createRoundColumn('Losers Round 3', 'losers');
@@ -3063,6 +3100,9 @@ function renderPoolSheet(poolName) {
     const wCountNum = parseInt(wCount, 10);
     const lCountNum = parseInt(lCount, 10);
 
+    // 記入欄の高さがA4横でも4mm以上になるよう動的にボックス高・スロット高を調整
+    updateDynamicBoxAndSlotHeights(playerCount, wCountNum, lCountNum, isSingle);
+
     document.getElementById('preview-placeholder').classList.add('hidden');
     document.getElementById('preview-header').classList.remove('hidden');
     document.getElementById('main-sheet-body').classList.remove('hidden');
@@ -3236,6 +3276,7 @@ async function executePrintPools(targetPoolNames) {
         clonedSheet.querySelectorAll('.hidden, .text-box-controls').forEach(el => el.remove());
 
         clonedSheet.className = 'batch-print-sheet text-gray-800 relative';
+        clonedSheet.style.setProperty('--match-box-h', `${currentDynamicMatchBoxHeight}px`);
         clonedSheet.style.position = 'absolute';
         clonedSheet.style.left = '0';
         clonedSheet.style.top = '0';
