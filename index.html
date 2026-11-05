@@ -591,13 +591,17 @@
             </div>
 
             <!-- フェーズ通過人数を指定 -->
-            <div class="flex flex-col gap-2 text-xs shrink-0">
-                <label class="text-sm font-bold text-gray-800">フェーズ通過人数を指定</label>
-                <div class="grid grid-cols-2 gap-2">
+            <div class="flex flex-col gap-1.5 text-xs shrink-0">
+                <div class="flex flex-col gap-0.5">
+                    <label class="text-sm font-bold text-gray-800">フェーズ通過人数を指定</label>
+                    <span class="text-[11px] text-gray-500 leading-snug">Grand Finalまで進行する場合は勝者側と敗者側の通過人数を0人にしてください。</span>
+                </div>
+                <div class="grid grid-cols-2 gap-2 mt-0.5">
                     <div>
                         <span class="text-[11px] text-gray-500 block mb-0.5">勝者側 (Winners)</span>
                         <select id="winners-advance-count" class="w-full border border-gray-300 rounded p-1 bg-white">
                             <option value="" disabled selected>選択してください</option>
+                            <option value="0">0人</option>
                             <option value="1">1人</option>
                             <option value="2">2人</option>
                             <option value="4">4人</option>
@@ -607,6 +611,7 @@
                         <span class="text-[11px] text-gray-500 block mb-0.5">敗者側 (Losers)</span>
                         <select id="losers-advance-count" class="w-full border border-gray-300 rounded p-1 bg-white">
                             <option value="" disabled selected>選択してください</option>
+                            <option value="0">0人</option>
                             <option value="1">1人</option>
                             <option value="2">2人</option>
                             <option value="4">4人</option>
@@ -688,9 +693,9 @@
             </div>
 
             <!-- 通過先のフェーズ名を入力 -->
-            <div class="flex flex-col gap-1 text-xs shrink-0">
+            <div id="target-phase-wrapper" class="flex flex-col gap-1 text-xs shrink-0">
                 <label class="text-sm font-bold text-gray-800">通過先のフェーズ名を入力</label>
-                <input type="text" id="target-phase-input" value="" placeholder="例: Day2 / TOP192" class="border border-gray-300 rounded p-1.5 text-xs">
+                <input type="text" id="target-phase-input" value="" placeholder="例: Day2 / TOP192" class="border border-gray-300 rounded p-1.5 text-xs bg-white">
             </div>
 
             <!-- 描画ボタン -->
