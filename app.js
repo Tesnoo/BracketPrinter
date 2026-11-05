@@ -83,7 +83,9 @@ const losersAdvanceCount = document.getElementById('losers-advance-count');
 const losersAdvanceWrapper = document.getElementById('losers-advance-wrapper');
 const losersRoundChangeBlock = document.getElementById('losers-round-change-block');
 const baseBoSelect = document.getElementById('base-bo-select');
+const targetPhaseWrapper = document.getElementById('target-phase-wrapper');
 const targetPhaseInput = document.getElementById('target-phase-input');
+const targetPhaseNote = document.getElementById('target-phase-note');
 
 const printSizeSelect = document.getElementById('print-size');
 const printOrientationSelect = document.getElementById('print-orientation');
@@ -158,7 +160,6 @@ function loadPresetLogo(presetConfig, presetKey) {
         applyPrintAndDrawOptions();
     };
 
-    // 同一リポジトリ内の相対パスを優先し、失敗時はGitHub Raw URLにフォールバック
     const imgLocal = new Image();
     imgLocal.crossOrigin = 'anonymous';
     imgLocal.onload = () => processImageToLogo(imgLocal);
@@ -230,7 +231,6 @@ if (presetSelect) {
 
 if (presetNumberInput) {
     presetNumberInput.addEventListener('input', (e) => {
-        // 半角数字以外の文字を即時除去
         const cleaned = e.target.value.replace(/[^0-9]/g, '');
         if (e.target.value !== cleaned) {
             e.target.value = cleaned;
@@ -240,8 +240,8 @@ if (presetNumberInput) {
 }
 
 // === 左上タイトル文字列を生成するヘルパー ===
-// 形式: 「{大会名} {フェーズ名} Pool {Pool名} - {Elimination} ({人数} players)」
-// ※フェーズ名（または大会名）とPool番号の間は全角スペース1個（\u3000）で区切る
+// ・複数プール存在時: 「{大会名} {フェーズ名} Pool {Pool名} - {Elimination} ({人数} players)」
+// ・1プールのみ存在時: 「{大会名} {フェーズ名} {Elimination} ({人数} players)」
 function buildPoolHeaderTitle(poolName, elimTitle, playerCount) {
     const tName = tournamentNameInput ? tournamentNameInput.value.trim() : '';
     const showPhase = showPhaseNameCheckbox ? showPhaseNameCheckbox.checked : true;
@@ -251,8 +251,12 @@ function buildPoolHeaderTitle(poolName, elimTitle, playerCount) {
     if (tName) prefixParts.push(tName);
     if (showPhase && rawPhaseName) prefixParts.push(rawPhaseName);
 
-    const basePoolStr = `Pool ${poolName} - ${elimTitle} (${playerCount} players)`;
-    return prefixParts.length > 0 ? `${prefixParts.join(' ')}\u3000${basePoolStr}` : basePoolStr;
+    const totalPoolsCount = Object.keys(poolsData).length;
+    const baseBracketStr = (totalPoolsCount <= 1)
+        ? `${elimTitle} (${playerCount} players)`
+        : `Pool ${poolName} - ${elimTitle} (${playerCount} players)`;
+
+    return prefixParts.length > 0 ? `${prefixParts.join(' ')}\u3000${baseBracketStr}` : baseBracketStr;
 }
 
 function refreshRenderedHeaderTitle() {
@@ -284,6 +288,35 @@ function getCurrentPoolPlayerCount() {
     return maxPoolPlayerCount || 24;
 }
 
+// === W0L0（Grand Finalまで進行）かどうかを判定するヘルパー ===
+function isCompleteBracketMode() {
+    const isSingle = elimFormatSelect.value === 'single';
+    const wVal = winnersAdvanceCount.value;
+    const lVal = losersAdvanceCount.value;
+    if (isSingle) {
+        return wVal === '0';
+    }
+    return wVal === '0' && lVal === '0';
+}
+
+// === 通過先フェーズ名入力欄の有効/無効状態同步 ===
+function syncTargetPhaseUI() {
+    const isComplete = isCompleteBracketMode();
+    if (isComplete) {
+        targetPhaseInput.disabled = true;
+        targetPhaseInput.classList.add('bg-gray-100', 'text-gray-400', 'cursor-not-allowed');
+        targetPhaseInput.classList.remove('bg-white');
+        if (targetPhaseWrapper) targetPhaseWrapper.classList.add('opacity-60');
+        if (targetPhaseNote) targetPhaseNote.classList.remove('hidden');
+    } else {
+        targetPhaseInput.disabled = false;
+        targetPhaseInput.classList.remove('bg-gray-100', 'text-gray-400', 'cursor-not-allowed');
+        targetPhaseInput.classList.add('bg-white');
+        if (targetPhaseWrapper) targetPhaseWrapper.classList.remove('opacity-60');
+        if (targetPhaseNote) targetPhaseNote.classList.add('hidden');
+    }
+}
+
 // === 人数規模に応じた通過人数プルダウンの有効範囲制御 ===
 function updateAdvanceCountConstraints() {
     const n = getCurrentPoolPlayerCount();
@@ -309,8 +342,10 @@ function updateAdvanceCountConstraints() {
     }
 }
 
-// === フェーズ通過までに実際に存在するラウンド一覧を算出する関数 ===
+// === フェーズ通過（またはGF完結）までに実際に存在するラウンド一覧を算出する関数 ===
 function computeActiveRounds(playerCount, isSingle, wCountNum, lCountNum) {
+    const isGF = (!isSingle && wCountNum === 0 && lCountNum === 0);
+
     let winnersRounds = [];
     if (playerCount >= 17) {
         if (wCountNum === 4) {
@@ -336,12 +371,19 @@ function computeActiveRounds(playerCount, isSingle, wCountNum, lCountNum) {
         }
     }
 
-    if (isSingle || lCountNum <= 0) {
+    if (isGF) {
+        winnersRounds.push('Grand Final', 'Grand Final Reset');
+    }
+
+    if (isSingle) {
         return { winnersRounds, losersRounds: [] };
     }
 
-    const isFinalWLoserDirectQual = (lCountNum >= 2 * wCountNum);
-    const targetLosersBracketQuals = isFinalWLoserDirectQual ? Math.max(1, lCountNum - wCountNum) : lCountNum;
+    // ダブルエリミネーションの敗者側ラウンド算出（W0L0時はW1L1と同じくLosers Finalまで進行）
+    const effectiveW = (wCountNum === 0) ? 1 : wCountNum;
+    const effectiveL = (lCountNum === 0) ? 1 : lCountNum;
+    const isFinalWLoserDirectQual = (effectiveL >= 2 * effectiveW);
+    const targetLosersBracketQuals = isFinalWLoserDirectQual ? Math.max(1, effectiveL - effectiveW) : effectiveL;
     let losersRounds = [];
 
     if (playerCount >= 17) {
@@ -365,7 +407,7 @@ function computeActiveRounds(playerCount, isSingle, wCountNum, lCountNum) {
                 wfDrop: 'Losers Final'
             };
 
-        if (wCountNum === 4 && isFinalWLoserDirectQual) {
+        if (effectiveW === 4 && isFinalWLoserDirectQual) {
             return { winnersRounds, losersRounds };
         }
         losersRounds.push(rNames.wqfDrop);
@@ -373,10 +415,10 @@ function computeActiveRounds(playerCount, isSingle, wCountNum, lCountNum) {
             return { winnersRounds, losersRounds };
         }
         losersRounds.push(rNames.consolidate2);
-        if ((wCountNum === 2 && isFinalWLoserDirectQual) || (wCountNum === 4 && targetLosersBracketQuals === 2)) {
+        if ((effectiveW === 2 && isFinalWLoserDirectQual) || (effectiveW === 4 && targetLosersBracketQuals === 2)) {
             return { winnersRounds, losersRounds };
         }
-        if (wCountNum === 4 && targetLosersBracketQuals === 1) {
+        if (effectiveW === 4 && targetLosersBracketQuals === 1) {
             losersRounds.push(rNames.wsfDrop);
             return { winnersRounds, losersRounds };
         }
@@ -385,7 +427,7 @@ function computeActiveRounds(playerCount, isSingle, wCountNum, lCountNum) {
             return { winnersRounds, losersRounds };
         }
         losersRounds.push(rNames.consolidate1);
-        if ((wCountNum === 1 && isFinalWLoserDirectQual) || wCountNum === 2) {
+        if ((effectiveW === 1 && isFinalWLoserDirectQual) || effectiveW === 2) {
             return { winnersRounds, losersRounds };
         }
         losersRounds.push(rNames.wfDrop);
@@ -402,10 +444,10 @@ function computeActiveRounds(playerCount, isSingle, wCountNum, lCountNum) {
             wfDrop: 'Losers Final'
         };
 
-        if ((wCountNum === 2 && isFinalWLoserDirectQual) || (wCountNum === 4 && targetLosersBracketQuals >= 2)) {
+        if ((effectiveW === 2 && isFinalWLoserDirectQual) || (effectiveW === 4 && targetLosersBracketQuals >= 2)) {
             return { winnersRounds, losersRounds };
         }
-        if (wCountNum === 4 && targetLosersBracketQuals === 1) {
+        if (effectiveW === 4 && targetLosersBracketQuals === 1) {
             losersRounds.push(rNames.consolidate1);
             return { winnersRounds, losersRounds };
         }
@@ -414,7 +456,7 @@ function computeActiveRounds(playerCount, isSingle, wCountNum, lCountNum) {
             return { winnersRounds, losersRounds };
         }
         losersRounds.push(rNames.consolidate1);
-        if ((wCountNum === 1 && isFinalWLoserDirectQual) || wCountNum === 2) {
+        if ((effectiveW === 1 && isFinalWLoserDirectQual) || effectiveW === 2) {
             return { winnersRounds, losersRounds };
         }
         losersRounds.push(rNames.wfDrop);
@@ -429,7 +471,7 @@ function computeActiveRounds(playerCount, isSingle, wCountNum, lCountNum) {
             return { winnersRounds, losersRounds };
         }
         losersRounds.push('Losers Semi-Final');
-        if ((wCountNum === 1 && isFinalWLoserDirectQual) || wCountNum === 2) {
+        if ((effectiveW === 1 && isFinalWLoserDirectQual) || effectiveW === 2) {
             return { winnersRounds, losersRounds };
         }
         losersRounds.push('Losers Final');
@@ -440,11 +482,14 @@ function computeActiveRounds(playerCount, isSingle, wCountNum, lCountNum) {
 // === ラウンド選択プルダウンを動的に更新する関数 ===
 function updateRoundSelectOptions() {
     updateAdvanceCountConstraints();
+    syncTargetPhaseUI();
 
     const playerCount = getCurrentPoolPlayerCount();
     const isSingle = elimFormatSelect.value === 'single';
-    const wCountNum = parseInt(winnersAdvanceCount.value, 10) || 1;
-    const lCountNum = isSingle ? 0 : (parseInt(losersAdvanceCount.value, 10) || 2);
+    const wRaw = winnersAdvanceCount.value;
+    const lRaw = losersAdvanceCount.value;
+    const wCountNum = (wRaw !== '' && wRaw !== null) ? parseInt(wRaw, 10) : 1;
+    const lCountNum = isSingle ? 0 : ((lRaw !== '' && lRaw !== null) ? parseInt(lRaw, 10) : 2);
 
     const { winnersRounds, losersRounds } = computeActiveRounds(playerCount, isSingle, wCountNum, lCountNum);
     currentActiveWinnersRounds = winnersRounds;
@@ -640,7 +685,6 @@ function applyPrintAndDrawOptions() {
     logoDisplayContainer.style.bottom = `${margin.v}px`;
     logoDisplayContainer.style.right = `${margin.h}px`;
 
-    // ロゴの配置（同一srcの場合は要素を再利用しデコード状態を守る）
     if (pendingLogoDataUrl) {
         let existingImg = logoDisplayContainer.querySelector('img');
         if (!existingImg) {
@@ -729,7 +773,6 @@ function applyPrintAndDrawOptions() {
         scaledBoxHeight
     };
 
-    // 単一印刷と一括印刷の両方でブラウザの二重縮小（Shrink-to-Fit誤作動）を完全防止
     dynamicPrintStyle.textContent = `
         @page {
             size: ${sizeKey} ${orientation};
@@ -822,7 +865,6 @@ logoUpload.addEventListener('change', (e) => {
             const targetW = Math.max(1, Math.round(origW * scale));
             const targetH = Math.max(1, Math.round(origH * scale));
 
-            // 透過PNGによるPDF肥大化を防ぐため白背景(#ffffff)で合成し軽量JPEGデータ化
             const outCanvas = document.createElement('canvas');
             outCanvas.width = targetW;
             outCanvas.height = targetH;
@@ -957,17 +999,31 @@ addTextBtn.addEventListener('click', () => {
     }
 });
 
-// === 入力バリデーション ===
+// === 入力バリデーション（W0L0またはシングルW0の時は通過先フェーズ名が空欄でもOK） ===
 function validateForm() {
     const formatVal = elimFormatSelect.value;
     const wVal = winnersAdvanceCount.value;
     const lVal = losersAdvanceCount.value;
-    const isLReady = (formatVal === 'single') ? true : Boolean(lVal);
+    const isSingle = (formatVal === 'single');
+
+    let isAdvanceReady = false;
+    if (isSingle) {
+        isAdvanceReady = (wVal !== '' && wVal !== null);
+    } else {
+        // ダブルエリミでは「両方0人（GFまで進行）」または「両方1人以上」の場合に有効
+        if (wVal === '0' || lVal === '0') {
+            isAdvanceReady = (wVal === '0' && lVal === '0');
+        } else {
+            isAdvanceReady = Boolean(wVal && lVal);
+        }
+    }
+
     const boVal = baseBoSelect.value;
     const isBoReady = (boVal === '5' || boVal === '3' || (boVal === 'custom' && isCustomBoConfirmed));
     const phaseVal = targetPhaseInput.value.trim();
+    const isPhaseReady = isCompleteBracketMode() ? true : (phaseVal !== '');
 
-    if (isCsvValid && formatVal && wVal && isLReady && isBoReady && phaseVal !== '') {
+    if (isCsvValid && formatVal && isAdvanceReady && isBoReady && isPhaseReady) {
         generateBtn.disabled = false;
         generateBtn.classList.remove('bg-gray-300', 'text-gray-500', 'cursor-not-allowed');
         generateBtn.classList.add('bg-[#FA8534]', 'text-white', 'hover:bg-orange-600', 'shadow');
@@ -979,13 +1035,30 @@ function validateForm() {
 }
 
 winnersAdvanceCount.addEventListener('change', () => {
+    // ダブルエリミで勝者側を0人にしたら敗者側も自動で0人に連動（逆も同様）
+    if (elimFormatSelect.value !== 'single') {
+        if (winnersAdvanceCount.value === '0' && losersAdvanceCount.value !== '0') {
+            losersAdvanceCount.value = '0';
+        } else if (winnersAdvanceCount.value !== '0' && losersAdvanceCount.value === '0') {
+            losersAdvanceCount.value = '1';
+        }
+    }
     updateRoundSelectOptions();
     validateForm();
 });
+
 losersAdvanceCount.addEventListener('change', () => {
+    if (elimFormatSelect.value !== 'single') {
+        if (losersAdvanceCount.value === '0' && winnersAdvanceCount.value !== '0') {
+            winnersAdvanceCount.value = '0';
+        } else if (losersAdvanceCount.value !== '0' && winnersAdvanceCount.value === '0') {
+            winnersAdvanceCount.value = '1';
+        }
+    }
     updateRoundSelectOptions();
     validateForm();
 });
+
 targetPhaseInput.addEventListener('input', validateForm);
 
 // === 共通：構築された poolsData の人数検証 (6〜32人) とUI反映 ===
@@ -1101,9 +1174,9 @@ csvUpload.addEventListener('change', (e) => {
             const parsedPools = {};
             for (let i = 1; i < rows.length; i++) {
                 const row = rows[i];
-                const rawPhaseName = (row[0] || '').trim(); // A列：フェーズ名
-                const rawPoolName = (row[2] || '').trim();  // C列：Pool名
-                const seedStr = (row[3] || '').trim();      // D列：Pool Seed
+                const rawPhaseName = (row[0] || '').trim();
+                const rawPoolName = (row[2] || '').trim();
+                const seedStr = (row[3] || '').trim();
                 if (!rawPoolName || !seedStr) continue;
 
                 const poolName = rawPoolName.replace(/00$/, '') || rawPoolName;
@@ -1174,11 +1247,24 @@ async function callStartggGraphQL(token, query, variables) {
     return json.data;
 }
 
-function deduceAdvanceCountsFromGroup(setsNodes, progressionsCount, isSingleElim) {
+function deduceAdvanceCountsFromGroup(setsNodes, progressionsCount, isSingleElim, hasNextPhase) {
+    // 進出設定 (progressionsOut) が0件かつ次フェーズが存在しない場合は、GFまで完結するブラケット (W0L0) と判定
+    if (progressionsCount === 0 && !hasNextPhase) {
+        return { wCount: 0, lCount: 0 };
+    }
+
     let wCount = null;
     let lCount = null;
 
     if (Array.isArray(setsNodes) && setsNodes.length > 0) {
+        const hasGrandFinalSet = setsNodes.some(s => {
+            const txt = (s.fullRoundText || '').toLowerCase();
+            return txt.includes('grand final');
+        });
+        if (hasGrandFinalSet && progressionsCount === 0) {
+            return { wCount: 0, lCount: 0 };
+        }
+
         const validSets = setsNodes.filter(s => {
             const txt = (s.fullRoundText || '').toLowerCase();
             return !txt.includes('grand final') && !txt.includes('reset');
@@ -1246,6 +1332,8 @@ async function autoDetectBracketConfig(token, phaseId, samplePhaseGroupId) {
         }
     }
 
+    const hasNextPhase = Boolean(nextPhaseName);
+
     if (samplePhaseGroupId) {
         try {
             const pgQuery = `
@@ -1273,7 +1361,7 @@ async function autoDetectBracketConfig(token, phaseId, samplePhaseGroupId) {
                 const progCount = Array.isArray(pg.progressionsOut) ? pg.progressionsOut.length : 0;
                 const setsNodes = pg.sets?.nodes || [];
 
-                const deduced = deduceAdvanceCountsFromGroup(setsNodes, progCount, isSingle);
+                const deduced = deduceAdvanceCountsFromGroup(setsNodes, progCount, isSingle, hasNextPhase);
                 wCount = deduced.wCount;
                 lCount = deduced.lCount;
             }
@@ -1294,26 +1382,30 @@ async function autoDetectBracketConfig(token, phaseId, samplePhaseGroupId) {
         summaryParts.push('ダブルエリミ');
     }
 
-    if (wCount !== null && [1, 2, 4].includes(wCount)) {
+    if (wCount !== null && [0, 1, 2, 4].includes(wCount)) {
         winnersAdvanceCount.value = String(wCount);
     }
-    if (elimFormatSelect.value !== 'single' && lCount !== null && [1, 2, 4, 8].includes(lCount)) {
+    if (elimFormatSelect.value !== 'single' && lCount !== null && [0, 1, 2, 4, 8].includes(lCount)) {
         losersAdvanceCount.value = String(lCount);
     }
 
-    if (winnersAdvanceCount.value) {
+    if (winnersAdvanceCount.value !== '') {
         if (elimFormatSelect.value === 'single') {
-            summaryParts.push(`${winnersAdvanceCount.value}人抜け`);
-        } else if (losersAdvanceCount.value) {
-            summaryParts.push(`W${winnersAdvanceCount.value}L${losersAdvanceCount.value}`);
+            summaryParts.push(winnersAdvanceCount.value === '0' ? '決勝まで進行 (0人抜け)' : `${winnersAdvanceCount.value}人抜け`);
+        } else if (losersAdvanceCount.value !== '') {
+            if (winnersAdvanceCount.value === '0' && losersAdvanceCount.value === '0') {
+                summaryParts.push('GFまで進行 (W0L0)');
+            } else {
+                summaryParts.push(`W${winnersAdvanceCount.value}L${losersAdvanceCount.value}`);
+            }
         }
     }
 
     if (nextPhaseName) {
         targetPhaseInput.value = nextPhaseName;
         summaryParts.push(`通過先: ${nextPhaseName}`);
-    } else if (!targetPhaseInput.value.trim() && currentPhaseObj?.name) {
-        targetPhaseInput.value = 'Final Stage';
+    } else if (isCompleteBracketMode()) {
+        targetPhaseInput.value = '';
     }
 
     updateRoundSelectOptions();
@@ -1815,6 +1907,20 @@ function createMatchNode(matchLabel, player1Name, player2Name, seed1 = '', seed2
     return wrapper;
 }
 
+// Grand Final の試合ノードに後から Losers Final 勝者ラベル (Winner of XX) を付与するヘルパー
+function setMatchBottomLabel(matchWrapperEl, text) {
+    if (!matchWrapperEl || !text) return;
+    const matchBox = matchWrapperEl.querySelector('.match-box');
+    if (!matchBox) return;
+    let existing = matchBox.querySelector('.drop-label-bottom');
+    if (!existing) {
+        existing = createElement('span', 'drop-label-bottom', text);
+        matchBox.appendChild(existing);
+    } else {
+        existing.textContent = text;
+    }
+}
+
 function getQualifierFontSize(text) {
     let units = 0;
     for (const ch of text) {
@@ -1947,8 +2053,8 @@ updateRoundSelectOptions();
 applyPrintAndDrawOptions();
 fitToViewport();
 
-// === 勝者側 W1 / W2 / W4 終端構築ヘルパー ===
-function appendWinnersEndingByCount(wContainer, wCountNum, lCountNum, targetPhaseName, nextLabel) {
+// === 17〜32人用：勝者側 W0(GF) / W1 / W2 / W4 終端構築ヘルパー ===
+function appendWinnersEndingByCount(wContainer, wCountNum, lCountNum, targetPhaseName, nextLabel, isSingle) {
     const wr3 = createRoundColumn('Winners Quarter-Final', 'winners');
     const wr4 = createRoundColumn('Winners Semi-Final', 'winners');
     const wr5 = createRoundColumn('Winners Final', 'winners');
@@ -1957,6 +2063,7 @@ function appendWinnersEndingByCount(wContainer, wCountNum, lCountNum, targetPhas
     const wqfLabels = [];
     const wsfLabels = [];
     let wfLabel = null;
+    let gfNode = null;
 
     for (let i = 0; i < 4; i++) {
         const lbl = nextLabel();
@@ -1964,7 +2071,7 @@ function appendWinnersEndingByCount(wContainer, wCountNum, lCountNum, targetPhas
         wr3.appendChild(createMatchNode(lbl, '', '', '', '', 'branch'));
     }
 
-    const includeLoserSlotOnFinalW = (lCountNum >= 2 * wCountNum && lCountNum > 0);
+    const includeLoserSlotOnFinalW = (!isSingle && wCountNum > 0 && lCountNum >= 2 * wCountNum && lCountNum > 0);
 
     if (wCountNum === 4) {
         for (let i = 0; i < 4; i++) {
@@ -1972,7 +2079,7 @@ function appendWinnersEndingByCount(wContainer, wCountNum, lCountNum, targetPhas
         }
         wContainer.append(wr3, wQual);
         for (let s = 0; s < 5; s++) nextLabel();
-        return { wqfLabels, wsfLabels, wfLabel };
+        return { wqfLabels, wsfLabels, wfLabel, gfNode };
     }
 
     for (let i = 0; i < 2; i++) {
@@ -1987,28 +2094,49 @@ function appendWinnersEndingByCount(wContainer, wCountNum, lCountNum, targetPhas
         }
         wContainer.append(wr3, wr4, wQual);
         for (let s = 0; s < 3; s++) nextLabel();
-        return { wqfLabels, wsfLabels, wfLabel };
+        return { wqfLabels, wsfLabels, wfLabel, gfNode };
     }
 
     wfLabel = nextLabel();
     wr5.appendChild(createMatchNode(wfLabel, '', '', '', '', 'branch'));
+
+    if (wCountNum === 0) {
+        if (isSingle) {
+            wContainer.append(wr3, wr4, wr5);
+            nextLabel();
+            nextLabel();
+        } else {
+            const gfCol = createRoundColumn('Grand Final', 'winners');
+            const gfrCol = createRoundColumn('Grand Final Reset', 'winners');
+            const gfLabel = nextLabel();
+            const gfrLabel = nextLabel();
+            gfNode = createMatchNode(gfLabel, '', '', '', '', 'straight');
+            const gfrNode = createMatchNode(gfrLabel, '', '', '', '', 'straight');
+            gfCol.appendChild(gfNode);
+            gfrCol.appendChild(gfrNode);
+            wContainer.append(wr3, wr4, wr5, gfCol, gfrCol);
+        }
+        return { wqfLabels, wsfLabels, wfLabel, gfNode };
+    }
+
     wQual.appendChild(createQualifierNode(wfLabel, targetPhaseName, 'W', includeLoserSlotOnFinalW, 'qualifier'));
     wContainer.append(wr3, wr4, wr5, wQual);
     nextLabel();
     nextLabel();
-    return { wqfLabels, wsfLabels, wfLabel };
+    return { wqfLabels, wsfLabels, wfLabel, gfNode };
 }
 
-// === 9〜16人用：勝者側 W1 / W2 / W4 終端構築ヘルパー ===
-function appendWinnersEndingFromWQF(wContainer, wqfLabels, wCountNum, lCountNum, targetPhaseName, nextLabel) {
+// === 9〜16人用：勝者側 W0(GF) / W1 / W2 / W4 終端構築ヘルパー ===
+function appendWinnersEndingFromWQF(wContainer, wqfLabels, wCountNum, lCountNum, targetPhaseName, nextLabel, isSingle) {
     const wsfCol = createRoundColumn('Winners Semi-Final', 'winners');
     const wfCol = createRoundColumn('Winners Final', 'winners');
     const wQual = createRoundColumn('', 'winners', true);
 
     const wsfLabels = [];
     let wfLabel = null;
+    let gfNode = null;
 
-    const includeLoserSlotOnFinalW = (lCountNum >= 2 * wCountNum && lCountNum > 0);
+    const includeLoserSlotOnFinalW = (!isSingle && wCountNum > 0 && lCountNum >= 2 * wCountNum && lCountNum > 0);
 
     if (wCountNum === 4) {
         for (let i = 0; i < 4; i++) {
@@ -2016,7 +2144,7 @@ function appendWinnersEndingFromWQF(wContainer, wqfLabels, wCountNum, lCountNum,
         }
         wContainer.append(wQual);
         for (let s = 0; s < 5; s++) nextLabel();
-        return { wsfLabels, wfLabel };
+        return { wsfLabels, wfLabel, gfNode };
     }
 
     for (let i = 0; i < 2; i++) {
@@ -2031,31 +2159,54 @@ function appendWinnersEndingFromWQF(wContainer, wqfLabels, wCountNum, lCountNum,
         }
         wContainer.append(wsfCol, wQual);
         for (let s = 0; s < 3; s++) nextLabel();
-        return { wsfLabels, wfLabel };
+        return { wsfLabels, wfLabel, gfNode };
     }
 
     wfLabel = nextLabel();
     wfCol.appendChild(createMatchNode(wfLabel, '', '', '', '', 'branch'));
+
+    if (wCountNum === 0) {
+        if (isSingle) {
+            wContainer.append(wsfCol, wfCol);
+            nextLabel();
+            nextLabel();
+        } else {
+            const gfCol = createRoundColumn('Grand Final', 'winners');
+            const gfrCol = createRoundColumn('Grand Final Reset', 'winners');
+            const gfLabel = nextLabel();
+            const gfrLabel = nextLabel();
+            gfNode = createMatchNode(gfLabel, '', '', '', '', 'straight');
+            const gfrNode = createMatchNode(gfrLabel, '', '', '', '', 'straight');
+            gfCol.appendChild(gfNode);
+            gfrCol.appendChild(gfrNode);
+            wContainer.append(wsfCol, wfCol, gfCol, gfrCol);
+        }
+        return { wsfLabels, wfLabel, gfNode };
+    }
+
     wQual.appendChild(createQualifierNode(wfLabel, targetPhaseName, 'W', includeLoserSlotOnFinalW, 'qualifier'));
     wContainer.append(wsfCol, wfCol, wQual);
     nextLabel();
     nextLabel();
-    return { wsfLabels, wfLabel };
+    return { wsfLabels, wfLabel, gfNode };
 }
 
-// === 17〜32人用：敗者側の後半進行ヘルパー ===
+// === 17〜32人用：敗者側の後半進行ヘルパー（LFの試合記号を返す） ===
 function appendLosersAfter4Matches(lContainer, fourMatchLabels, wqfLabels, wsfLabels, wfLabel, wCountNum, lCountNum, targetPhaseName, nextLabel, roundNames) {
     const lQual = createRoundColumn('', 'losers', true);
+    const isGF = (wCountNum === 0 && lCountNum === 0);
+    const effW = isGF ? 1 : wCountNum;
+    const effL = isGF ? 1 : lCountNum;
 
-    const isFinalWLoserDirectQual = (lCountNum >= 2 * wCountNum);
-    const targetLosersBracketQuals = isFinalWLoserDirectQual ? Math.max(1, lCountNum - wCountNum) : lCountNum;
+    const isFinalWLoserDirectQual = (effL >= 2 * effW);
+    const targetLosersBracketQuals = isFinalWLoserDirectQual ? Math.max(1, effL - effW) : effL;
 
-    if (wCountNum === 4 && isFinalWLoserDirectQual) {
+    if (effW === 4 && isFinalWLoserDirectQual) {
         for (let k = 0; k < 4; k++) {
             lQual.appendChild(createQualifierNode(fourMatchLabels[k], targetPhaseName, 'L', false, 'qualifier'));
         }
         lContainer.appendChild(lQual);
-        return;
+        return null;
     }
 
     const colWqfDrop = createRoundColumn(roundNames.wqfDrop, 'losers');
@@ -2073,7 +2224,7 @@ function appendLosersAfter4Matches(lContainer, fourMatchLabels, wqfLabels, wsfLa
             lQual.appendChild(createQualifierNode(wqfDropRoundLabels[k], targetPhaseName, 'L', false, 'qualifier'));
         }
         lContainer.appendChild(lQual);
-        return;
+        return null;
     }
 
     const colConsolidate2 = createRoundColumn(roundNames.consolidate2, 'losers');
@@ -2085,21 +2236,21 @@ function appendLosersAfter4Matches(lContainer, fourMatchLabels, wqfLabels, wsfLa
     }
     lContainer.appendChild(colConsolidate2);
 
-    if ((wCountNum === 2 && isFinalWLoserDirectQual) || (wCountNum === 4 && targetLosersBracketQuals === 2)) {
+    if ((effW === 2 && isFinalWLoserDirectQual) || (effW === 4 && targetLosersBracketQuals === 2)) {
         for (let k = 0; k < 2; k++) {
             lQual.appendChild(createQualifierNode(consolidate2Labels[k], targetPhaseName, 'L', false, 'qualifier'));
         }
         lContainer.appendChild(lQual);
-        return;
+        return null;
     }
 
-    if (wCountNum === 4 && targetLosersBracketQuals === 1) {
+    if (effW === 4 && targetLosersBracketQuals === 1) {
         const colFinal1 = createRoundColumn(roundNames.wsfDrop, 'losers');
         const finalLbl = nextLabel();
         colFinal1.appendChild(createMatchNode(finalLbl, '', '', '', '', 'branch'));
         lQual.appendChild(createQualifierNode(finalLbl, targetPhaseName, 'L', false, 'qualifier'));
         lContainer.append(colFinal1, lQual);
-        return;
+        return finalLbl;
     }
 
     const colWsfDrop = createRoundColumn(roundNames.wsfDrop, 'losers');
@@ -2117,7 +2268,7 @@ function appendLosersAfter4Matches(lContainer, fourMatchLabels, wqfLabels, wsfLa
             lQual.appendChild(createQualifierNode(wsfDropRoundLabels[k], targetPhaseName, 'L', false, 'qualifier'));
         }
         lContainer.appendChild(lQual);
-        return;
+        return null;
     }
 
     const colConsolidate1 = createRoundColumn(roundNames.consolidate1, 'losers');
@@ -2125,41 +2276,49 @@ function appendLosersAfter4Matches(lContainer, fourMatchLabels, wqfLabels, wsfLa
     colConsolidate1.appendChild(createMatchNode(consolidate1Label, '', '', '', '', 'branch'));
     lContainer.appendChild(colConsolidate1);
 
-    if ((wCountNum === 1 && isFinalWLoserDirectQual) || wCountNum === 2) {
+    if ((effW === 1 && isFinalWLoserDirectQual) || effW === 2) {
         lQual.appendChild(createQualifierNode(consolidate1Label, targetPhaseName, 'L', false, 'qualifier'));
         lContainer.appendChild(lQual);
-        return;
+        return consolidate1Label;
     }
 
     const colWfDrop = createRoundColumn(roundNames.wfDrop, 'losers');
     const wfDropLabel = nextLabel();
     colWfDrop.appendChild(createMatchNode(wfDropLabel, '', '', '', '', 'straight', `Loser of ${wfLabel}`));
-    lQual.appendChild(createQualifierNode(wfDropLabel, targetPhaseName, 'L', false, 'qualifier'));
-    lContainer.append(colWfDrop, lQual);
+    lContainer.appendChild(colWfDrop);
+
+    if (!isGF) {
+        lQual.appendChild(createQualifierNode(wfDropLabel, targetPhaseName, 'L', false, 'qualifier'));
+        lContainer.appendChild(lQual);
+    }
+    return wfDropLabel;
 }
 
-// === 9〜16人用：敗者側の後半進行ヘルパー ===
+// === 9〜16人用：敗者側の後半進行ヘルパー（LFの試合記号を返す） ===
 function appendLosersAfter2Matches(lContainer, twoMatchLabels, wsfLabels, wfLabel, wCountNum, lCountNum, targetPhaseName, nextLabel, roundNames) {
     const lQual = createRoundColumn('', 'losers', true);
+    const isGF = (wCountNum === 0 && lCountNum === 0);
+    const effW = isGF ? 1 : wCountNum;
+    const effL = isGF ? 1 : lCountNum;
 
-    const isFinalWLoserDirectQual = (lCountNum >= 2 * wCountNum);
-    const targetLosersBracketQuals = isFinalWLoserDirectQual ? Math.max(1, lCountNum - wCountNum) : lCountNum;
+    const isFinalWLoserDirectQual = (effL >= 2 * effW);
+    const targetLosersBracketQuals = isFinalWLoserDirectQual ? Math.max(1, effL - effW) : effL;
 
-    if ((wCountNum === 2 && isFinalWLoserDirectQual) || (wCountNum === 4 && targetLosersBracketQuals >= 2)) {
+    if ((effW === 2 && isFinalWLoserDirectQual) || (effW === 4 && targetLosersBracketQuals >= 2)) {
         for (let k = 0; k < 2; k++) {
             lQual.appendChild(createQualifierNode(twoMatchLabels[k], targetPhaseName, 'L', false, 'qualifier'));
         }
         lContainer.appendChild(lQual);
-        return;
+        return null;
     }
 
-    if (wCountNum === 4 && targetLosersBracketQuals === 1) {
+    if (effW === 4 && targetLosersBracketQuals === 1) {
         const colFinal1 = createRoundColumn(roundNames.consolidate1, 'losers');
         const finalLbl = nextLabel();
         colFinal1.appendChild(createMatchNode(finalLbl, '', '', '', '', 'branch'));
         lQual.appendChild(createQualifierNode(finalLbl, targetPhaseName, 'L', false, 'qualifier'));
         lContainer.append(colFinal1, lQual);
-        return;
+        return finalLbl;
     }
 
     const colWsfDrop = createRoundColumn(roundNames.wsfDrop, 'losers');
@@ -2177,7 +2336,7 @@ function appendLosersAfter2Matches(lContainer, twoMatchLabels, wsfLabels, wfLabe
             lQual.appendChild(createQualifierNode(wsfDropRoundLabels[k], targetPhaseName, 'L', false, 'qualifier'));
         }
         lContainer.appendChild(lQual);
-        return;
+        return null;
     }
 
     const colConsolidate1 = createRoundColumn(roundNames.consolidate1, 'losers');
@@ -2185,27 +2344,33 @@ function appendLosersAfter2Matches(lContainer, twoMatchLabels, wsfLabels, wfLabe
     colConsolidate1.appendChild(createMatchNode(consolidate1Label, '', '', '', '', 'branch'));
     lContainer.appendChild(colConsolidate1);
 
-    if ((wCountNum === 1 && isFinalWLoserDirectQual) || wCountNum === 2) {
+    if ((effW === 1 && isFinalWLoserDirectQual) || effW === 2) {
         lQual.appendChild(createQualifierNode(consolidate1Label, targetPhaseName, 'L', false, 'qualifier'));
         lContainer.appendChild(lQual);
-        return;
+        return consolidate1Label;
     }
 
     const colWfDrop = createRoundColumn(roundNames.wfDrop, 'losers');
     const wfDropLabel = nextLabel();
     colWfDrop.appendChild(createMatchNode(wfDropLabel, '', '', '', '', 'straight', `Loser of ${wfLabel}`));
-    lQual.appendChild(createQualifierNode(wfDropLabel, targetPhaseName, 'L', false, 'qualifier'));
-    lContainer.append(colWfDrop, lQual);
+    lContainer.appendChild(colWfDrop);
+
+    if (!isGF) {
+        lQual.appendChild(createQualifierNode(wfDropLabel, targetPhaseName, 'L', false, 'qualifier'));
+        lContainer.appendChild(lQual);
+    }
+    return wfDropLabel;
 }
 
 // === 6〜8人ブラケット生成関数 ===
-function render6To8Bracket(container, playerCount, getPlayerName, targetPhaseName, wCountNum, lCountNum) {
+function render6To8Bracket(container, playerCount, getPlayerName, targetPhaseName, wCountNum, lCountNum, isSingle) {
     let labelCounter = 0;
     const nextLabel = () => indexToMatchLabel(labelCounter++);
 
     const wsfTopSeeds = [1, 2];
+    const isGF = (!isSingle && wCountNum === 0 && lCountNum === 0);
     const effectiveWCount = Math.min(wCountNum, 2);
-    const includeLoserSlotOnFinalW = (lCountNum >= 2 * effectiveWCount && lCountNum > 0);
+    const includeLoserSlotOnFinalW = (!isSingle && effectiveWCount > 0 && lCountNum >= 2 * effectiveWCount && lCountNum > 0);
 
     const wContainer = createElement('div', 'bracket-container');
     const wr1 = createRoundColumn('Winners Round 1', 'winners');
@@ -2215,6 +2380,7 @@ function render6To8Bracket(container, playerCount, getPlayerName, targetPhaseNam
 
     const wsfLabels = [];
     let wfLabel = null;
+    let gfNode = null;
     const wr1BlockMatches = [];
 
     if (playerCount === 6) {
@@ -2285,15 +2451,34 @@ function render6To8Bracket(container, playerCount, getPlayerName, targetPhaseNam
     } else {
         wfLabel = nextLabel();
         wfCol.appendChild(createMatchNode(wfLabel, '', '', '', '', 'branch'));
-        wQual.appendChild(createQualifierNode(wfLabel, targetPhaseName, 'W', includeLoserSlotOnFinalW, 'qualifier'));
-        wContainer.append(wr1, wsfCol, wfCol, wQual);
-        nextLabel();
-        nextLabel();
+
+        if (effectiveWCount === 0) {
+            if (isSingle) {
+                wContainer.append(wr1, wsfCol, wfCol);
+                nextLabel();
+                nextLabel();
+            } else {
+                const gfCol = createRoundColumn('Grand Final', 'winners');
+                const gfrCol = createRoundColumn('Grand Final Reset', 'winners');
+                const gfLabel = nextLabel();
+                const gfrLabel = nextLabel();
+                gfNode = createMatchNode(gfLabel, '', '', '', '', 'straight');
+                const gfrNode = createMatchNode(gfrLabel, '', '', '', '', 'straight');
+                gfCol.appendChild(gfNode);
+                gfrCol.appendChild(gfrNode);
+                wContainer.append(wr1, wsfCol, wfCol, gfCol, gfrCol);
+            }
+        } else {
+            wQual.appendChild(createQualifierNode(wfLabel, targetPhaseName, 'W', includeLoserSlotOnFinalW, 'qualifier'));
+            wContainer.append(wr1, wsfCol, wfCol, wQual);
+            nextLabel();
+            nextLabel();
+        }
     }
 
     container.appendChild(wContainer);
 
-    if (lCountNum === 0) return;
+    if (isSingle) return;
 
     const lContainer = createElement('div', 'bracket-container');
     lContainer.style.height = `${2 * SLOT_HEIGHT_24 + ROUND_HEADER_TOTAL_HEIGHT}px`;
@@ -2343,8 +2528,10 @@ function render6To8Bracket(container, playerCount, getPlayerName, targetPhaseNam
         lContainer.append(lr1, lr2);
     }
 
-    const isFinalWLoserDirectQual = (lCountNum >= 2 * effectiveWCount);
-    const targetLosersBracketQuals = isFinalWLoserDirectQual ? Math.max(1, lCountNum - effectiveWCount) : lCountNum;
+    const effW = isGF ? 1 : effectiveWCount;
+    const effL = isGF ? 1 : lCountNum;
+    const isFinalWLoserDirectQual = (effL >= 2 * effW);
+    const targetLosersBracketQuals = isFinalWLoserDirectQual ? Math.max(1, effL - effW) : effL;
 
     if (targetLosersBracketQuals >= 2) {
         for (let k = 0; k < 2; k++) {
@@ -2357,15 +2544,21 @@ function render6To8Bracket(container, playerCount, getPlayerName, targetPhaseNam
         lsfCol.appendChild(createMatchNode(lsfLabel, '', '', '', '', 'branch'));
         lContainer.appendChild(lsfCol);
 
-        if ((effectiveWCount === 1 && isFinalWLoserDirectQual) || effectiveWCount === 2) {
+        if ((effW === 1 && isFinalWLoserDirectQual) || effW === 2) {
             lQual.appendChild(createQualifierNode(lsfLabel, targetPhaseName, 'L', false, 'qualifier'));
             lContainer.appendChild(lQual);
         } else {
             const lfCol = createRoundColumn('Losers Final', 'losers');
             const lfLabel = nextLabel();
             lfCol.appendChild(createMatchNode(lfLabel, '', '', '', '', 'straight', `Loser of ${wfLabel}`));
-            lQual.appendChild(createQualifierNode(lfLabel, targetPhaseName, 'L', false, 'qualifier'));
-            lContainer.append(lfCol, lQual);
+            lContainer.appendChild(lfCol);
+
+            if (isGF) {
+                setMatchBottomLabel(gfNode, `Winner of ${lfLabel}`);
+            } else {
+                lQual.appendChild(createQualifierNode(lfLabel, targetPhaseName, 'L', false, 'qualifier'));
+                lContainer.appendChild(lQual);
+            }
         }
     }
 
@@ -2373,7 +2566,7 @@ function render6To8Bracket(container, playerCount, getPlayerName, targetPhaseNam
 }
 
 // === 9〜12人ブラケット生成関数 ===
-function render9To12Bracket(container, playerCount, getPlayerName, targetPhaseName, wCountNum, lCountNum) {
+function render9To12Bracket(container, playerCount, getPlayerName, targetPhaseName, wCountNum, lCountNum, isSingle) {
     let labelCounter = 0;
     const nextLabel = () => indexToMatchLabel(labelCounter++);
 
@@ -2413,10 +2606,10 @@ function render9To12Bracket(container, playerCount, getPlayerName, targetPhaseNa
     }
 
     wContainer.append(wr1, wqfCol);
-    const { wsfLabels, wfLabel } = appendWinnersEndingFromWQF(wContainer, wqfLabels, wCountNum, lCountNum, targetPhaseName, nextLabel);
+    const { wsfLabels, wfLabel, gfNode } = appendWinnersEndingFromWQF(wContainer, wqfLabels, wCountNum, lCountNum, targetPhaseName, nextLabel, isSingle);
     container.appendChild(wContainer);
 
-    if (lCountNum === 0) return;
+    if (isSingle) return;
 
     const hasAnyDoubleLr1Pair = playerCount >= 11;
     const losersUnitSlots = hasAnyDoubleLr1Pair ? 4 : 2;
@@ -2463,7 +2656,7 @@ function render9To12Bracket(container, playerCount, getPlayerName, targetPhaseNa
 
     lContainer.append(lr1, lr2);
 
-    appendLosersAfter2Matches(
+    const lfLabel = appendLosersAfter2Matches(
         lContainer,
         lr2Labels,
         wsfLabels,
@@ -2479,11 +2672,15 @@ function render9To12Bracket(container, playerCount, getPlayerName, targetPhaseNa
         }
     );
 
+    if (gfNode && lfLabel) {
+        setMatchBottomLabel(gfNode, `Winner of ${lfLabel}`);
+    }
+
     container.appendChild(lContainer);
 }
 
 // === 13〜16人ブラケット生成関数 ===
-function render13To16Bracket(container, playerCount, getPlayerName, targetPhaseName, wCountNum, lCountNum) {
+function render13To16Bracket(container, playerCount, getPlayerName, targetPhaseName, wCountNum, lCountNum, isSingle) {
     let labelCounter = 0;
     const nextLabel = () => indexToMatchLabel(labelCounter++);
 
@@ -2531,10 +2728,10 @@ function render13To16Bracket(container, playerCount, getPlayerName, targetPhaseN
     }
 
     wContainer.append(wr1, wqfCol);
-    const { wsfLabels, wfLabel } = appendWinnersEndingFromWQF(wContainer, wqfLabels, wCountNum, lCountNum, targetPhaseName, nextLabel);
+    const { wsfLabels, wfLabel, gfNode } = appendWinnersEndingFromWQF(wContainer, wqfLabels, wCountNum, lCountNum, targetPhaseName, nextLabel, isSingle);
     container.appendChild(wContainer);
 
-    if (lCountNum === 0) return;
+    if (isSingle) return;
 
     const lContainer = createElement('div', 'bracket-container');
     lContainer.style.height = `${4 * SLOT_HEIGHT_24 + ROUND_HEADER_TOTAL_HEIGHT}px`;
@@ -2578,7 +2775,7 @@ function render13To16Bracket(container, playerCount, getPlayerName, targetPhaseN
 
     lContainer.append(lr1, lr2, lr3);
 
-    appendLosersAfter2Matches(
+    const lfLabel = appendLosersAfter2Matches(
         lContainer,
         lr3Labels,
         wsfLabels,
@@ -2594,11 +2791,15 @@ function render13To16Bracket(container, playerCount, getPlayerName, targetPhaseN
         }
     );
 
+    if (gfNode && lfLabel) {
+        setMatchBottomLabel(gfNode, `Winner of ${lfLabel}`);
+    }
+
     container.appendChild(lContainer);
 }
 
 // === 17〜24人ブラケット生成関数 ===
-function render17To24Bracket(container, playerCount, getPlayerName, targetPhaseName, wCountNum, lCountNum) {
+function render17To24Bracket(container, playerCount, getPlayerName, targetPhaseName, wCountNum, lCountNum, isSingle) {
     let labelCounter = 0;
     const nextLabel = () => indexToMatchLabel(labelCounter++);
 
@@ -2638,10 +2839,10 @@ function render17To24Bracket(container, playerCount, getPlayerName, targetPhaseN
     }
 
     wContainer.append(wr1, wr2);
-    const { wqfLabels, wsfLabels, wfLabel } = appendWinnersEndingByCount(wContainer, wCountNum, lCountNum, targetPhaseName, nextLabel);
+    const { wqfLabels, wsfLabels, wfLabel, gfNode } = appendWinnersEndingByCount(wContainer, wCountNum, lCountNum, targetPhaseName, nextLabel, isSingle);
     container.appendChild(wContainer);
 
-    if (lCountNum === 0) return;
+    if (isSingle) return;
 
     const hasAnyDoubleLr1Pair = playerCount >= 21;
     const losersUnitSlots = hasAnyDoubleLr1Pair ? 8 : 4;
@@ -2688,7 +2889,7 @@ function render17To24Bracket(container, playerCount, getPlayerName, targetPhaseN
 
     lContainer.append(lr1, lr2);
 
-    appendLosersAfter4Matches(
+    const lfLabel = appendLosersAfter4Matches(
         lContainer,
         lr2Labels,
         wqfLabels,
@@ -2707,11 +2908,15 @@ function render17To24Bracket(container, playerCount, getPlayerName, targetPhaseN
         }
     );
 
+    if (gfNode && lfLabel) {
+        setMatchBottomLabel(gfNode, `Winner of ${lfLabel}`);
+    }
+
     container.appendChild(lContainer);
 }
 
 // === 25〜32人ブラケット生成関数 ===
-function render25To32Bracket(container, playerCount, getPlayerName, targetPhaseName, wCountNum, lCountNum) {
+function render25To32Bracket(container, playerCount, getPlayerName, targetPhaseName, wCountNum, lCountNum, isSingle) {
     let labelCounter = 0;
     const nextLabel = () => indexToMatchLabel(labelCounter++);
 
@@ -2759,10 +2964,10 @@ function render25To32Bracket(container, playerCount, getPlayerName, targetPhaseN
     }
 
     wContainer.append(wr1, wr2);
-    const { wqfLabels, wsfLabels, wfLabel } = appendWinnersEndingByCount(wContainer, wCountNum, lCountNum, targetPhaseName, nextLabel);
+    const { wqfLabels, wsfLabels, wfLabel, gfNode } = appendWinnersEndingByCount(wContainer, wCountNum, lCountNum, targetPhaseName, nextLabel, isSingle);
     container.appendChild(wContainer);
 
-    if (lCountNum === 0) return;
+    if (isSingle) return;
 
     const lContainer = createElement('div', 'bracket-container');
     lContainer.style.height = `${8 * LOSERS_SLOT_HEIGHT_32 + ROUND_HEADER_TOTAL_HEIGHT}px`;
@@ -2806,7 +3011,7 @@ function render25To32Bracket(container, playerCount, getPlayerName, targetPhaseN
 
     lContainer.append(lr1, lr2, lr3);
 
-    appendLosersAfter4Matches(
+    const lfLabel = appendLosersAfter4Matches(
         lContainer,
         lr3Labels,
         wqfLabels,
@@ -2824,6 +3029,10 @@ function render25To32Bracket(container, playerCount, getPlayerName, targetPhaseN
             wfDrop: 'Losers Final'
         }
     );
+
+    if (gfNode && lfLabel) {
+        setMatchBottomLabel(gfNode, `Winner of ${lfLabel}`);
+    }
 
     container.appendChild(lContainer);
 }
@@ -2871,15 +3080,15 @@ function renderPoolSheet(poolName) {
     container.style.gap = '28px';
 
     if (playerCount >= 25) {
-        render25To32Bracket(container, playerCount, getPlayerName, targetPhaseName, wCountNum, lCountNum);
+        render25To32Bracket(container, playerCount, getPlayerName, targetPhaseName, wCountNum, lCountNum, isSingle);
     } else if (playerCount >= 17) {
-        render17To24Bracket(container, playerCount, getPlayerName, targetPhaseName, wCountNum, lCountNum);
+        render17To24Bracket(container, playerCount, getPlayerName, targetPhaseName, wCountNum, lCountNum, isSingle);
     } else if (playerCount >= 13) {
-        render13To16Bracket(container, playerCount, getPlayerName, targetPhaseName, wCountNum, lCountNum);
+        render13To16Bracket(container, playerCount, getPlayerName, targetPhaseName, wCountNum, lCountNum, isSingle);
     } else if (playerCount >= 9) {
-        render9To12Bracket(container, playerCount, getPlayerName, targetPhaseName, wCountNum, lCountNum);
+        render9To12Bracket(container, playerCount, getPlayerName, targetPhaseName, wCountNum, lCountNum, isSingle);
     } else {
-        render6To8Bracket(container, playerCount, getPlayerName, targetPhaseName, wCountNum, lCountNum);
+        render6To8Bracket(container, playerCount, getPlayerName, targetPhaseName, wCountNum, lCountNum, isSingle);
     }
 
     const rosterContainer = document.getElementById('checkin-roster-container');
@@ -3024,7 +3233,6 @@ async function executePrintPools(targetPoolNames) {
         clonedSheet.removeAttribute('id');
         clonedSheet.querySelectorAll('[id]').forEach(el => el.removeAttribute('id'));
 
-        // 非表示要素や操作用UIをDOMから完全削除し、PDFオブジェクト数を最小化
         clonedSheet.querySelectorAll('.hidden, .text-box-controls').forEach(el => el.remove());
 
         clonedSheet.className = 'batch-print-sheet text-gray-800 relative';
@@ -3043,10 +3251,8 @@ async function executePrintPools(targetPoolNames) {
         batchPrintContainer.appendChild(pageWrapper);
     }
 
-    // プレビュー表示を元の選択プールに戻す
     renderPoolSheet(originalPoolName);
 
-    // 印刷コンテナを可視化してレンダリングツリーに乗せ、全ページのロゴ画像を確実にデコード＆描画させる
     batchPrintContainer.classList.remove('hidden');
     document.body.classList.add('batch-printing');
 
@@ -3062,7 +3268,6 @@ async function executePrintPools(targetPoolNames) {
         });
     }));
 
-    // ブラウザのコンポジタが全ページの画像を確実に描画し終えるまで2フレーム待機
     await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
 
     window.print();
