@@ -692,10 +692,11 @@
                 </div>
             </div>
 
-            <!-- 通過先のフェーズ名を入力 -->
+            <!-- 通過先のフェーズ名を入力 (W0L0時は空欄可) -->
             <div id="target-phase-wrapper" class="flex flex-col gap-1 text-xs shrink-0">
                 <label class="text-sm font-bold text-gray-800">通過先のフェーズ名を入力</label>
                 <input type="text" id="target-phase-input" value="" placeholder="例: Day2 / TOP192" class="border border-gray-300 rounded p-1.5 text-xs bg-white">
+                <span id="target-phase-note" class="hidden text-[10px] text-gray-500">※通過人数が0人のため入力不要です</span>
             </div>
 
             <!-- 描画ボタン -->
