@@ -108,6 +108,7 @@
         }
 
         #preview-area, .batch-print-sheet {
+            --match-box-h: 48px;
             width: 2362px;
             min-height: 1000px;
             padding: 24px 30px;
@@ -223,7 +224,7 @@
             display: flex;
             align-items: center;
             width: 244px;
-            height: 48px;
+            height: var(--match-box-h, 48px);
             position: relative;
             z-index: 10;
             flex-shrink: 0;
@@ -231,7 +232,7 @@
 
         .dummy-spacer-box {
             width: 244px;
-            height: 48px;
+            height: var(--match-box-h, 48px);
             flex-shrink: 0;
         }
 
@@ -297,7 +298,7 @@
         .main-box-area {
             display: flex;
             width: 219px;
-            height: 48px;
+            height: var(--match-box-h, 48px);
             border: 1.5px solid #000;
             background-color: white;
             box-sizing: border-box;
