@@ -35,7 +35,7 @@ const SLOT_HEIGHT_24 = 82;
 // 25〜32人用の基本スロット高（勝者側は68px、敗者側は74px）
 const WINNERS_SLOT_HEIGHT_32 = 68;
 const LOSERS_SLOT_HEIGHT_32 = 74;
-const ROUND_HEADER_TOTAL_HEIGHT = 34;
+const ROUND_HEADER_TOTAL_HEIGHT = 36;
 
 // 現在の描画に応じた動的スロット高・ボックス高（W0L0等で下の余白を活かして記入欄を4mm以上に拡大）
 let currentDynamicSlotHeight24 = SLOT_HEIGHT_24;
@@ -53,19 +53,49 @@ const TOURNAMENT_PRESETS = {
     'Vic-Seekers': {
         logoFile: 'vix_logo_black_outline.png',
         logoRawUrl: 'https://raw.githubusercontent.com/Tesnoo/BracketPrinter/main/vix_logo_black_outline.png',
+        hasGameSelect: false,
         formatName: (n) => n ? `Vic-Seekers #${n}` : 'Vic-Seekers',
-        formatUrl: (n) => n ? `https://www.start.gg/tournament/vic-seekers-${n}/event/ultimate-singles` : ''
+        formatUrl: (n) => n ? `https://www.start.gg/tournament/vic-seekers-${n}/event/ultimate-singles` : '',
+        boConfig: null
     },
     'クロブラ': {
         logoFile: 'kurobra_logo.png',
         logoRawUrl: 'https://raw.githubusercontent.com/Tesnoo/BracketPrinter/main/kurobra_logo.png',
+        hasGameSelect: true,
         formatName: (n) => n ? `第${n}回クロブラ` : 'クロブラ',
-        formatUrl: (n) => n ? `https://www.start.gg/tournament/${n}-kurobra${n}/event/kurobra-sp-1on1` : ''
+        formatUrl: (n, game) => {
+            if (!n) return '';
+            const eventSlug = (game === 'dx') ? 'kurobra-melee-singles' : 'kurobra-sp-1on1';
+            return `https://www.start.gg/tournament/${n}-kurobra${n}/event/${eventSlug}`;
+        },
+        getBoConfig: (game) => {
+            if (game === 'dx') {
+                return { baseBo: '5', changeMode: 'no' };
+            }
+            return {
+                baseBo: '3',
+                changeMode: 'yes',
+                winnersRound: 'Winners Semi-Final',
+                winnersBo: '5',
+                losersRound: 'Losers Quarter-Final',
+                losersBo: '5'
+            };
+        }
+    },
+    'IMPACT MAJOR': {
+        logoFile: 'impact_ major_logo.png',
+        logoRawUrl: 'https://raw.githubusercontent.com/Tesnoo/BracketPrinter/main/impact_%20major_logo.png',
+        hasGameSelect: false,
+        formatName: (n) => n ? `IMPACT MAJOR#${n}` : 'IMPACT MAJOR',
+        formatUrl: (n) => n ? `https://www.start.gg/tournament/impact-major-${n}/event/singles-tournament` : '',
+        getBoConfig: () => ({ baseBo: '5', changeMode: 'no' })
     }
 };
 
 // プリセット・大会名入力・フェーズ名表示チェックボックス要素
 const presetSelect = document.getElementById('preset-select');
+const presetGameWrapper = document.getElementById('preset-game-wrapper');
+const presetGameSelect = document.getElementById('preset-game-select');
 const presetNumberWrapper = document.getElementById('preset-number-wrapper');
 const presetNumberInput = document.getElementById('preset-number-input');
 const tournamentNameInput = document.getElementById('tournament-name-input');
@@ -124,6 +154,10 @@ const winnersCustomInput = document.getElementById('winners-custom-input');
 const losersBoSelect = document.getElementById('losers-bo-select');
 const losersCustomInput = document.getElementById('losers-custom-input');
 
+// プリセットで指定された途中ラウンド変更ターゲットを保持（データ読込後の再構築でも維持するため）
+let presetTargetWinnersRound = null;
+let presetTargetLosersRound = null;
+
 // 保存済みのstart.gg APIトークンがあれば復元
 const savedToken = localStorage.getItem('bracket_printer_startgg_token');
 if (savedToken) {
@@ -177,17 +211,76 @@ function loadPresetLogo(presetConfig, presetKey) {
         };
         imgRemote.src = presetConfig.logoRawUrl;
     };
-    imgLocal.src = presetConfig.logoFile || presetConfig.logoRawUrl;
+    imgLocal.src = presetConfig.logoFile ? encodeURI(presetConfig.logoFile) : presetConfig.logoRawUrl;
 }
 
-// === プリセット選択・ナンバリング入力時の自動反映処理 ===
-function applyPresetFields() {
+// === プリセットのBo設定をフォームへ反映する関数 ===
+function applyPresetBoConfig(boConfig) {
+    if (!boConfig) {
+        presetTargetWinnersRound = null;
+        presetTargetLosersRound = null;
+        return;
+    }
+
+    if (boConfig.baseBo) {
+        baseBoSelect.value = boConfig.baseBo;
+        baseBoValue = boConfig.baseBo;
+        isCustomBoConfirmed = true;
+        const customBoContainerEl = document.getElementById('custom-bo-container');
+        const customBoConfirmAreaEl = document.getElementById('custom-bo-confirm-area');
+        if (customBoContainerEl) customBoContainerEl.classList.add('hidden');
+        if (customBoConfirmAreaEl) customBoConfirmAreaEl.classList.add('hidden');
+    }
+
+    if (boConfig.changeMode === 'yes') {
+        const yesRadio = document.querySelector('input[name="change-mode"][value="yes"]');
+        if (yesRadio) yesRadio.checked = true;
+        roundChangeContainer.classList.remove('hidden');
+
+        presetTargetWinnersRound = boConfig.winnersRound || 'none';
+        presetTargetLosersRound = boConfig.losersRound || 'none';
+
+        updateRoundSelectOptions();
+
+        if (boConfig.winnersBo) {
+            winnersBoSelect.value = boConfig.winnersBo;
+            winnersCustomInput.classList.add('hidden');
+        }
+        if (boConfig.losersBo) {
+            losersBoSelect.value = boConfig.losersBo;
+            losersCustomInput.classList.add('hidden');
+        }
+        if (presetTargetWinnersRound && currentActiveWinnersRounds.includes(presetTargetWinnersRound)) {
+            winnersRoundSelect.value = presetTargetWinnersRound;
+        }
+        if (presetTargetLosersRound && currentActiveLosersRounds.includes(presetTargetLosersRound)) {
+            losersRoundSelect.value = presetTargetLosersRound;
+        }
+    } else if (boConfig.changeMode === 'no') {
+        const noRadio = document.querySelector('input[name="change-mode"][value="no"]');
+        if (noRadio) noRadio.checked = true;
+        roundChangeContainer.classList.add('hidden');
+        presetTargetWinnersRound = null;
+        presetTargetLosersRound = null;
+        winnersRoundSelect.value = 'none';
+        losersRoundSelect.value = 'none';
+    }
+
+    validateForm();
+}
+
+// === プリセット選択・競技選択・ナンバリング入力時の自動反映処理 ===
+function applyPresetFields(alsoApplyBo = false) {
     if (!presetSelect) return;
     const selectedPreset = presetSelect.value;
     const numStr = presetNumberInput ? presetNumberInput.value.trim() : '';
+    const gameVal = presetGameSelect ? presetGameSelect.value : 'sp';
 
     if (!selectedPreset) {
+        if (presetGameWrapper) presetGameWrapper.classList.add('hidden');
         if (presetNumberWrapper) presetNumberWrapper.classList.add('hidden');
+        presetTargetWinnersRound = null;
+        presetTargetLosersRound = null;
         return;
     }
 
@@ -195,13 +288,20 @@ function applyPresetFields() {
 
     const config = TOURNAMENT_PRESETS[selectedPreset];
     if (config) {
+        if (presetGameWrapper) {
+            presetGameWrapper.classList.toggle('hidden', !config.hasGameSelect);
+        }
         if (tournamentNameInput) {
-            tournamentNameInput.value = config.formatName(numStr);
+            tournamentNameInput.value = config.formatName(numStr, gameVal);
         }
         if (startggUrlInput) {
-            startggUrlInput.value = config.formatUrl(numStr);
+            startggUrlInput.value = config.formatUrl(numStr, gameVal);
+        }
+        if (alsoApplyBo && typeof config.getBoConfig === 'function') {
+            applyPresetBoConfig(config.getBoConfig(gameVal));
         }
     } else {
+        if (presetGameWrapper) presetGameWrapper.classList.add('hidden');
         if (tournamentNameInput) {
             tournamentNameInput.value = numStr ? `${selectedPreset} #${numStr}` : selectedPreset;
         }
@@ -214,14 +314,16 @@ if (presetSelect) {
     presetSelect.addEventListener('change', () => {
         const selectedPreset = presetSelect.value;
         if (!selectedPreset) {
+            if (presetGameWrapper) presetGameWrapper.classList.add('hidden');
             if (presetNumberWrapper) presetNumberWrapper.classList.add('hidden');
             if (presetNumberInput) presetNumberInput.value = '';
             if (tournamentNameInput) tournamentNameInput.placeholder = '(例) Vic-Seekers #1';
+            presetTargetWinnersRound = null;
+            presetTargetLosersRound = null;
             return;
         }
 
-        if (presetNumberWrapper) presetNumberWrapper.classList.remove('hidden');
-        applyPresetFields();
+        applyPresetFields(true);
 
         const config = TOURNAMENT_PRESETS[selectedPreset];
         if (config) {
@@ -233,13 +335,19 @@ if (presetSelect) {
     });
 }
 
+if (presetGameSelect) {
+    presetGameSelect.addEventListener('change', () => {
+        applyPresetFields(true);
+    });
+}
+
 if (presetNumberInput) {
     presetNumberInput.addEventListener('input', (e) => {
         const cleaned = e.target.value.replace(/[^0-9]/g, '');
         if (e.target.value !== cleaned) {
             e.target.value = cleaned;
         }
-        applyPresetFields();
+        applyPresetFields(false);
     });
 }
 
@@ -498,7 +606,10 @@ function updateRoundSelectOptions() {
     currentActiveWinnersRounds = winnersRounds;
     currentActiveLosersRounds = losersRounds;
 
-    const prevWSelected = winnersRoundSelect.value;
+    const prevWSelected = (winnersRoundSelect.value && winnersRoundSelect.value !== 'none')
+        ? winnersRoundSelect.value
+        : (presetTargetWinnersRound || 'none');
+
     winnersRoundSelect.innerHTML = '';
     const wNoneOpt = document.createElement('option');
     wNoneOpt.value = 'none';
@@ -519,7 +630,10 @@ function updateRoundSelectOptions() {
         winnersRoundSelect.value = 'none';
     }
 
-    const prevLSelected = losersRoundSelect.value;
+    const prevLSelected = (losersRoundSelect.value && losersRoundSelect.value !== 'none')
+        ? losersRoundSelect.value
+        : (presetTargetLosersRound || 'none');
+
     losersRoundSelect.innerHTML = '';
     const lNoneOpt = document.createElement('option');
     lNoneOpt.value = 'none';
@@ -540,6 +654,13 @@ function updateRoundSelectOptions() {
         losersRoundSelect.value = 'none';
     }
 }
+
+winnersRoundSelect.addEventListener('change', () => {
+    presetTargetWinnersRound = winnersRoundSelect.value;
+});
+losersRoundSelect.addEventListener('change', () => {
+    presetTargetLosersRound = losersRoundSelect.value;
+});
 
 // === トーナメント形式（ダブル/シングル）切り替え時のUI連動 ===
 function syncElimFormatUI() {
@@ -683,11 +804,9 @@ function updateDynamicBoxAndSlotHeights(playerCount, wCountNum, lCountNum, isSin
 
     if (playerCount <= 12) {
         if (isGF) {
-            // 6列＋名簿で横幅が約2,018pxになるため、下側の余白を活かしてボックス高を68px（1人34px＝A4横で4.0mm）に拡大
             currentDynamicMatchBoxHeight = 68;
             currentDynamicSlotHeight24 = 112;
         } else if (!isSingle && wCountNum <= 1) {
-            // W1L1 / W1L2（5列＋名簿）でもA4横で4mm以上になるよう拡大
             currentDynamicMatchBoxHeight = 58;
             currentDynamicSlotHeight24 = 96;
         } else {
@@ -696,7 +815,6 @@ function updateDynamicBoxAndSlotHeights(playerCount, wCountNum, lCountNum, isSin
         }
     } else if (playerCount <= 16) {
         if (isGF) {
-            // 13〜16人 W0L0（合計12スロット）でも縦余白の範囲内でボックス高を62pxに拡大
             currentDynamicMatchBoxHeight = 62;
             currentDynamicSlotHeight24 = 96;
         } else if (!isSingle && wCountNum <= 1) {
@@ -1797,6 +1915,8 @@ changeModeRadios.forEach(radio => {
             roundChangeContainer.classList.remove('hidden');
         } else {
             roundChangeContainer.classList.add('hidden');
+            presetTargetWinnersRound = null;
+            presetTargetLosersRound = null;
             winnersRoundSelect.value = 'none';
             losersRoundSelect.value = 'none';
         }
@@ -1963,9 +2083,9 @@ function getQualifierFontSize(text) {
     for (const ch of text) {
         units += ch.charCodeAt(0) > 255 ? 2 : 1;
     }
-    if (units > 28) return '11px';
-    if (units > 20) return '12px';
-    return '13px';
+    if (units > 28) return '12.5px';
+    if (units > 20) return '13.5px';
+    return '14.5px';
 }
 
 function createQualifierNode(matchSourceLabel, targetPhase, targetType = 'W', includeLoserSlot = false, lineType = 'straight') {
@@ -1982,7 +2102,7 @@ function createQualifierNode(matchSourceLabel, targetPhase, targetType = 'W', in
     const textSingle = `${targetPhase} [${targetType}]`;
 
     if (targetType === 'W' && includeLoserSlot) {
-        box.style.height = '52px';
+        box.style.height = '56px';
         const fontSize = getQualifierFontSize(textW.length >= textL.length ? textW : textL);
         const slot1 = createElement('div', 'qualifier-slot border-b border-black', textW);
         slot1.style.fontSize = fontSize;
@@ -1994,7 +2114,7 @@ function createQualifierNode(matchSourceLabel, targetPhase, targetType = 'W', in
 
         box.appendChild(createElement('span', 'qual-drop-label-bottom', `Loser of ${matchSourceLabel}`));
     } else {
-        box.style.height = '30px';
+        box.style.height = '32px';
         const slot = createElement('div', 'qualifier-slot', textSingle);
         slot.style.fontSize = getQualifierFontSize(textSingle);
         box.appendChild(slot);
@@ -2474,7 +2594,7 @@ function render6To8Bracket(container, playerCount, getPlayerName, targetPhaseNam
             if (block.hasTopMatch) {
                 wsfCol.appendChild(createMatchNode(lbl, '', '', '', '', 'branch'));
             } else {
-                wsfCol.appendChild(createMatchNode(block.topSeed ? lbl : lbl, getPlayerName(block.topSeed), '', block.topSeed, '', 'straight'));
+                wsfCol.appendChild(createMatchNode(lbl, getPlayerName(block.topSeed), '', block.topSeed, '', 'straight'));
             }
         }
     }
@@ -3109,9 +3229,18 @@ function renderPoolSheet(poolName) {
 
     const elimTitle = isSingle ? 'Single Elimination' : 'Double Elimination';
     document.getElementById('pool-title').textContent = buildPoolHeaderTitle(poolName, elimTitle, playerCount);
-    document.getElementById('pool-subtitle').textContent = isSingle
-        ? `Qualifier: ${wCount}`
-        : `Winners side qualifier: ${wCount} / Losers side qualifier: ${lCount}`;
+
+    // W0L0（またはシングルW0）の時は左上のQualifier表記を非表示にする
+    const subtitleEl = document.getElementById('pool-subtitle');
+    if (wCountNum === 0 && lCountNum === 0) {
+        subtitleEl.textContent = '';
+        subtitleEl.classList.add('hidden');
+    } else {
+        subtitleEl.classList.remove('hidden');
+        subtitleEl.textContent = isSingle
+            ? `Qualifier: ${wCount}`
+            : `Winners side qualifier: ${wCount} / Losers side qualifier: ${lCount}`;
+    }
 
     const container = document.getElementById('bracket-container');
     container.innerHTML = ''; 
