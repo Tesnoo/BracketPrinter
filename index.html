@@ -28,6 +28,12 @@
     <style>
         :root {
             --match-box-h: 48px;
+            --col-w: 244px;
+            --col-gap: 22px;
+            --label-w: 25px;
+            --checkbox-w: 27px;
+            --player-font: 14.5px;
+            --player-pad-x: 6px;
         }
 
         body, #preview-area, .batch-print-sheet {
@@ -110,7 +116,7 @@
 
         .bracket-container {
             display: flex;
-            gap: 22px;
+            gap: var(--col-gap, 22px);
             align-items: stretch;
             width: max-content;
             flex-shrink: 0;
@@ -119,14 +125,14 @@
         .round-col {
             display: flex;
             flex-direction: column;
-            width: 244px;
+            width: var(--col-w, 244px);
             height: 100%;
             flex-shrink: 0;
         }
 
         .round-col.qualifier-col {
             width: max-content;
-            min-width: 164px;
+            min-width: 156px;
         }
 
         .round-header {
@@ -134,7 +140,7 @@
             text-align: center;
             font-weight: 700 !important;
             font-style: italic;
-            font-size: 14px;
+            font-size: 13.5px;
             line-height: 20px;
             height: 26px;
             padding: 3px 0;
@@ -168,10 +174,10 @@
         .match-wrapper.branch-line::before {
             content: '';
             position: absolute;
-            left: -22px;
+            left: calc(var(--col-gap, 22px) * -1);
             top: 25%;    
             bottom: 25%; 
-            width: 11px;
+            width: calc(var(--col-gap, 22px) / 2);
             border-top: 1.5px solid #000;
             border-bottom: 1.5px solid #000;
             border-right: 1.5px solid #000;
@@ -180,9 +186,9 @@
         .match-wrapper.branch-line::after {
             content: '';
             position: absolute;
-            left: -11px;
+            left: calc(var(--col-gap, 22px) / -2);
             top: 50%;
-            width: 11px;
+            width: calc(var(--col-gap, 22px) / 2);
             border-top: 1.5px solid #000;
             box-sizing: border-box;
         }
@@ -190,9 +196,9 @@
         .match-wrapper.straight-line::before {
             content: '';
             position: absolute;
-            left: -22px;
+            left: calc(var(--col-gap, 22px) * -1);
             top: 50%;
-            width: 22px;
+            width: var(--col-gap, 22px);
             border-top: 1.5px solid #000;
             box-sizing: border-box;
         }
@@ -201,9 +207,9 @@
         .match-wrapper.qualifier-line::before {
             content: '';
             position: absolute;
-            left: -22px;
+            left: calc(var(--col-gap, 22px) * -1);
             top: 50%;
-            width: 22px;
+            width: var(--col-gap, 22px);
             height: 0;
             border-top: 3px dashed #000000 !important;
             transform: translateY(-50%);
@@ -213,7 +219,7 @@
         .match-box {
             display: flex;
             align-items: center;
-            width: 244px;
+            width: var(--col-w, 244px);
             height: var(--match-box-h, 48px);
             position: relative;
             z-index: 10;
@@ -221,7 +227,7 @@
         }
 
         .dummy-spacer-box {
-            width: 244px;
+            width: var(--col-w, 244px);
             height: var(--match-box-h, 48px);
             flex-shrink: 0;
         }
@@ -229,7 +235,7 @@
         .drop-label-top {
             position: absolute;
             top: -14px;
-            left: 52px;
+            left: calc(var(--label-w, 25px) + var(--checkbox-w, 27px));
             font-size: 12px;
             font-weight: 500;
             line-height: 12px;
@@ -239,7 +245,7 @@
         .drop-label-bottom {
             position: absolute;
             bottom: -14px;
-            left: 52px;
+            left: calc(var(--label-w, 25px) + var(--checkbox-w, 27px));
             font-size: 12px;
             font-weight: 500;
             line-height: 12px;
@@ -272,8 +278,8 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            width: 25px;
-            height: 25px;
+            width: var(--label-w, 25px);
+            height: var(--label-w, 25px);
             background-color: #4b5563;
             color: white;
             font-weight: 700;
@@ -287,7 +293,7 @@
 
         .main-box-area {
             display: flex;
-            width: 219px;
+            width: calc(var(--col-w, 244px) - var(--label-w, 25px));
             height: var(--match-box-h, 48px);
             border: 1.5px solid #000;
             background-color: white;
@@ -298,7 +304,7 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            width: 27px;
+            width: var(--checkbox-w, 27px);
             border-right: 1px solid #000;
             box-sizing: border-box;
             flex-shrink: 0;
@@ -321,10 +327,10 @@
         }
         .player-slot {
             flex: 1;
-            padding: 0 6px;
+            padding: 0 var(--player-pad-x, 6px);
             display: flex;
             align-items: center;
-            font-size: 14.5px;
+            font-size: var(--player-font, 14.5px);
             font-weight: 500;
             position: relative; 
             line-height: 1.1;
@@ -1651,8 +1657,10 @@
             } else {
                 if (n <= 16) {
                     return { size: 'A4', orientation: 'landscape', margin: 'standard', reason: `${n}人 ダブルエリミの推奨設定` };
-                } else {
+                } else if (n <= 24) {
                     return { size: 'A3', orientation: 'landscape', margin: 'standard', reason: `${n}人 ダブルエリミの推奨設定` };
+                } else {
+                    return { size: 'A3', orientation: 'portrait', margin: 'standard', reason: `${n}人 ダブルエリミの推奨設定` };
                 }
             }
         }
@@ -1707,10 +1715,18 @@
             printOrientationSelect.value = recommendedPrintConfig.orientation;
             printMarginSelect.value = recommendedPrintConfig.margin;
             checkIfPrintSettingsMatchRecommendation();
+            if (!document.getElementById('main-sheet-body').classList.contains('hidden')) {
+                generateBtn.click();
+            }
         });
 
         [printSizeSelect, printOrientationSelect, printMarginSelect].forEach(sel => {
-            sel.addEventListener('change', checkIfPrintSettingsMatchRecommendation);
+            sel.addEventListener('change', () => {
+                checkIfPrintSettingsMatchRecommendation();
+                if (!document.getElementById('main-sheet-body').classList.contains('hidden')) {
+                    generateBtn.click();
+                }
+            });
         });
 
         // === W0L0選択時の「通過先のフェーズ名」入力欄の表示・有効制御 ===
@@ -1756,8 +1772,6 @@
             if (isCsvValid && isFormatSelected && isWinnersSelected && isLosersSelected && isBaseBoReady && isTargetPhaseFilled && isRoundChangeReady) {
                 generateBtn.disabled = false;
                 generateBtn.className = "w-full bg-[#FA8534] text-white px-4 py-2 rounded shadow hover:bg-orange-600 transition font-bold text-sm cursor-pointer";
-                showInlineMessage(generateError, '');
-                showInlineMessage(exportError, '');
             } else {
                 generateBtn.disabled = true;
                 generateBtn.className = "w-full bg-gray-300 text-gray-500 px-4 py-2 rounded shadow transition font-bold text-sm cursor-not-allowed";
@@ -1782,8 +1796,6 @@
         function applyPoolsDataToUI(sourceLabel = 'CSV', isFromApi = false) {
             const poolKeys = sortPoolKeys(Object.keys(poolsData));
             const targetStatusEl = isFromApi ? apiStatus : csvStatus;
-            const otherStatusEl = isFromApi ? csvStatus : apiStatus;
-            showInlineMessage(otherStatusEl, '');
 
             if (poolKeys.length === 0) {
                 isCsvValid = false;
@@ -1798,11 +1810,7 @@
                 if (count < 6 || count > 32) {
                     isCsvValid = false;
                     poolSelectWrapper.classList.add('hidden');
-                    showInlineMessage(
-                        targetStatusEl,
-                        `❌ エラー: Pool "${pName}" の参加人数が ${count} 名です。\n1プールあたり6名〜32名のデータのみ対応しています。`,
-                        'error'
-                    );
+                    showInlineMessage(targetStatusEl, `❌ エラー: Pool "${pName}" の参加人数が ${count} 名です。\n1プールあたり6名〜32名のデータのみ対応しています。`, 'error');
                     updateGenerateButtonState();
                     return;
                 }
@@ -1822,7 +1830,7 @@
             poolSelectWrapper.classList.remove('hidden');
 
             const statusLines = [`✅ ${sourceLabel}: ${poolKeys.length}個のPoolを読み込みました`];
-            if (isFromApi && lastAutoConfigSummary) {
+            if (lastAutoConfigSummary) {
                 statusLines.push(lastAutoConfigSummary);
             }
             showInlineMessage(targetStatusEl, statusLines.join('\n'), 'success');
@@ -1841,6 +1849,7 @@
 
             activeDataSource = 'csv';
             showInlineMessage(apiStatus, '');
+            showInlineMessage(tokenError, '');
             showInlineMessage(urlError, '');
 
             if (!verifySourceIdentifierIntegrity(file.name)) {
@@ -1858,11 +1867,8 @@
                 skipEmptyLines: true,
                 complete: function(results) {
                     const rows = results.data;
-                    if (!rows || rows.length < 2) {
-                        isCsvValid = false;
-                        poolSelectWrapper.classList.add('hidden');
+                    if (rows.length < 2) {
                         showInlineMessage(csvStatus, '❌ CSVのデータが空か、フォーマットが正しくありません。', 'error');
-                        updateGenerateButtonState();
                         return;
                     }
 
@@ -1876,7 +1882,7 @@
                         const rawPool = row[2] ? String(row[2]).trim() : '';
                         if (!rawPool) continue;
 
-                        if (!verifySourceIdentifierIntegrity(rawPhase)) {
+                        if (!verifySourceIdentifierIntegrity(rawPhase) || !verifySourceIdentifierIntegrity(rawPool)) {
                             csvUpload.value = '';
                             handleUnsupportedIdentifierError('csv');
                             return;
@@ -1913,10 +1919,7 @@
                     applyPoolsDataToUI('CSV', false);
                 },
                 error: function() {
-                    isCsvValid = false;
-                    poolSelectWrapper.classList.add('hidden');
                     showInlineMessage(csvStatus, '❌ CSVファイルの読み込みに失敗しました。', 'error');
-                    updateGenerateButtonState();
                 }
             });
         });
@@ -3027,7 +3030,7 @@
             let lSlotUnit = SLOT_HEIGHT_24;
 
             if (playerCount >= 25) {
-                winnersSlots = 8;
+                winnersSlots = 16;
                 losersSlots = 8;
                 wSlotUnit = WINNERS_SLOT_HEIGHT_32;
                 lSlotUnit = LOSERS_SLOT_HEIGHT_32;
@@ -3230,13 +3233,16 @@
                         consolidate1Col = () => createRoundColumn(`Losers Semi-Final ${getBoStringForRound('L', 'Losers Semi-Final')}`);
                         wfDropCol = () => createRoundColumn(`Losers Final ${getBoStringForRound('L', 'Losers Final')}`);
                     } else {
-                        const wr1_32Slots = [
-                            { s1: 16, s2: 17 }, { s1: 9,  s2: 24 }, { s1: 13, s2: 20 }, { s1: 12, s2: 21 },
-                            { s1: 15, s2: 18 }, { s1: 10, s2: 23 }, { s1: 14, s2: 19 }, { s1: 11, s2: 22 }
-                        ];
-                        const wr1_top8Pairs = [
-                            [1, 32], [8, 25], [4, 29], [5, 28],
-                            [2, 31], [7, 26], [3, 30], [6, 27]
+                        // === 25〜32人規模の正しい16スロット勝者側・敗者側構築 ===
+                        const wr1Pairs32 = [
+                            { s1: 1,  s2: 32 }, { s1: 16, s2: 17 },
+                            { s1: 8,  s2: 25 }, { s1: 9,  s2: 24 },
+                            { s1: 4,  s2: 29 }, { s1: 13, s2: 20 },
+                            { s1: 5,  s2: 28 }, { s1: 12, s2: 21 },
+                            { s1: 2,  s2: 31 }, { s1: 15, s2: 18 },
+                            { s1: 7,  s2: 26 }, { s1: 10, s2: 23 },
+                            { s1: 3,  s2: 30 }, { s1: 14, s2: 19 },
+                            { s1: 6,  s2: 27 }, { s1: 11, s2: 22 }
                         ];
 
                         wContainer.innerHTML = '';
@@ -3244,37 +3250,51 @@
 
                         const wr1_32 = createRoundColumn(`Winners Round 1 ${getBoStringForRound('W', 'Winners Round 1')}`);
                         const wr2_32 = createRoundColumn(`Winners Round 2 ${getBoStringForRound('W', 'Winners Round 2')}`);
-                        const wr1TopLabels = new Array(8).fill(null);
-                        const wr1BotLabels = new Array(8).fill(null);
+                        const wr1Active32 = new Array(16).fill(null);
 
-                        for (let i = 0; i < 8; i++) {
-                            const topPair = wr1_top8Pairs[i];
-                            if (playerCount >= topPair[1]) {
-                                wr1TopLabels[i] = nextMatchLabel();
-                            }
-                            const botPair = wr1_32Slots[i];
-                            if (playerCount >= botPair[1]) {
-                                wr1BotLabels[i] = nextMatchLabel();
-                            }
-                        }
+                        for (let m = 0; m < 8; m++) {
+                            const topSlot = wr1Pairs32[2 * m];
+                            const botSlot = wr1Pairs32[2 * m + 1];
+                            const hasTopMatch = playerCount >= topSlot.s2;
+                            const hasBotMatch = playerCount >= botSlot.s2;
 
-                        for (let i = 0; i < 8; i++) {
-                            const botPair = wr1_32Slots[i];
-                            const lblBot = wr1BotLabels[i];
-                            wr1_32.appendChild(createMatchNode(lblBot, pMap[botPair.s1] || '', pMap[botPair.s2] || '', String(botPair.s1), String(botPair.s2), 'none'));
+                            const pairGroup = createElement('div', 'pair-group');
+
+                            if (hasTopMatch && hasBotMatch) {
+                                const lblTop = nextMatchLabel();
+                                wr1Active32[2 * m] = lblTop;
+                                pairGroup.appendChild(createMatchNode(lblTop, pMap[topSlot.s1] || '', pMap[topSlot.s2] || '', String(topSlot.s1), String(topSlot.s2), 'none'));
+
+                                const lblBot = nextMatchLabel();
+                                wr1Active32[2 * m + 1] = lblBot;
+                                pairGroup.appendChild(createMatchNode(lblBot, pMap[botSlot.s1] || '', pMap[botSlot.s2] || '', String(botSlot.s1), String(botSlot.s2), 'none'));
+                            } else if (!hasTopMatch && hasBotMatch) {
+                                // 上段がBYEで下段のみ試合がある場合はダミー枠を入れず中央(50%)に配置してWR2の直線と一致させる
+                                const lblBot = nextMatchLabel();
+                                wr1Active32[2 * m + 1] = lblBot;
+                                pairGroup.appendChild(createMatchNode(lblBot, pMap[botSlot.s1] || '', pMap[botSlot.s2] || '', String(botSlot.s1), String(botSlot.s2), 'none'));
+                            } else if (hasTopMatch && !hasBotMatch) {
+                                const lblTop = nextMatchLabel();
+                                wr1Active32[2 * m] = lblTop;
+                                pairGroup.appendChild(createMatchNode(lblTop, pMap[topSlot.s1] || '', pMap[topSlot.s2] || '', String(topSlot.s1), String(topSlot.s2), 'none'));
+                            } else {
+                                pairGroup.appendChild(createDummyMatchNode());
+                            }
+
+                            wr1_32.appendChild(pairGroup);
                         }
 
                         const wr2_32Labels = [];
-                        for (let i = 0; i < 8; i++) {
+                        for (let m = 0; m < 8; m++) {
                             const lbl = nextMatchLabel();
                             wr2_32Labels.push(lbl);
-                            const topPair = wr1_top8Pairs[i];
-                            const hasTopWr1 = wr1TopLabels[i] !== null;
+                            const topSlot = wr1Pairs32[2 * m];
+                            const hasTopMatch = wr1Active32[2 * m] !== null;
 
-                            if (hasTopWr1) {
-                                wr2_32.appendChild(createMatchNode(lbl, '', '', '', '', 'straight', `Winner of ${wr1TopLabels[i]}`, ''));
+                            if (hasTopMatch) {
+                                wr2_32.appendChild(createMatchNode(lbl, '', '', '', '', 'branch'));
                             } else {
-                                wr2_32.appendChild(createMatchNode(lbl, pMap[topPair[0]] || '', '', String(topPair[0]), '', 'straight'));
+                                wr2_32.appendChild(createMatchNode(lbl, pMap[topSlot.s1] || '', '', String(topSlot.s1), '', 'straight'));
                             }
                         }
 
@@ -3316,25 +3336,29 @@
                         const lr3_32 = createRoundColumn(`Losers Round 3 ${getBoStringForRound('L', 'Losers Round 3')}`);
 
                         const lr1Active32 = new Array(8).fill(null);
-                        for (let i = 0; i < 8; i++) {
-                            if (wr1TopLabels[i] !== null) {
+                        for (let m = 0; m < 8; m++) {
+                            const topLbl = wr1Active32[2 * m];
+                            const botLbl = wr1Active32[2 * m + 1];
+                            if (topLbl !== null && botLbl !== null) {
                                 const lbl = nextMatchLabel();
-                                lr1Active32[i] = lbl;
-                                lr1_32.appendChild(createMatchNode(lbl, '', '', '', '', 'none', `Loser of ${wr1TopLabels[i]}`, `Loser of ${wr1BotLabels[i]}`));
+                                lr1Active32[m] = lbl;
+                                lr1_32.appendChild(createMatchNode(lbl, '', '', '', '', 'none', `Loser of ${topLbl}`, `Loser of ${botLbl}`));
                             } else {
                                 lr1_32.appendChild(createDummyMatchNode());
                             }
                         }
 
                         const lr2Labels32 = [];
-                        for (let i = 0; i < 8; i++) {
+                        for (let m = 0; m < 8; m++) {
                             const lbl = nextMatchLabel();
                             lr2Labels32.push(lbl);
-                            const wr2Loser = wr2_32Labels[7 - i];
-                            if (lr1Active32[i] !== null) {
+                            const wr2Loser = wr2_32Labels[7 - m];
+                            const botLbl = wr1Active32[2 * m + 1];
+
+                            if (lr1Active32[m] !== null) {
                                 lr2_32.appendChild(createMatchNode(lbl, '', '', '', '', 'straight', `Loser of ${wr2Loser}`, ''));
                             } else {
-                                lr2_32.appendChild(createMatchNode(lbl, '', '', '', '', 'none', `Loser of ${wr2Loser}`, `Loser of ${wr1BotLabels[i]}`));
+                                lr2_32.appendChild(createMatchNode(lbl, '', '', '', '', 'none', `Loser of ${wr2Loser}`, `Loser of ${botLbl}`));
                             }
                         }
 
@@ -3717,16 +3741,41 @@
                 wContainer.appendChild(gfResetCol);
             }
 
-            // === 記入欄が印刷時に最低4mm四方になるようボックス高さを自動調整 ===
+            // === 記入欄のサイズと25〜32人時のA3縦向き収納バランスを自動調整 ===
+            const isPortrait = (printOrientationSelect.value === 'portrait');
             let boxHeightPx = 48;
-            if (isGfMode || playerCount <= 16) {
-                boxHeightPx = 56;
+            let blockLayoutVars = {
+                colW: 244,
+                colGap: 22,
+                labelW: 25,
+                checkboxW: 27,
+                playerFont: '14.5px',
+                playerPadX: '6px'
+            };
+
+            if (playerCount >= 25) {
+                // 全角11文字(13px×11=143px)が確実に収まりつつA3縦の横幅に収まるブロック幅(228px)
+                boxHeightPx = 54;
+                wSlotUnit = 92;
+                lSlotUnit = 98;
+                blockLayoutVars = {
+                    colW: 228,
+                    colGap: 16,
+                    labelW: 23,
+                    checkboxW: 23,
+                    playerFont: '13px',
+                    playerPadX: '4px'
+                };
+            } else {
+                if (isGfMode || playerCount <= 16) {
+                    boxHeightPx = 56;
+                }
+                if (playerCount <= 8) {
+                    boxHeightPx = 62;
+                }
+                wSlotUnit = Math.max(wSlotUnit, boxHeightPx + 30);
+                lSlotUnit = Math.max(lSlotUnit, boxHeightPx + 28);
             }
-            if (playerCount <= 8) {
-                boxHeightPx = 62;
-            }
-            wSlotUnit = Math.max(wSlotUnit, boxHeightPx + 30);
-            lSlotUnit = Math.max(lSlotUnit, boxHeightPx + 28);
 
             const winnersHeightPx = ROUND_HEADER_TOTAL_HEIGHT + (winnersSlots * wSlotUnit);
             const losersHeightPx = ROUND_HEADER_TOTAL_HEIGHT + (losersSlots * lSlotUnit);
@@ -3738,7 +3787,7 @@
             let bracketGapPx = 0;
             if (!isSingle && (isGfMode || lCountNum > 0)) {
                 lContainer.style.height = `${losersHeightPx}px`;
-                bracketGapPx = playerCount >= 25 ? 24 : 30;
+                bracketGapPx = playerCount >= 25 ? 32 : 30;
                 bracketContainerEl.style.gap = `${bracketGapPx}px`;
                 bracketContainerEl.appendChild(lContainer);
             } else {
@@ -3750,15 +3799,50 @@
             const totalBracketHeight = winnersHeightPx + ((!isSingle && (isGfMode || lCountNum > 0)) ? (bracketGapPx + losersHeightPx) : 0);
             const rosterEstimatedHeight = 40 + (playerCount * 25) + (pendingLogoDataUrl ? 180 : 20);
             const bodyHeight = Math.max(totalBracketHeight, rosterEstimatedHeight);
-            const totalCanvasHeight = Math.max(760, bodyHeight + 135);
 
             const wColsCount = wContainer.children.length;
             const lColsCount = (!isSingle && (isGfMode || lCountNum > 0)) ? lContainer.children.length : 0;
-            const maxCols = Math.max(wColsCount, lColsCount);
-            const estimatedBracketWidth = maxCols * 266;
-            const totalCanvasWidth = Math.max(2362, estimatedBracketWidth + 356 + 110);
+            const colStep = blockLayoutVars.colW + blockLayoutVars.colGap;
+            const qualWidthEst = 172;
+            const rosterWidthEst = 356;
 
-            return { canvasWidth: totalCanvasWidth, canvasHeight: totalCanvasHeight, boxHeightPx };
+            const wBracketWidth = wColsCount > 0 ? ((wColsCount - 1) * colStep + (isGfMode ? blockLayoutVars.colW : qualWidthEst)) : 0;
+            const lBracketWidth = lColsCount > 0 ? ((lColsCount - 1) * colStep + (isGfMode ? blockLayoutVars.colW : qualWidthEst)) : 0;
+
+            let requiredContentWidth;
+            if (playerCount >= 25) {
+                // 25〜32人時はWinnersの高さ(約1500px)が名簿の高さ(約840px)より十分大きいため、Losersは名簿の下に配置され衝突しない
+                const topRowWidth = wBracketWidth + 28 + rosterWidthEst;
+                requiredContentWidth = Math.max(topRowWidth, lBracketWidth);
+            } else {
+                requiredContentWidth = Math.max(wBracketWidth, lBracketWidth) + 28 + rosterWidthEst;
+            }
+
+            let totalCanvasWidth, totalCanvasHeight;
+            if (isPortrait) {
+                const minRequiredWidth = Math.max(1820, requiredContentWidth + 68);
+                const minRequiredHeight = Math.max(2574, bodyHeight + 100);
+                totalCanvasWidth = Math.max(minRequiredWidth, Math.round(minRequiredHeight / Math.SQRT2));
+                totalCanvasHeight = Math.round(totalCanvasWidth * Math.SQRT2);
+            } else {
+                const minRequiredWidth = Math.max(2362, requiredContentWidth + 80);
+                const minRequiredHeight = Math.max(1670, bodyHeight + 94);
+                totalCanvasHeight = Math.max(minRequiredHeight, Math.round(minRequiredWidth / Math.SQRT2));
+                totalCanvasWidth = Math.round(totalCanvasHeight * Math.SQRT2);
+            }
+
+            return { canvasWidth: totalCanvasWidth, canvasHeight: totalCanvasHeight, boxHeightPx, blockLayoutVars };
+        }
+
+        function applyBlockLayoutVarsToElement(el, boxHeightPx, vars) {
+            if (!el || !vars) return;
+            el.style.setProperty('--match-box-h', `${boxHeightPx}px`);
+            el.style.setProperty('--col-w', `${vars.colW}px`);
+            el.style.setProperty('--col-gap', `${vars.colGap}px`);
+            el.style.setProperty('--label-w', `${vars.labelW}px`);
+            el.style.setProperty('--checkbox-w', `${vars.checkboxW}px`);
+            el.style.setProperty('--player-font', vars.playerFont);
+            el.style.setProperty('--player-pad-x', vars.playerPadX);
         }
 
         // === ブラケット描画処理（プレビュー画面への反映） ===
@@ -3803,8 +3887,8 @@
             const bracketContainer = document.getElementById('bracket-container');
             const rosterContainer = document.getElementById('checkin-roster-container');
 
-            const { canvasWidth, canvasHeight, boxHeightPx } = buildBracketSheetContent(selectedPoolName, bracketContainer, rosterContainer);
-            previewArea.style.setProperty('--match-box-h', `${boxHeightPx}px`);
+            const { canvasWidth, canvasHeight, boxHeightPx, blockLayoutVars } = buildBracketSheetContent(selectedPoolName, bracketContainer, rosterContainer);
+            applyBlockLayoutVarsToElement(previewArea, boxHeightPx, blockLayoutVars);
             previewArea.style.width = `${canvasWidth}px`;
             previewArea.style.minHeight = `${canvasHeight}px`;
             previewArea.style.height = `${canvasHeight}px`;
@@ -3950,7 +4034,7 @@
                 const bContainer = createElement('div', 'flex flex-col justify-between w-full');
                 const rContainer = createElement('div', 'absolute top-0 right-0 z-10');
 
-                const { canvasWidth, canvasHeight, boxHeightPx } = buildBracketSheetContent(pName, bContainer, rContainer);
+                const { canvasWidth, canvasHeight, boxHeightPx, blockLayoutVars } = buildBracketSheetContent(pName, bContainer, rContainer);
                 body.append(bContainer, rContainer);
                 sheet.append(header, body);
 
@@ -3993,7 +4077,7 @@
                     box-sizing: border-box !important;
                 `;
 
-                sheet.style.setProperty('--match-box-h', `${boxHeightPx}px`);
+                applyBlockLayoutVarsToElement(sheet, boxHeightPx, blockLayoutVars);
                 sheet.style.cssText += `
                     position: absolute !important;
                     top: 0 !important;
