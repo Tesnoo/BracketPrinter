@@ -1152,7 +1152,7 @@ csvUpload.addEventListener('change', (e) => {
     });
 });
 
-// === 手順1-B: start.gg GraphQL APIによるデータ取得（1000オブジェクト制限回避・チャンク分割取得方式） ===
+// === 手順1-B: start.gg GraphQL APIによるデータ取得（1000オブジェクト制限回避 ＆ 正確なDQスロット判定） ===
 function parseStartggUrl(url) {
     const trimmed = url.trim();
     const eventMatch = trimmed.match(/start\.gg\/(tournament\/[^/?#]+\/event\/[^/?#]+)/i);
@@ -1168,7 +1168,7 @@ function parseStartggUrl(url) {
     };
 }
 
-// 対象フェーズのPhaseGroup詳細（seeds・sets）を4プールずつ分割取得して1000オブジェクト制限を確実に回避する関数
+// 対象フェーズのPhaseGroup詳細（seeds・sets）を2プールずつ分割取得し、1000オブジェクト制限を回避しつつwinnerIdとslots.entrant.idを取得
 async function ensurePhaseGroupsDetailsLoaded(phaseObj, token) {
     const groups = phaseObj?.phaseGroups?.nodes || [];
     if (groups.length === 0) return;
@@ -1176,7 +1176,7 @@ async function ensurePhaseGroupsDetailsLoaded(phaseObj, token) {
     const needsFetch = groups.some(g => !g._detailsLoaded);
     if (!needsFetch) return;
 
-    const CHUNK_SIZE = 4;
+    const CHUNK_SIZE = 2;
     for (let i = 0; i < groups.length; i += CHUNK_SIZE) {
         const chunk = groups.slice(i, i + CHUNK_SIZE);
         showInlineInfo(apiStatus, `⏳ プールデータを取得しています... (${Math.min(i + CHUNK_SIZE, groups.length)} / ${groups.length} Pool)`);
@@ -1190,8 +1190,14 @@ async function ensurePhaseGroupsDetailsLoaded(phaseObj, token) {
                         identifier
                         round
                         displayScore
+                        winnerId
                         stream {
                             streamName
+                        }
+                        slots {
+                            entrant {
+                                id
+                            }
                         }
                     }
                 }
@@ -1302,34 +1308,42 @@ async function populatePoolsFromStartggPhase(phaseObj, targetGroupId = null) {
             if (!setsByRound[r]) setsByRound[r] = [];
             setsByRound[r].push(st);
 
-            // displayScore から上段(Slot 1) / 下段(Slot 2)のDQを軽量・正確に自動検出
+            // displayScore に DQ が含まれる場合、winnerId と slots[0]/[1].entrant.id を照合して正確に敗者（DQ側）を特定
             if (st.identifier && st.displayScore) {
                 const normId = String(st.identifier).toUpperCase().trim();
                 const rawScoreStr = String(st.displayScore).trim();
-                let dqP1 = false;
-                let dqP2 = false;
 
-                if (rawScoreStr.toUpperCase() === 'DQ') {
-                    dqP1 = true;
-                    dqP2 = true;
-                } else if (/(?:^|\s|-)DQ(?:\s|$|-)/i.test(rawScoreStr)) {
-                    const parts = rawScoreStr.split(' - ');
-                    if (parts.length >= 2) {
-                        const leftPart = parts[0].trim();
-                        const rightPart = parts.slice(1).join(' - ').trim();
-                        if (/(?:^|\s)DQ$/i.test(leftPart) || /^DQ(?:\s|$)/i.test(leftPart)) {
+                if (rawScoreStr.toUpperCase() === 'DQ' || /(?:^|\s|-)DQ(?:\s|$|-)/i.test(rawScoreStr)) {
+                    let dqP1 = false;
+                    let dqP2 = false;
+
+                    const winId = st.winnerId ? String(st.winnerId) : null;
+                    const e1Id = st.slots?.[0]?.entrant?.id ? String(st.slots[0].entrant.id) : null;
+                    const e2Id = st.slots?.[1]?.entrant?.id ? String(st.slots[1].entrant.id) : null;
+
+                    if (winId && (e1Id || e2Id)) {
+                        if (e1Id && winId === e1Id) {
+                            // 上段(Slot 0)が勝者(✔) ＝ 下段(Slot 1)がDQ
+                            dqP2 = true;
+                        } else if (e2Id && winId === e2Id) {
+                            // 下段(Slot 1)が勝者(✔) ＝ 上段(Slot 0)がDQ
                             dqP1 = true;
                         }
-                        if (/(?:^|\s)DQ$/i.test(rightPart) || /^DQ(?:\s|$)/i.test(rightPart)) {
-                            dqP2 = true;
+                    } else if (rawScoreStr.includes(' - ')) {
+                        const parts = rawScoreStr.split(' - ');
+                        if (parts.length >= 2) {
+                            const leftPart = parts[0].trim();
+                            const rightPart = parts.slice(1).join(' - ').trim();
+                            if (/(?:^|\s)DQ$/i.test(leftPart) || /^DQ(?:\s|$)/i.test(leftPart)) dqP1 = true;
+                            if (/(?:^|\s)DQ$/i.test(rightPart) || /^DQ(?:\s|$)/i.test(rightPart)) dqP2 = true;
                         }
                     }
-                }
 
-                if (dqP1 || dqP2) {
-                    apiDqByLabel[normId] = { dqP1, dqP2 };
-                    if (dqP1) totalAutoDetectedDqs++;
-                    if (dqP2) totalAutoDetectedDqs++;
+                    if (dqP1 || dqP2) {
+                        apiDqByLabel[normId] = { dqP1, dqP2 };
+                        if (dqP1) totalAutoDetectedDqs++;
+                        if (dqP2) totalAutoDetectedDqs++;
+                    }
                 }
             }
         });
@@ -1558,7 +1572,6 @@ fetchStartggBtn.addEventListener('click', async () => {
     fetchStartggBtn.textContent = '取得中...';
     showInlineInfo(apiStatus, '⏳ start.gg API からイベント構造を取得しています...');
 
-    // 第1段階: 軽量なイベント＆フェーズ構造のみを取得（1000オブジェクト制限に絶対に引っかからない構造）
     const metaQuery = `
         query EventMetadataQuery($slug: String!) {
             event(slug: $slug) {
@@ -3468,6 +3481,7 @@ function buildBracketSheetContent(poolName, bracketContainerEl, rosterContainerE
 
     const apiDqMap = currentPool.apiDqByMatchLabel || {};
 
+    // トポロジカル順にDQ（API自動検出 ＆ 手動設定）・不戦勝繰り上がり・敗者側落下・両者DQ時の高シード優先進行を解決
     allMatchLabelsSorted.forEach(mLabel => {
         const rec = matchRecordsByLabel[mLabel];
         if (!rec) return;
@@ -3477,29 +3491,37 @@ function buildBracketSheetContent(poolName, bracketContainerEl, rosterContainerE
         const apiDq = apiDqMap[mLabel.toUpperCase()] || { dqP1: false, dqP2: false };
         const autoDq = autoDqSlots[mLabel] || { p1: false, p2: false };
 
-        const baseP1Dq = ov.dqP1 !== undefined ? Boolean(ov.dqP1) : Boolean(apiDq.dqP1);
-        const baseP2Dq = ov.dqP2 !== undefined ? Boolean(ov.dqP2) : Boolean(apiDq.dqP2);
-
-        const isP1Dq = Boolean(baseP1Dq || autoDq.p1);
-        const isP2Dq = Boolean(baseP2Dq || autoDq.p2);
-
         const p1Name = rec.p1NameSpan.textContent.trim();
         const p2Name = rec.p2NameSpan.textContent.trim();
         const s1Num = rec.seed1Num;
         const s2Num = rec.seed2Num;
 
+        // API自動検出DQは、該当スロットにプレイヤー名が入っている（初期配置または前ラウンドDQから転記済）場合のみ適用
+        const apiP1Dq = Boolean(apiDq.dqP1 && p1Name !== '');
+        const apiP2Dq = Boolean(apiDq.dqP2 && p2Name !== '');
+
+        const baseP1Dq = ov.dqP1 !== undefined ? Boolean(ov.dqP1) : apiP1Dq;
+        const baseP2Dq = ov.dqP2 !== undefined ? Boolean(ov.dqP2) : apiP2Dq;
+
+        const isP1Dq = Boolean(baseP1Dq || autoDq.p1);
+        const isP2Dq = Boolean(baseP2Dq || autoDq.p2);
+
         if (isP1Dq && !isP2Dq) {
             rec.score1El.textContent = 'DQ';
             rec.score2El.textContent = '✔';
-            placePlayerIntoTarget(winnerTargetByMatch[mLabel], p2Name, s2Num, false);
-            if (rec.side === 'W') {
+            if (p2Name) {
+                placePlayerIntoTarget(winnerTargetByMatch[mLabel], p2Name, s2Num, false);
+            }
+            if (rec.side === 'W' && p1Name) {
                 placePlayerIntoTarget(loserTargetByMatch[mLabel], p1Name, s1Num, true);
             }
         } else if (!isP1Dq && isP2Dq) {
             rec.score1El.textContent = '✔';
             rec.score2El.textContent = 'DQ';
-            placePlayerIntoTarget(winnerTargetByMatch[mLabel], p1Name, s1Num, false);
-            if (rec.side === 'W') {
+            if (p1Name) {
+                placePlayerIntoTarget(winnerTargetByMatch[mLabel], p1Name, s1Num, false);
+            }
+            if (rec.side === 'W' && p2Name) {
                 placePlayerIntoTarget(loserTargetByMatch[mLabel], p2Name, s2Num, true);
             }
         } else if (isP1Dq && isP2Dq) {
@@ -3520,8 +3542,10 @@ function buildBracketSheetContent(poolName, bracketContainerEl, rosterContainerE
                 rec.score2El.textContent = '✔';
             }
 
-            placePlayerIntoTarget(winnerTargetByMatch[mLabel], advName, advSeed, true);
-            if (rec.side === 'W') {
+            if (advName) {
+                placePlayerIntoTarget(winnerTargetByMatch[mLabel], advName, advSeed, true);
+            }
+            if (rec.side === 'W' && dropName) {
                 placePlayerIntoTarget(loserTargetByMatch[mLabel], dropName, dropSeed, true);
             }
         } else {
@@ -3540,7 +3564,14 @@ function buildBracketSheetContent(poolName, bracketContainerEl, rosterContainerE
         const key = `${poolName}_${mLabel}`;
         const ov = matchOverrides[key] || {};
         const defaultStream = apiStreamMap[`id_${mLabel.toUpperCase()}`] || null;
-        const defaultDq = apiDqMap[mLabel.toUpperCase()] || null;
+        const rawApiDq = apiDqMap[mLabel.toUpperCase()] || null;
+        const autoDq = autoDqSlots[mLabel] || { p1: false, p2: false };
+        const p1Now = rec.p1NameSpan.textContent.trim();
+        const p2Now = rec.p2NameSpan.textContent.trim();
+        const effectiveDefaultDq = {
+            dqP1: Boolean((rawApiDq?.dqP1 && p1Now !== '') || autoDq.p1),
+            dqP2: Boolean((rawApiDq?.dqP2 && p2Now !== '') || autoDq.p2)
+        };
 
         const isStreamEnabled = ov.streamEnabled !== undefined
             ? Boolean(ov.streamEnabled)
@@ -3569,10 +3600,10 @@ function buildBracketSheetContent(poolName, bracketContainerEl, rosterContainerE
             openMatchEditModal(
                 poolName,
                 mLabel,
-                rec.p1NameSpan.textContent.trim(),
-                rec.p2NameSpan.textContent.trim(),
+                p1Now,
+                p2Now,
                 defaultStream,
-                defaultDq
+                effectiveDefaultDq
             );
         });
     });
