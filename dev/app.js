@@ -1168,7 +1168,6 @@ function parseStartggUrl(url) {
     };
 }
 
-// 対象フェーズのPhaseGroup詳細（seeds・sets）を2プールずつ分割取得し、1000オブジェクト制限を回避しつつwinnerIdとslots.entrant.idを取得
 async function ensurePhaseGroupsDetailsLoaded(phaseObj, token) {
     const groups = phaseObj?.phaseGroups?.nodes || [];
     if (groups.length === 0) return;
@@ -1308,7 +1307,6 @@ async function populatePoolsFromStartggPhase(phaseObj, targetGroupId = null) {
             if (!setsByRound[r]) setsByRound[r] = [];
             setsByRound[r].push(st);
 
-            // displayScore に DQ が含まれる場合、winnerId と slots[0]/[1].entrant.id を照合して正確に敗者（DQ側）を特定
             if (st.identifier && st.displayScore) {
                 const normId = String(st.identifier).toUpperCase().trim();
                 const rawScoreStr = String(st.displayScore).trim();
@@ -1323,10 +1321,8 @@ async function populatePoolsFromStartggPhase(phaseObj, targetGroupId = null) {
 
                     if (winId && (e1Id || e2Id)) {
                         if (e1Id && winId === e1Id) {
-                            // 上段(Slot 0)が勝者(✔) ＝ 下段(Slot 1)がDQ
                             dqP2 = true;
                         } else if (e2Id && winId === e2Id) {
-                            // 下段(Slot 1)が勝者(✔) ＝ 上段(Slot 0)がDQ
                             dqP1 = true;
                         }
                     } else if (rawScoreStr.includes(' - ')) {
@@ -3354,7 +3350,7 @@ function buildBracketSheetContent(poolName, bracketContainerEl, rosterContainerE
     }
 
     // =========================================================
-    // トーナメント全体の接続グラフ構築（DQ自動進行・落下・両者DQ時の高シード優先進行）
+    // トーナメント全体の接続グラフ構築（スロット単位対応：25〜31人/13〜15人のpair-group完全対応）
     // =========================================================
     const winnerTargetByMatch = {};
     const loserTargetByMatch = {};
@@ -3364,76 +3360,111 @@ function buildBracketSheetContent(poolName, bracketContainerEl, rosterContainerE
         return labelStr.slice(prefix.length).trim();
     };
 
+    const getMatchesInSlotUnit = (unitEl) => {
+        if (!unitEl) return [];
+        if (unitEl.classList.contains('match-wrapper')) {
+            const lblEl = unitEl.querySelector('.match-label');
+            return (lblEl && matchRecordsByLabel[lblEl.textContent]) ? [matchRecordsByLabel[lblEl.textContent]] : [];
+        }
+        if (unitEl.classList.contains('pair-group')) {
+            const wrappers = Array.from(unitEl.querySelectorAll(':scope > .match-wrapper'));
+            const list = [];
+            wrappers.forEach(w => {
+                const lblEl = w.querySelector('.match-label');
+                if (lblEl && matchRecordsByLabel[lblEl.textContent]) {
+                    list.push(matchRecordsByLabel[lblEl.textContent]);
+                }
+            });
+            return list;
+        }
+        return [];
+    };
+
     const registerRoundProgression = (containerEl) => {
         const cols = Array.from(containerEl.children).filter(col => !col.classList.contains('qualifier-col'));
         for (let c = 0; c < cols.length; c++) {
             const col = cols[c];
-            const wrappers = Array.from(col.querySelectorAll(':scope > .match-wrapper, :scope > .pair-group > .match-wrapper'));
-            const activeMatchesInCol = wrappers.map(w => {
-                const lblEl = w.querySelector('.match-label');
-                return lblEl ? matchRecordsByLabel[lblEl.textContent] : null;
-            });
+            const currUnits = Array.from(col.children).filter(el => !el.classList.contains('round-header'));
 
-            activeMatchesInCol.forEach(rec => {
-                if (!rec) return;
-                const wTop = parseSourceMatchLabel(rec.topLabel, 'Winner of ');
-                if (wTop) winnerTargetByMatch[wTop] = { targetLabel: rec.matchLabel, slot: 1 };
-                const wBot = parseSourceMatchLabel(rec.bottomLabel, 'Winner of ');
-                if (wBot) winnerTargetByMatch[wBot] = { targetLabel: rec.matchLabel, slot: 2 };
+            // 1. ラベル表記（Winner of X / Loser of X）による明示的な接続登録
+            currUnits.forEach(unit => {
+                const matches = getMatchesInSlotUnit(unit);
+                matches.forEach(rec => {
+                    const wTop = parseSourceMatchLabel(rec.topLabel, 'Winner of ');
+                    if (wTop) winnerTargetByMatch[wTop] = { targetLabel: rec.matchLabel, slot: 1 };
+                    const wBot = parseSourceMatchLabel(rec.bottomLabel, 'Winner of ');
+                    if (wBot) winnerTargetByMatch[wBot] = { targetLabel: rec.matchLabel, slot: 2 };
 
-                const lTop = parseSourceMatchLabel(rec.topLabel, 'Loser of ');
-                if (lTop) loserTargetByMatch[lTop] = { targetLabel: rec.matchLabel, slot: 1 };
-                const lBot = parseSourceMatchLabel(rec.bottomLabel, 'Loser of ');
-                if (lBot) loserTargetByMatch[lBot] = { targetLabel: rec.matchLabel, slot: 2 };
+                    const lTop = parseSourceMatchLabel(rec.topLabel, 'Loser of ');
+                    if (lTop) loserTargetByMatch[lTop] = { targetLabel: rec.matchLabel, slot: 1 };
+                    const lBot = parseSourceMatchLabel(rec.bottomLabel, 'Loser of ');
+                    if (lBot) loserTargetByMatch[lBot] = { targetLabel: rec.matchLabel, slot: 2 };
+                });
             });
 
             if (c === 0) continue;
             const prevCol = cols[c - 1];
-            const prevWrappers = Array.from(prevCol.querySelectorAll(':scope > .match-wrapper, :scope > .pair-group > .match-wrapper'));
-            const prevMatches = prevWrappers.map(w => {
-                const lblEl = w.querySelector('.match-label');
-                return lblEl ? matchRecordsByLabel[lblEl.textContent] : null;
-            });
+            const prevUnits = Array.from(prevCol.children).filter(el => !el.classList.contains('round-header'));
 
-            const currCount = activeMatchesInCol.length;
-            const prevCount = prevMatches.length;
+            // 2. スロット単位（1対1 または 2対1）の勝者進行先登録
+            if (prevUnits.length === currUnits.length) {
+                currUnits.forEach((currUnit, idx) => {
+                    const currMatches = getMatchesInSlotUnit(currUnit);
+                    if (currMatches.length !== 1) return;
+                    const currRec = currMatches[0];
+                    const prevMatches = getMatchesInSlotUnit(prevUnits[idx]);
 
-            activeMatchesInCol.forEach((currRec, idx) => {
-                if (!currRec) return;
-                const isBranch = currRec.wrapper.classList.contains('branch-line');
-                const isStraight = currRec.wrapper.classList.contains('straight-line');
-
-                if (isBranch) {
-                    if (prevCount === currCount * 2) {
-                        const pTop = prevMatches[2 * idx];
-                        const pBot = prevMatches[2 * idx + 1];
-                        if (pTop && !winnerTargetByMatch[pTop.matchLabel]) {
-                            winnerTargetByMatch[pTop.matchLabel] = { targetLabel: currRec.matchLabel, slot: 1 };
+                    if (prevMatches.length === 2) {
+                        if (!winnerTargetByMatch[prevMatches[0].matchLabel]) {
+                            winnerTargetByMatch[prevMatches[0].matchLabel] = { targetLabel: currRec.matchLabel, slot: 1 };
                         }
-                        if (pBot && !winnerTargetByMatch[pBot.matchLabel]) {
-                            winnerTargetByMatch[pBot.matchLabel] = { targetLabel: currRec.matchLabel, slot: 2 };
+                        if (!winnerTargetByMatch[prevMatches[1].matchLabel]) {
+                            winnerTargetByMatch[prevMatches[1].matchLabel] = { targetLabel: currRec.matchLabel, slot: 2 };
+                        }
+                    } else if (prevMatches.length === 1) {
+                        const prevRec = prevMatches[0];
+                        if (!winnerTargetByMatch[prevRec.matchLabel]) {
+                            const slot1Occupied = currRec.p1NameSpan.textContent.trim() !== '' || currRec.topLabel !== '';
+                            const slot2Occupied = currRec.p2NameSpan.textContent.trim() !== '' || currRec.bottomLabel !== '';
+                            let targetSlot = 2;
+                            if (!slot1Occupied && slot2Occupied) {
+                                targetSlot = 1;
+                            } else if (!slot1Occupied && !slot2Occupied) {
+                                targetSlot = 1;
+                            }
+                            winnerTargetByMatch[prevRec.matchLabel] = { targetLabel: currRec.matchLabel, slot: targetSlot };
                         }
                     }
-                } else if (isStraight) {
-                    if (prevCount === currCount) {
-                        const pSame = prevMatches[idx];
-                        if (pSame && !winnerTargetByMatch[pSame.matchLabel]) {
-                            const p1HasInitial = currRec.p1NameSpan.textContent.trim() !== '' || currRec.topLabel !== '';
-                            const targetSlot = p1HasInitial ? 2 : 1;
-                            winnerTargetByMatch[pSame.matchLabel] = { targetLabel: currRec.matchLabel, slot: targetSlot };
+                });
+            } else if (prevUnits.length === currUnits.length * 2) {
+                currUnits.forEach((currUnit, idx) => {
+                    const currMatches = getMatchesInSlotUnit(currUnit);
+                    if (currMatches.length !== 1) return;
+                    const currRec = currMatches[0];
+                    const prevTopMatches = getMatchesInSlotUnit(prevUnits[2 * idx]);
+                    const prevBotMatches = getMatchesInSlotUnit(prevUnits[2 * idx + 1]);
+
+                    const isBranch = currRec.wrapper.classList.contains('branch-line');
+                    const isStraight = currRec.wrapper.classList.contains('straight-line');
+
+                    if (isBranch) {
+                        if (prevTopMatches.length === 1 && !winnerTargetByMatch[prevTopMatches[0].matchLabel]) {
+                            winnerTargetByMatch[prevTopMatches[0].matchLabel] = { targetLabel: currRec.matchLabel, slot: 1 };
                         }
-                    } else if (prevCount === currCount * 2) {
-                        const pTop = prevMatches[2 * idx];
-                        const pBot = prevMatches[2 * idx + 1];
-                        const activePrev = pTop || pBot;
+                        if (prevBotMatches.length === 1 && !winnerTargetByMatch[prevBotMatches[0].matchLabel]) {
+                            winnerTargetByMatch[prevBotMatches[0].matchLabel] = { targetLabel: currRec.matchLabel, slot: 2 };
+                        }
+                    } else if (isStraight) {
+                        const activePrev = prevTopMatches[0] || prevBotMatches[0];
                         if (activePrev && !winnerTargetByMatch[activePrev.matchLabel]) {
-                            const p1HasInitial = currRec.p1NameSpan.textContent.trim() !== '' || currRec.topLabel !== '';
-                            const targetSlot = p1HasInitial ? 2 : 1;
+                            const slot1Occupied = currRec.p1NameSpan.textContent.trim() !== '' || currRec.topLabel !== '';
+                            const slot2Occupied = currRec.p2NameSpan.textContent.trim() !== '' || currRec.bottomLabel !== '';
+                            const targetSlot = (slot1Occupied && !slot2Occupied) ? 2 : 1;
                             winnerTargetByMatch[activePrev.matchLabel] = { targetLabel: currRec.matchLabel, slot: targetSlot };
                         }
                     }
-                }
-            });
+                });
+            }
         }
     };
 
@@ -3496,7 +3527,6 @@ function buildBracketSheetContent(poolName, bracketContainerEl, rosterContainerE
         const s1Num = rec.seed1Num;
         const s2Num = rec.seed2Num;
 
-        // API自動検出DQは、該当スロットにプレイヤー名が入っている（初期配置または前ラウンドDQから転記済）場合のみ適用
         const apiP1Dq = Boolean(apiDq.dqP1 && p1Name !== '');
         const apiP2Dq = Boolean(apiDq.dqP2 && p2Name !== '');
 
