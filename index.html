@@ -153,6 +153,56 @@
 
         .match-wrapper {
             flex: 1 1 0px;
+            min-height: 0;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            position: relative;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        .pair-group {
+            flex: 1 1 0px;
+            min-height: 0;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            box-sizing: border-box;
+        }
+
+        .match-wrapper.branch-line::before {
+            content: '';
+            position: absolute;
+            left: calc(var(--col-gap, 22px) * -1);
+            top: 25%;    
+            bottom: 25%; 
+            width: calc(var(--col-gap, 22px) / 2);
+            border-top: 1.5px solid #000;
+            border-bottom: 1.5px solid #000;
+            border-right: 1.5px solid #000;
+            box-sizing: border-box;
+        }
+        .match-wrapper.branch-line::after {
+            content: '';
+            position: absolute;
+            left: calc(var(--col-gap, 22px) / -2);
+            top: 50%;
+            width: calc(var(--col-gap, 22px) / 2);
+            border-top: 1.5px solid #000;
+            box-sizing: border-box;
+        }
+
+        .match-wrapper.straight-line::before {
+            content: '';
+            position: absolute;
+            left: calc(var(--col-gap, 22px) * -1);
+            top: 50%;
+            width: var(--col-gap, 22px);
+            border-top: 1.5px solid #000;
+            box-sizing: border-box;
+        }
+
         /* フェーズ通過枠専用の純粋ベクター破線コネクタ（1枠のみ進出時） */
         .match-wrapper.qualifier-line::before {
             content: '';
@@ -182,7 +232,7 @@
             flex-direction: column;
             justify-content: space-between;
             position: relative;
-            height: 124px;
+            height: 144px;
             box-sizing: border-box;
         }
         .qual-fork-group::before {
@@ -466,24 +516,29 @@
             border-color: #FA8534;
         }
         .text-box-controls {
+            position: absolute;
+            top: -24px;
+            left: 0;
+            min-width: 180px;
             display: flex;
             align-items: center;
             justify-content: space-between;
             background-color: #f3f4f6;
-            border-bottom: 1px solid #e5e7eb;
+            border: 1px solid #d1d5db;
             padding: 2px 6px;
             cursor: move;
             font-size: 11px;
             color: #4b5563;
             border-radius: 3px 3px 0 0;
             user-select: none;
+            white-space: nowrap;
         }
         .draggable-text-content {
-            padding: 6px 8px;
+            padding: 2px 4px;
             outline: none;
-            min-height: 32px;
+            min-height: 24px;
             color: #000000;
-            line-height: 1.4;
+            line-height: 1.35;
             white-space: pre-wrap;
             word-break: break-word;
         }
@@ -1066,9 +1121,15 @@
                 },
                 notes: [
                     {
-                        text: '【注意事項】\n・全試合3本先取(Bo5)で進行します。\n・試合開始前にチェックボックスにレ点を入れてください。\n・勝者はスコアを記入し、スタッフへ報告してください。',
-                        x: 1820,
-                        y: 920,
+                        text: '大会進行上の注意事項',
+                        x: 1240,
+                        y: 1495,
+                        fontSize: '32px'
+                    },
+                    {
+                        text: '本大会は全試合Bo5(3本先取)です。\nまた、WSFの対戦カードが確定次第、配信台で試合を行う場合がありますので進行席までお越しください。',
+                        x: 1240,
+                        y: 1542,
                         fontSize: '18px'
                     }
                 ]
