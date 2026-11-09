@@ -1,1 +1,1065 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bracket Printer</title>
+    <link rel="icon" href="image/BracketPrinter_logo.png" type="image/png">
+    
+    <!-- OGP / Discord Embed 設定 -->
+    <meta name="theme-color" content="#DB2777">
+    <meta property="og:title" content="Bracket Printer">
+    <meta property="og:description" content="start.ggを使ったトーナメント表を見やすく！使いやすく！&#10;そんな夢を叶えるPDF作成アプリ">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://tesnoo.github.io/BracketPrinter/">
+    <meta property="og:image" content="https://raw.githubusercontent.com/Tesnoo/BracketPrinter/main/image/BracketPrinter_logo.png">
+    <meta name="twitter:card" content="summary">
+    <meta name="twitter:title" content="Bracket Printer">
+    <meta name="twitter:description" content="start.ggを使ったトーナメント表を見やすく！使いやすく！&#10;そんな夢を叶えるPDF作成アプリ">
+    <meta name="twitter:image" content="https://raw.githubusercontent.com/Tesnoo/BracketPrinter/main/image/BracketPrinter_logo.png">
 
+    <!-- Google Fonts: Roboto -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,400;0,500;0,700;0,900;1,400;1,700;1,900&display=swap" rel="stylesheet" crossorigin="anonymous">
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html-to-image/1.11.11/html-to-image.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+
+    <style>
+        :root {
+            --match-box-h: 48px;
+            --col-w: 244px;
+            --col-gap: 22px;
+            --label-w: 25px;
+            --checkbox-w: 27px;
+            --player-font: 14.5px;
+            --player-pad-x: 6px;
+        }
+
+        body, #preview-area, .batch-print-sheet {
+            font-family: 'Roboto', -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Kaku Gothic ProN", "Hiragino Sans", Meiryo, sans-serif;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        #print-rec-status-badge {
+            transform: none !important;
+            display: inline-block;
+        }
+
+        @media print {
+            * {
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+                text-rendering: optimizeSpeed !important;
+            }
+            html, body {
+                margin: 0 !important;
+                padding: 0 !important;
+                width: 100% !important;
+                height: auto !important;
+                background-color: #ffffff !important;
+                display: block !important;
+                overflow: visible !important;
+                font-family: Arial, Helvetica, "Hiragino Kaku Gothic ProN", "Hiragino Sans", Meiryo, sans-serif !important;
+            }
+            #sidebar-panel, #match-edit-modal {
+                display: none !important;
+            }
+            #preview-viewport {
+                margin: 0 !important;
+                padding: 0 !important;
+                width: 100% !important;
+                height: auto !important;
+                overflow: visible !important;
+                background-color: #ffffff !important;
+                display: block !important;
+            }
+            body.batch-printing #preview-viewport {
+                display: none !important;
+            }
+            body.batch-printing #batch-print-container {
+                display: block !important;
+            }
+            .text-box-controls {
+                display: none !important;
+            }
+            .draggable-text-box {
+                border-color: transparent !important;
+                background-color: transparent !important;
+            }
+        }
+
+        .exporting .text-box-controls {
+            display: none !important;
+        }
+        .exporting .draggable-text-box {
+            border-color: transparent !important;
+            background-color: transparent !important;
+        }
+
+        #preview-scale-wrapper {
+            transform-origin: top left;
+        }
+
+        #preview-area, .batch-print-sheet {
+            width: 2362px;
+            min-height: 1670px;
+            padding: 8px 10px;
+            box-sizing: border-box;
+            background-color: #ffffff;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .bracket-container {
+            display: flex;
+            gap: var(--col-gap, 22px);
+            align-items: stretch;
+            width: max-content;
+            flex-shrink: 0;
+        }
+
+        .round-col {
+            display: flex;
+            flex-direction: column;
+            width: var(--col-w, 244px);
+            height: 100%;
+            flex-shrink: 0;
+        }
+
+        .round-col.qualifier-col {
+            width: max-content;
+            min-width: 170px;
+        }
+
+        .round-header {
+            background-color: #e5e7eb;
+            text-align: center;
+            font-weight: 700 !important;
+            font-style: italic;
+            font-size: 13.5px;
+            line-height: 20px;
+            height: 26px;
+            padding: 3px 0;
+            margin-bottom: 8px;
+            width: 100%;
+            color: #000000;
+            flex-shrink: 0;
+            box-sizing: border-box;
+        }
+
+        .match-wrapper {
+            flex: 1 1 0px;
+            min-height: 0;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            position: relative;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        .pair-group {
+            flex: 1 1 0px;
+            min-height: 0;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            box-sizing: border-box;
+        }
+
+        .match-wrapper.branch-line::before {
+            content: '';
+            position: absolute;
+            left: calc(var(--col-gap, 22px) * -1);
+            top: 25%;    
+            bottom: 25%; 
+            width: calc(var(--col-gap, 22px) / 2);
+            border-top: 1.5px solid #000;
+            border-bottom: 1.5px solid #000;
+            border-right: 1.5px solid #000;
+            box-sizing: border-box;
+        }
+        .match-wrapper.branch-line::after {
+            content: '';
+            position: absolute;
+            left: calc(var(--col-gap, 22px) / -2);
+            top: 50%;
+            width: calc(var(--col-gap, 22px) / 2);
+            border-top: 1.5px solid #000;
+            box-sizing: border-box;
+        }
+
+        .match-wrapper.straight-line::before {
+            content: '';
+            position: absolute;
+            left: calc(var(--col-gap, 22px) * -1);
+            top: 50%;
+            width: var(--col-gap, 22px);
+            border-top: 1.5px solid #000;
+            box-sizing: border-box;
+        }
+
+        .match-wrapper.qualifier-line::before {
+            content: '';
+            position: absolute;
+            left: calc(var(--col-gap, 22px) * -1);
+            top: 50%;
+            width: var(--col-gap, 22px);
+            height: 0;
+            border-top: 2.5px dashed #000000 !important;
+            transform: translateY(-50%);
+            box-sizing: border-box;
+        }
+
+        /* フェーズ通過枠（勝敗で2枠に分かれる二股 -[ コネクタ：間隔を約1.5〜2ブロック分に拡大） */
+        .match-wrapper.qualifier-branch-group {
+            justify-content: center;
+            gap: 60px;
+        }
+        .match-wrapper.qualifier-branch-group::before {
+            content: '';
+            position: absolute;
+            left: calc(var(--col-gap, 22px) * -1);
+            top: 50%;
+            width: calc(var(--col-gap, 22px) / 2);
+            border-top: 2.5px dashed #000;
+            box-sizing: border-box;
+        }
+        .match-wrapper.qualifier-branch-group::after {
+            content: '';
+            position: absolute;
+            left: calc(var(--col-gap, 22px) / -2);
+            top: calc(50% - 47px);
+            bottom: calc(50% - 47px);
+            width: calc(var(--col-gap, 22px) / 2);
+            border-top: 2.5px dashed #000;
+            border-bottom: 2.5px dashed #000;
+            border-left: 2.5px dashed #000;
+            box-sizing: border-box;
+        }
+
+        .match-box {
+            display: flex;
+            align-items: center;
+            width: var(--col-w, 244px);
+            height: var(--match-box-h, 48px);
+            position: relative;
+            z-index: 10;
+            flex-shrink: 0;
+            cursor: pointer;
+            transition: transform 0.08s ease;
+        }
+        #preview-area .match-box:hover {
+            outline: 2px solid rgba(219, 39, 119, 0.55);
+            outline-offset: 2px;
+        }
+
+        /* 配信台マーキング：縦長にした角丸グレー破線枠 */
+        .match-box.stream-highlight::after {
+            content: '';
+            position: absolute;
+            top: -14px;
+            bottom: -14px;
+            left: -6px;
+            right: -6px;
+            border: 2px dashed #666666;
+            border-radius: 8px;
+            pointer-events: none;
+            z-index: 25;
+        }
+        .stream-badge-tag {
+            position: absolute;
+            top: -27px;
+            right: 0;
+            background-color: #ffffff;
+            color: #000000;
+            font-size: 10.5px;
+            font-weight: 700;
+            line-height: 1;
+            padding: 0;
+            border: 1.5px solid #4b5563;
+            border-radius: 3px;
+            white-space: nowrap;
+            z-index: 30;
+            pointer-events: none;
+            display: inline-flex;
+            align-items: stretch;
+            overflow: hidden;
+        }
+        .stream-badge-prefix {
+            background-color: #4b5563;
+            color: #ffffff;
+            padding: 2px 4px;
+            font-weight: 800;
+        }
+        .stream-badge-name {
+            background-color: #ffffff;
+            color: #000000;
+            padding: 2px 5px;
+            font-weight: 700;
+        }
+
+        .dummy-spacer-box {
+            width: var(--col-w, 244px);
+            height: var(--match-box-h, 48px);
+            flex-shrink: 0;
+        }
+
+        .drop-label-top {
+            position: absolute;
+            top: -13px;
+            left: calc(var(--label-w, 25px) + var(--checkbox-w, 27px));
+            font-size: 11px;
+            font-weight: 500;
+            line-height: 11px;
+            color: #000;
+            white-space: nowrap;
+        }
+        .drop-label-bottom {
+            position: absolute;
+            bottom: -13px;
+            left: calc(var(--label-w, 25px) + var(--checkbox-w, 27px));
+            font-size: 11px;
+            font-weight: 500;
+            line-height: 11px;
+            color: #000;
+            white-space: nowrap;
+        }
+
+        .qual-drop-label-top {
+            position: absolute;
+            top: -14px;
+            left: 2px;
+            font-size: 11px;
+            font-weight: 500;
+            line-height: 11px;
+            color: #000;
+            white-space: nowrap;
+        }
+        .qual-drop-label-bottom {
+            position: absolute;
+            bottom: -15px;
+            left: 2px;
+            font-size: 11.5px;
+            font-weight: 700;
+            line-height: 12px;
+            color: #000;
+            white-space: nowrap;
+        }
+
+        .match-label {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: var(--label-w, 25px);
+            height: var(--label-w, 25px);
+            background-color: #4b5563;
+            color: white;
+            font-weight: 700;
+            font-size: 12.5px;
+            border: 1.5px solid #000;
+            border-right: none;
+            line-height: 1;
+            box-sizing: border-box;
+            flex-shrink: 0;
+        }
+
+        .main-box-area {
+            display: flex;
+            width: calc(var(--col-w, 244px) - var(--label-w, 25px));
+            height: var(--match-box-h, 48px);
+            border: 1.5px solid #000;
+            background-color: white;
+            box-sizing: border-box;
+        }
+
+        .checkbox-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: var(--checkbox-w, 27px);
+            border-right: 1px solid #000;
+            box-sizing: border-box;
+            flex-shrink: 0;
+        }
+        .checkbox-square {
+            width: 13px;
+            height: 13px;
+            border: 2px solid #666;
+            border-radius: 2px;
+            box-sizing: border-box;
+        }
+
+        .player-slots-area {
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+            min-width: 0;
+            border-right: 1px solid #000;
+            box-sizing: border-box;
+        }
+        .player-slot {
+            flex: 1;
+            padding: 0 var(--player-pad-x, 6px);
+            display: flex;
+            align-items: center;
+            font-size: var(--player-font, 14.5px);
+            font-weight: 500;
+            position: relative; 
+            line-height: 1.1;
+            min-height: 0;
+        }
+        .player-slot:first-child { border-bottom: 1px solid #000; }
+
+        .player-name-text {
+            width: 100%;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .seed-label {
+            position: absolute;
+            font-size: 10.5px;
+            font-weight: 500;
+            line-height: 10.5px;
+            color: #000;
+            text-align: left;
+            left: 3px;
+        }
+        .player-slot:first-child .seed-label { top: -11px; }
+        .player-slot:last-child .seed-label { bottom: -11px; }
+
+        .score-box-area {
+            display: flex;
+            flex-direction: column;
+            width: calc(var(--match-box-h, 48px) / 2);
+            box-sizing: border-box;
+            flex-shrink: 0;
+        }
+        .score-box {
+            flex: 1;
+            min-height: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            font-weight: 900;
+            color: #000000;
+            line-height: 1;
+            letter-spacing: -0.5px;
+        }
+        .score-box:first-child { border-bottom: 1px solid #000; }
+
+        .qualifier-box {
+            display: flex;
+            flex-direction: column;
+            width: 174px;
+            border: 4px double #000;
+            background-color: white;
+            position: relative;
+            z-index: 10;
+            box-sizing: border-box;
+            flex-shrink: 0;
+        }
+        .qualifier-slot {
+            flex: 1;
+            padding: 0 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 13px;
+            font-weight: 700;
+            height: 24px;
+            min-height: 24px;
+            white-space: nowrap;
+            line-height: 1;
+            box-sizing: border-box;
+        }
+
+        .checkin-table {
+            width: 356px;
+            border: 1.5px solid #000;
+            border-collapse: collapse;
+            background-color: #ffffff;
+            flex-shrink: 0;
+        }
+        .checkin-table th {
+            font-size: 13.5px;
+            font-weight: 700;
+            text-align: center;
+            padding: 5px 8px;
+            border-bottom: 1.5px solid #000;
+            color: #000;
+            line-height: 1.2;
+            white-space: nowrap;
+        }
+        .checkin-table th:first-child {
+            width: 76px;
+            border-right: 1px solid #000;
+        }
+        .checkin-table td {
+            height: 25px;
+            padding: 0 8px;
+            font-size: 13.5px;
+            font-weight: 500;
+            color: #000;
+            border-bottom: 1px dashed #555;
+            box-sizing: border-box;
+        }
+        .checkin-table tr:last-child td {
+            border-bottom: none;
+        }
+        .checkin-table td:first-child {
+            border-right: 1px solid #000;
+            text-align: center;
+            padding: 0;
+        }
+        .checkin-cell-inner {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+        }
+        .gamertag-cell-text {
+            display: block;
+            width: 264px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            line-height: 25px;
+        }
+
+        /* === ドラッグ可能な高機能テキストボックス用スタイル === */
+        .draggable-text-box {
+            position: absolute;
+            z-index: 30;
+            border: 1px dashed #9ca3af;
+            background-color: rgba(255, 255, 255, 0.85);
+            border-radius: 4px;
+            min-width: 240px;
+        }
+        .draggable-text-box:hover {
+            border-color: #DB2777;
+        }
+        .text-box-controls {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 4px;
+            background-color: #f3f4f6;
+            border-bottom: 1px solid #e5e7eb;
+            padding: 3px 6px;
+            cursor: move;
+            font-size: 11px;
+            color: #4b5563;
+            border-radius: 3px 3px 0 0;
+            user-select: none;
+            flex-wrap: nowrap;
+        }
+        .text-tool-btn {
+            border: 1px solid #d1d5db;
+            background-color: #ffffff;
+            color: #374151;
+            border-radius: 3px;
+            padding: 1px 5px;
+            font-size: 10.5px;
+            line-height: 1.2;
+            cursor: pointer;
+            transition: all 0.1s;
+            min-width: 20px;
+            text-align: center;
+        }
+        .text-tool-btn:hover {
+            border-color: #DB2777;
+        }
+        .text-tool-btn.active {
+            background-color: #DB2777;
+            color: #ffffff;
+            border-color: #DB2777;
+        }
+        .text-size-input {
+            width: 42px;
+            border: 1px solid #d1d5db;
+            border-radius: 3px;
+            padding: 1px 3px;
+            font-size: 10.5px;
+            text-align: center;
+            background-color: #ffffff;
+            color: #111827;
+            outline: none;
+        }
+        .text-size-input:focus {
+            border-color: #DB2777;
+        }
+        .draggable-text-content {
+            padding: 6px 8px;
+            outline: none;
+            min-height: 32px;
+            color: #000000;
+            line-height: 1.4;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+    </style>
+
+    <style id="dynamic-print-style"></style>
+</head>
+<body class="bg-gray-200 h-screen flex overflow-hidden">
+    <!-- 左側：操作パネル -->
+    <div id="sidebar-panel" class="w-80 shrink-0 bg-white shadow-lg overflow-y-auto z-20 h-full">
+        <div class="p-5 flex flex-col gap-4">
+            <div class="flex items-center gap-2.5 shrink-0">
+                <img src="image/BracketPrinter_logo.png" onerror="this.onerror=null;this.src='../image/BracketPrinter_logo.png';" alt="Bracket Printer Logo" class="w-8 h-8 object-contain">
+                <h1 class="text-2xl font-bold text-gray-800">Bracket Printer</h1>
+            </div>
+
+            <div class="flex flex-col gap-2 bg-gray-50 p-2.5 rounded border border-gray-200 text-xs shrink-0">
+                <div class="flex flex-col gap-1">
+                    <label class="font-bold text-gray-700">大会プリセット（任意）</label>
+                    <select id="preset-select" class="w-full border border-gray-300 rounded p-1.5 bg-white text-xs">
+                        <option value="" selected>プリセットを使用しない</option>
+                        <option value="Vic-Seekers">Vic-Seekers</option>
+                        <option value="クロブラ">クロブラ</option>
+                        <option value="IMPACT MAJOR">IMPACT MAJOR</option>
+                    </select>
+                </div>
+
+                <div id="kurobra-game-wrapper" class="hidden flex flex-col gap-1 pt-1 border-t border-gray-200">
+                    <label class="text-[11px] font-semibold text-gray-700">競技タイトルの選択</label>
+                    <select id="kurobra-game-select" class="w-full border border-gray-300 rounded p-1 bg-white text-xs">
+                        <option value="sp" selected>スマブラSP（WSF / LQF以降Bo5）</option>
+                        <option value="dx">スマブラDX（全試合Bo5）</option>
+                    </select>
+                </div>
+
+                <div id="preset-number-wrapper" class="hidden flex flex-col gap-1 pt-1 border-t border-gray-200">
+                    <label class="text-[11px] font-semibold text-gray-700">大会ナンバリング（半角数字）</label>
+                    <input type="text" id="preset-number-input" inputmode="numeric" placeholder="例: 1" class="w-full border border-gray-300 rounded p-1.5 bg-white text-xs">
+                </div>
+
+                <div class="flex flex-col gap-1 pt-1 border-t border-gray-200">
+                    <label class="font-bold text-gray-700">大会名（任意）</label>
+                    <input type="text" id="tournament-name-input" placeholder="例: Vic-Seekers #1" class="w-full border border-gray-300 rounded p-1.5 bg-white text-xs">
+                </div>
+            </div>
+
+            <!-- 初期設定枠 -->
+            <div id="initial-settings-box" class="border-2 border-gray-300 rounded-lg p-3.5 bg-gray-50/50 flex flex-col gap-3.5 shrink-0">
+                <div class="flex items-center gap-1.5 border-b border-gray-300 pb-1.5">
+                    <span class="text-sm font-bold text-gray-800">⚙️ 初期設定</span>
+                </div>
+
+                <div class="flex flex-col gap-2 shrink-0">
+                    <label class="block text-xs font-bold text-gray-700">1. 参加者データの取得</label>
+                    <span class="text-xs font-semibold text-gray-600">シードCSVのアップロード</span>
+                    <input type="file" id="csv-upload" accept=".csv" class="block w-full text-xs text-gray-500 file:mr-2 file:py-1.5 file:px-2.5 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-pink-50 file:text-[#DB2777] hover:file:bg-pink-100 cursor-pointer border border-gray-300 rounded bg-white">
+                    
+                    <p id="csv-status" class="text-[11px] text-gray-500 hidden whitespace-pre-line leading-relaxed"></p>
+
+                    <div class="flex items-center gap-2 my-0.5">
+                        <hr class="flex-1 border-gray-300">
+                        <span class="text-[11px] text-gray-400 font-bold">または</span>
+                        <hr class="flex-1 border-gray-300">
+                    </div>
+
+                    <span class="text-xs font-semibold text-gray-600">start.gg APIから取得</span>
+                    <div class="flex flex-col gap-1.5">
+                        <div class="flex items-stretch border border-gray-300 rounded overflow-hidden bg-white">
+                            <span class="bg-gray-100 text-gray-700 text-[11px] font-semibold px-2 py-1.5 border-r border-gray-300 whitespace-nowrap flex items-center">
+                                start.gg API token
+                            </span>
+                            <input type="password" id="startgg-token-input" placeholder="未入力" class="flex-1 px-2 py-1 text-xs outline-none min-w-0">
+                        </div>
+                        <p id="token-error-msg" class="text-[11px] text-red-600 font-bold hidden whitespace-pre-line leading-relaxed"></p>
+
+                        <div class="flex items-stretch border border-gray-300 rounded overflow-hidden bg-white">
+                            <span class="bg-gray-100 text-gray-700 text-[11px] font-semibold px-2 py-1.5 border-r border-gray-300 whitespace-nowrap flex items-center">
+                                Bracket URL
+                            </span>
+                            <input type="text" id="startgg-url-input" placeholder="例: https://www.start.gg/tournament/..." class="flex-1 px-2 py-1 text-xs outline-none min-w-0">
+                        </div>
+                        <p id="url-error-msg" class="text-[11px] text-red-600 font-bold hidden whitespace-pre-line leading-relaxed"></p>
+
+                        <button id="fetch-startgg-btn" type="button" class="bg-[#DB2777] hover:bg-pink-700 text-white text-xs font-bold py-1.5 px-3 rounded shadow-sm transition">
+                            start.ggからデータを取得
+                        </button>
+                    </div>
+
+                    <p id="api-status" class="text-[11px] text-gray-500 hidden whitespace-pre-line leading-relaxed"></p>
+
+                    <div id="phase-select-wrapper" class="hidden flex flex-col gap-1 mt-0.5 bg-white p-2 rounded border border-gray-200 text-xs">
+                        <label class="text-[11px] font-semibold text-gray-700">対象フェーズの選択</label>
+                        <select id="phase-select" class="w-full border border-gray-300 rounded p-1 bg-white text-xs"></select>
+                    </div>
+
+                    <div id="pool-select-wrapper" class="hidden flex flex-col gap-1 mt-0.5 bg-white p-2 rounded border border-gray-200 text-xs">
+                        <label class="text-[11px] font-semibold text-gray-700">描画対象プールの選択</label>
+                        <select id="pool-select" class="w-full border border-gray-300 rounded p-1 bg-white text-xs"></select>
+                    </div>
+                </div>
+
+                <hr class="border-gray-200 shrink-0">
+
+                <div class="flex flex-col gap-1.5 text-xs shrink-0">
+                    <label class="font-bold text-gray-700">2. トーナメント形式の選択</label>
+                    <select id="elim-format-select" class="w-full border border-gray-300 rounded p-1.5 bg-white">
+                        <option value="" disabled selected>選択してください</option>
+                        <option value="double">ダブルエリミネーション</option>
+                        <option value="single">シングルエリミネーション</option>
+                    </select>
+                </div>
+
+                <div class="flex flex-col gap-1.5 text-xs shrink-0">
+                    <label class="font-bold text-gray-700">3. フェーズ通過人数の指定</label>
+                    <p class="text-[10.5px] text-gray-500 leading-snug">Grand Finalまで進行する場合は、勝者側・敗者側ともに0人を選択してください。</p>
+                    <div class="grid grid-cols-2 gap-2 mt-0.5">
+                        <div>
+                            <span class="text-[11px] text-gray-500 block mb-0.5">勝者側 (Winners)</span>
+                            <select id="winners-advance-count" class="w-full border border-gray-300 rounded p-1 bg-white">
+                                <option value="" disabled selected>選択してください</option>
+                                <option value="0">0人</option>
+                                <option value="1">1人</option>
+                                <option value="2">2人</option>
+                                <option value="4">4人</option>
+                            </select>
+                        </div>
+                        <div id="losers-advance-wrapper">
+                            <span class="text-[11px] text-gray-500 block mb-0.5">敗者側 (Losers)</span>
+                            <select id="losers-advance-count" class="w-full border border-gray-300 rounded p-1 bg-white">
+                                <option value="" disabled selected>選択してください</option>
+                                <option value="0">0人</option>
+                                <option value="1">1人</option>
+                                <option value="2">2人</option>
+                                <option value="4">4人</option>
+                                <option value="8">8人</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex flex-col gap-2 text-xs shrink-0">
+                    <label class="font-bold text-gray-700">4. 基本最大セット数の指定</label>
+                    <select id="base-bo-select" class="w-full border border-gray-300 rounded p-1.5 bg-white">
+                        <option value="" disabled selected>選択してください</option>
+                        <option value="5">Bo5 / 3本先取</option>
+                        <option value="3">Bo3 / 2本先取</option>
+                        <option value="custom">その他（カスタム）</option>
+                    </select>
+
+                    <div id="custom-bo-container" class="hidden flex flex-col gap-2 bg-white p-2 rounded border border-gray-200">
+                        <label class="text-[11px] font-semibold text-gray-600">最大セット数を入力（奇数の半角数字）</label>
+                        <div class="flex gap-1">
+                            <input type="text" id="custom-bo-input" placeholder="例: 9" class="flex-1 border border-gray-300 rounded p-1 text-xs">
+                            <button id="custom-bo-apply-btn" type="button" class="bg-[#DB2777] hover:bg-pink-700 text-white px-2 py-1 rounded font-bold">確認</button>
+                        </div>
+                        <p id="custom-bo-error" class="text-[11px] text-red-600 font-bold hidden whitespace-pre-line leading-relaxed"></p>
+                        <div id="custom-bo-confirm-area" class="hidden flex flex-col gap-1.5 mt-1 pt-1.5 border-t border-gray-200">
+                            <span id="custom-bo-confirm-text" class="text-[11px] font-bold text-[#DB2777]"></span>
+                            <div class="flex gap-1">
+                                <button id="custom-bo-confirm-yes" type="button" class="flex-1 bg-green-600 hover:bg-green-700 text-white py-0.5 rounded font-bold">確定</button>
+                                <button id="custom-bo-confirm-no" type="button" class="flex-1 bg-gray-400 hover:bg-gray-500 text-white py-0.5 rounded font-bold">再入力</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex flex-col gap-2 text-xs shrink-0">
+                    <label class="font-bold text-gray-700">5. ラウンド途中の最大セット数変更</label>
+                    <div class="flex gap-4">
+                        <label class="flex items-center gap-1 cursor-pointer">
+                            <input type="radio" name="change-mode" value="no" checked class="accent-[#DB2777]"> 変更しない
+                        </label>
+                        <label class="flex items-center gap-1 cursor-pointer">
+                            <input type="radio" name="change-mode" value="yes" class="accent-[#DB2777]"> 変更する
+                        </label>
+                    </div>
+
+                    <div id="round-change-container" class="hidden flex flex-col gap-2.5 bg-white p-2.5 rounded border border-gray-200">
+                        <div class="flex flex-col gap-1">
+                            <span class="text-[11px] font-semibold text-gray-700">変更開始ラウンド（勝者側）</span>
+                            <select id="winners-round-select" class="w-full border border-gray-300 rounded p-1 bg-white text-[11px]">
+                                <option value="none" selected>勝者側は変更しない</option>
+                            </select>
+                            <div class="flex items-center gap-1 mt-1">
+                                <select id="winners-bo-select" class="flex-1 border border-gray-300 rounded p-1 bg-white text-[11px]">
+                                    <option value="5" selected>Bo5 / 3本先取</option>
+                                    <option value="3">Bo3 / 2本先取</option>
+                                    <option value="custom">その他（カスタム）</option>
+                                </select>
+                                <input type="text" id="winners-custom-input" placeholder="奇数" class="hidden w-12 border border-gray-300 rounded p-1 text-xs text-center">
+                            </div>
+                            <p id="winners-custom-error" class="text-[11px] text-red-600 font-bold hidden whitespace-pre-line leading-relaxed"></p>
+                        </div>
+
+                        <div id="losers-round-change-block" class="flex flex-col gap-1 pt-1 border-t border-gray-200">
+                            <span class="text-[11px] font-semibold text-gray-700">変更開始ラウンド（敗者側）</span>
+                            <select id="losers-round-select" class="w-full border border-gray-300 rounded p-1 bg-white text-[11px]">
+                                <option value="none" selected>敗者側は変更しない</option>
+                            </select>
+                            <div class="flex items-center gap-1 mt-1">
+                                <select id="losers-bo-select" class="flex-1 border border-gray-300 rounded p-1 bg-white text-[11px]">
+                                    <option value="5" selected>Bo5 / 3本先取</option>
+                                    <option value="3">Bo3 / 2本先取</option>
+                                    <option value="custom">その他（カスタム）</option>
+                                </select>
+                                <input type="text" id="losers-custom-input" placeholder="奇数" class="hidden w-12 border border-gray-300 rounded p-1 text-xs text-center">
+                            </div>
+                            <p id="losers-custom-error" class="text-[11px] text-red-600 font-bold hidden whitespace-pre-line leading-relaxed"></p>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="target-phase-wrapper" class="flex flex-col gap-1 text-xs shrink-0">
+                    <label class="font-bold text-gray-700">6. 通過先フェーズ名の入力</label>
+                    <input type="text" id="target-phase-input" value="" placeholder="例: Day2 / TOP192" class="border border-gray-300 rounded p-1.5 text-xs bg-white">
+                </div>
+            </div>
+
+            <button id="generate-btn" disabled class="shrink-0 bg-gray-300 text-gray-500 px-4 py-2 rounded shadow transition font-bold text-sm cursor-not-allowed">
+                ブラケットを描画する
+            </button>
+            <p id="generate-error-msg" class="text-[11px] text-red-600 font-bold hidden -mt-2 whitespace-pre-line leading-relaxed"></p>
+
+            <hr class="border-gray-200 shrink-0">
+
+            <!-- 印刷オプション -->
+            <div class="border border-gray-200 rounded-lg shrink-0">
+                <button type="button" class="accordion-toggle w-full flex justify-between items-center p-2.5 bg-gray-50 hover:bg-gray-100 font-bold text-xs text-gray-700 transition rounded-t-lg">
+                    <span class="flex items-center gap-1.5">
+                        <span>🖨️ 印刷オプション</span>
+                        <span id="print-rec-status-badge" class="bg-pink-100 text-[#DB2777] border border-pink-200 text-[10px] px-1.5 py-0.5 rounded font-bold">★推奨設定</span>
+                    </span>
+                    <i class="accordion-arrow not-italic transform transition-transform duration-200 inline-block">▼</i>
+                </button>
+                <div class="accordion-content bg-white px-3 py-2.5 flex flex-col gap-2.5 text-xs border-t border-gray-200 rounded-b-lg" style="display: none;">
+                    <div id="print-rec-reason-box" class="bg-pink-50 border border-pink-200 rounded p-1.5 text-[11px] text-pink-900 flex items-center justify-between">
+                        <span id="print-rec-reason-text">💡 17〜24人 ダブルエリミの推奨設定</span>
+                        <button id="reset-print-rec-btn" type="button" class="hidden text-[10px] bg-[#DB2777] text-white px-1.5 py-0.5 rounded font-bold hover:bg-pink-700 transition">推奨に戻す</button>
+                    </div>
+
+                    <div>
+                        <div class="flex justify-between items-center mb-0.5">
+                            <label class="block font-semibold text-gray-600">用紙サイズ</label>
+                            <span id="rec-size-badge" class="text-[10px] font-bold text-[#DB2777] bg-pink-50 px-1.5 py-0.2 rounded border border-pink-200">★推奨: A3</span>
+                        </div>
+                        <select id="print-size" class="w-full border border-gray-300 rounded p-1 bg-white">
+                            <option value="A3" selected>A3 ★推奨</option>
+                            <option value="B4">B4</option>
+                            <option value="A4">A4</option>
+                            <option value="B5">B5</option>
+                            <option value="A5">A5</option>
+                        </select>
+                    </div>
+                    <div>
+                        <div class="flex justify-between items-center mb-0.5">
+                            <label class="block font-semibold text-gray-600">印刷の向き</label>
+                            <span id="rec-orientation-badge" class="text-[10px] font-bold text-[#DB2777] bg-pink-50 px-1.5 py-0.2 rounded border border-pink-200">★推奨: 横</span>
+                        </div>
+                        <select id="print-orientation" class="w-full border border-gray-300 rounded p-1 bg-white">
+                            <option value="landscape" selected>横 (Landscape) ★推奨</option>
+                            <option value="portrait">縦 (Portrait)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <div class="flex justify-between items-center mb-0.5">
+                            <label class="block font-semibold text-gray-600">余白設定</label>
+                            <span class="text-[10px] font-bold text-[#DB2777] bg-pink-50 px-1.5 py-0.2 rounded border border-pink-200">★推奨: 標準</span>
+                        </div>
+                        <select id="print-margin" class="w-full border border-gray-300 rounded p-1 bg-white">
+                            <option value="standard" selected>標準 ★推奨</option>
+                            <option value="wide">広い</option>
+                            <option value="narrow">狭い</option>
+                        </select>
+                    </div>
+
+                    <div class="pt-1.5 border-t border-gray-200">
+                        <label class="flex items-center gap-1.5 cursor-pointer font-semibold text-gray-700">
+                            <input type="checkbox" id="show-phase-name-checkbox" checked class="accent-[#DB2777]">
+                            <span>ヘッダーにフェーズ名を表示する</span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 描画オプション -->
+            <div class="border border-gray-200 rounded-lg shrink-0">
+                <button type="button" class="accordion-toggle w-full flex justify-between items-center p-2.5 bg-gray-50 hover:bg-gray-100 font-bold text-xs text-gray-700 transition rounded-t-lg">
+                    <span>🎨 描画オプション（任意）</span>
+                    <i class="accordion-arrow not-italic transform transition-transform duration-200 inline-block">▼</i>
+                </button>
+                <div class="accordion-content bg-white px-3 py-2.5 flex flex-col gap-2.5 text-xs border-t border-gray-200 rounded-b-lg" style="display: none;">
+                    <div>
+                        <div class="flex justify-between items-center mb-0.5">
+                            <label class="block font-semibold text-gray-600">右下にロゴを追加</label>
+                            <button id="clear-logo-btn" type="button" class="hidden text-[10px] text-red-500 hover:underline">クリア</button>
+                        </div>
+                        <input type="file" id="logo-upload" accept="image/png" class="block w-full text-[10px] text-gray-500 file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200 cursor-pointer border border-gray-300 rounded">
+                        <p id="logo-status" class="text-[10px] text-green-600 font-bold mt-0.5 hidden whitespace-pre-line leading-relaxed"></p>
+                        <span class="text-[10px] text-gray-400 mt-0.5 block">※PNGファイルのみ対応（縦上限160px・超過時は自動縮小。カラー非対応）</span>
+                    </div>
+                    <div>
+                        <label class="block font-semibold text-gray-600 mb-0.5">テキストの追加</label>
+                        <button id="add-text-btn" type="button" class="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold py-1.5 px-2 rounded border border-gray-300 transition text-center">
+                            + テキストボックスを追加
+                        </button>
+                        <p id="text-box-status" class="text-[10px] text-blue-600 font-bold mt-0.5 hidden whitespace-pre-line leading-relaxed"></p>
+                        <span class="text-[10px] text-gray-400 mt-0.5 block">※追加後、プレビュー上でドラッグ移動・編集が可能です（重なった場合はクリックで前後を入れ替えられます）</span>
+                    </div>
+                    <div class="pt-2 border-t border-gray-200 flex flex-col gap-1">
+                        <div class="flex justify-between items-center">
+                            <label class="font-semibold text-gray-600">対戦カード個別設定（DQ / 配信台）</label>
+                            <button id="clear-match-overrides-btn" type="button" class="text-[10px] text-red-500 hover:underline">全リセット</button>
+                        </div>
+                        <p class="text-[10px] text-gray-500 leading-relaxed">
+                            💡 ブラケット描画後、プレビュー上の<strong>対戦カードをクリック</strong>すると「事前DQの記入」および「配信台ラベルの設定」を行えます。
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <hr class="border-gray-200 shrink-0">
+
+            <div class="flex flex-col gap-1.5 shrink-0">
+                <div class="flex justify-between items-center">
+                    <label class="text-xs font-bold text-gray-700">プレビュー表示倍率</label>
+                    <span id="zoom-value" class="text-xs font-mono font-bold text-gray-600">100%</span>
+                </div>
+                <input type="range" id="zoom-slider" min="20" max="120" value="100" step="1" class="w-full accent-[#DB2777] cursor-pointer">
+                <div class="flex gap-2 mt-0.5">
+                    <button id="zoom-fit-btn" type="button" class="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-bold py-1 px-2 rounded border border-gray-300 transition">
+                        画面に合わせる
+                    </button>
+                    <button id="zoom-reset-btn" type="button" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-bold py-1 px-2 rounded border border-gray-300 transition">
+                        100%
+                    </button>
+                </div>
+            </div>
+
+            <hr class="border-gray-200 shrink-0">
+
+            <div class="flex flex-col gap-2 pb-2 shrink-0">
+                <button id="export-btn" type="button" class="bg-green-600 text-white px-4 py-2 rounded shadow hover:bg-green-700 transition font-bold text-sm">
+                    画像として保存(.jpg)
+                </button>
+                <button id="export-pdf-btn" type="button" class="bg-[#FA8534] text-white px-4 py-2 rounded shadow hover:bg-orange-600 transition font-bold text-sm">
+                    現在のプールをPDF出力
+                </button>
+                <button id="export-all-pdf-btn" type="button" class="bg-[#DB2777] text-white px-4 py-2 rounded shadow hover:bg-pink-700 transition font-bold text-sm">
+                    全プールをPDF一括出力
+                </button>
+                <p id="export-error-msg" class="text-[11px] text-red-600 font-bold hidden whitespace-pre-line leading-relaxed"></p>
+            </div>
+        </div>
+    </div>
+
+    <!-- 右側：プレビュー＆描画領域 -->
+    <div id="preview-viewport" class="flex-1 p-6 overflow-auto bg-gray-200">
+        <div id="preview-scale-wrapper" class="inline-block">
+            <div id="preview-area" class="shadow-md text-gray-800 relative">
+                <div id="preview-placeholder" class="flex flex-col items-center justify-center flex-1 text-gray-400 font-bold text-5xl gap-5 text-center px-8">
+                    <p>⚠️ プレビューを表示できません。</p>
+                    <p class="text-3xl font-medium text-gray-500">初期設定を完了し、「ブラケットを描画する」を押してください</p>
+                </div>
+
+                <div id="preview-header" class="hidden border-b-2 border-gray-800 pb-1.5 mb-2.5 flex justify-between items-end shrink-0">
+                    <div>
+                        <h2 id="pool-title" class="text-2xl font-bold">Pool 1 - Double Elimination (24 players)</h2>
+                        <p id="pool-subtitle" class="text-sm text-gray-600 font-medium">Winners side qualifier: 1 / Losers side qualifier: 2</p>
+                    </div>
+                    <div class="text-right text-xs text-gray-600 leading-snug font-medium">
+                        <p>https://tesnoo.github.io/BracketPrinter/</p>
+                        <p>Contact: @Tesnoo_ssb</p>
+                    </div>
+                </div>
+
+                <div id="main-sheet-body" class="hidden flex-1 flex flex-col relative w-full">
+                    <div id="bracket-container" class="flex flex-col justify-between w-full"></div>
+                    <div id="checkin-roster-container" class="absolute top-0 right-0 z-10"></div>
+                </div>
+
+                <div id="logo-display-container" class="hidden absolute z-20 pointer-events-none" style="bottom: 8px; right: 10px;"></div>
+
+                <div id="custom-texts-layer" class="absolute inset-0 pointer-events-none"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 対戦カード個別編集モーダル -->
+    <div id="match-edit-modal" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-lg shadow-xl w-full max-w-md overflow-hidden border border-gray-200">
+            <div class="bg-gray-800 text-white px-4 py-2.5 flex justify-between items-center">
+                <h3 id="modal-match-title" class="font-bold text-sm">Match A の設定</h3>
+                <button id="modal-close-btn" type="button" class="text-gray-300 hover:text-white text-lg font-bold leading-none">&times;</button>
+            </div>
+            <div class="p-4 flex flex-col gap-4 text-xs">
+                <div class="flex flex-col gap-2">
+                    <label class="font-bold text-gray-800 text-sm flex items-center gap-1.5">
+                        <span>🚫 事前確定DQの記入</span>
+                    </label>
+                    <p class="text-[10.5px] text-gray-500 leading-relaxed">
+                        選択したプレイヤーのスコア欄に「DQ」を記入します。<br>
+                        不戦勝側は「✔」となり次ラウンドへ自動進行し、勝者側の敗者は敗者側へ自動落下します。
+                    </p>
+                    <div class="flex flex-col gap-1.5 bg-gray-50 p-2.5 rounded border border-gray-200">
+                        <label class="flex items-center justify-between cursor-pointer py-1 border-b border-gray-200">
+                            <span id="modal-p1-label" class="font-semibold text-gray-700 truncate pr-2">上段 (Player 1)</span>
+                            <span class="flex items-center gap-1 shrink-0 font-bold text-red-600">
+                                <input type="checkbox" id="modal-p1-dq" class="accent-red-600 w-4 h-4"> DQ
+                            </span>
+                        </label>
+                        <label class="flex items-center justify-between cursor-pointer py-1">
+                            <span id="modal-p2-label" class="font-semibold text-gray-700 truncate pr-2">下段 (Player 2)</span>
+                            <span class="flex items-center gap-1 shrink-0 font-bold text-red-600">
+                                <input type="checkbox" id="modal-p2-dq" class="accent-red-600 w-4 h-4"> DQ
+                            </span>
+                        </label>
+                    </div>
+                </div>
+
+                <div id="modal-stream-section" class="flex flex-col gap-2 pt-3 border-t border-gray-200">
+                    <div class="flex items-center justify-between">
+                        <label class="font-bold text-gray-800 text-sm flex items-center gap-1.5">
+                            <span>📺 配信台ラベルの設定</span>
+                        </label>
+                    </div>
+
+                    <div id="modal-stream-controls" class="flex flex-col gap-2.5 bg-gray-100/80 p-2.5 rounded border border-gray-300">
+                        <label class="flex items-center gap-2 cursor-pointer font-bold text-gray-800">
+                            <input type="checkbox" id="modal-stream-enable" class="accent-[#DB2777] w-4 h-4">
+                            <span>この対戦カードを「配信台」に設定する</span>
+                        </label>
+                        <div class="flex flex-col gap-1">
+                            <span class="text-[11px] font-semibold text-gray-700">配信チャンネル名</span>
+                            <input type="text" id="modal-stream-channel" placeholder="例: EGS_Smash / EastGeekSmash" class="w-full border border-gray-300 rounded p-1.5 bg-white text-xs">
+                            <div id="modal-stream-suggestions" class="flex flex-wrap gap-1 mt-0.5"></div>
+                        </div>
+                        <div class="flex flex-col gap-1">
+                            <span class="text-[11px] font-semibold text-gray-700">ストリームキュー番号（任意・手動入力）</span>
+                            <input type="text" id="modal-stream-queue" inputmode="numeric" placeholder="例: 1（空欄の場合は番号なし）" class="w-full border border-gray-300 rounded p-1.5 bg-white text-xs">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex justify-end gap-2 pt-2 border-t border-gray-200">
+                    <button id="modal-cancel-btn" type="button" class="px-3 py-1.5 rounded border border-gray-300 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold">
+                        キャンセル
+                    </button>
+                    <button id="modal-save-btn" type="button" class="px-4 py-1.5 rounded bg-[#DB2777] hover:bg-pink-700 text-white font-bold shadow-sm">
+                        設定を反映
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 複数プールPDF一括印刷用の非表示コンテナ -->
+    <div id="batch-print-container" class="hidden"></div>
+
+    <script src="app.js"></script>
+</body>
+</html>
