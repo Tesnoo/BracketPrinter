@@ -1,0 +1,28 @@
+{
+  "formatVersion": "1.0",
+  "presetId": "IMPACT MAJOR",
+  "logoFile": "image/impact%20major_logo.png",
+  "logoRawUrl": "https://raw.githubusercontent.com/Tesnoo/BracketPrinter/main/image/impact%20major_logo.png",
+  "nameTemplate": "IMPACT MAJOR#[N]",
+  "urlTemplate": "https://www.start.gg/tournament/impact-major-[N]/event/singles-tournament",
+  "boRule": {
+    "default": {
+      "baseBo": "5",
+      "enableChange": false
+    }
+  },
+  "notes": [
+    {
+      "text": "大会進行上の注意事項",
+      "x": 1240,
+      "y": 1495,
+      "fontSize": "32px"
+    },
+    {
+      "text": "本大会は全試合Bo5(3本先取)です。\nまた、WSFの対戦カードが確定次第、配信台で試合を行う場合がありますので進行席までお越しください。",
+      "x": 1240,
+      "y": 1542,
+      "fontSize": "18px"
+    }
+  ]
+}

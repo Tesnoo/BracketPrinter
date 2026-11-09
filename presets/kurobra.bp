@@ -1,0 +1,24 @@
+{
+  "formatVersion": "1.0",
+  "presetId": "クロブラ",
+  "logoFile": "image/kurobra_logo.png",
+  "logoRawUrl": "https://raw.githubusercontent.com/Tesnoo/BracketPrinter/main/image/kurobra_logo.png",
+  "nameTemplate": "第[N]回クロブラ",
+  "urlTemplate": "https://www.start.gg/tournament/[N]-kurobra[N]/event/kurobra-sp-1on1",
+  "urlTemplateDx": "https://www.start.gg/tournament/[N]-kurobra[N]/event/kurobra-dx-1on1",
+  "boRule": {
+    "sp": {
+      "baseBo": "3",
+      "enableChange": true,
+      "wRound": "Winners Semi-Final",
+      "wBo": "5",
+      "lRound": "Losers Quarter-Final",
+      "lBo": "5"
+    },
+    "dx": {
+      "baseBo": "5",
+      "enableChange": false
+    }
+  },
+  "notes": []
+}
