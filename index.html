@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Bracket Printer</title>
-    <link rel="icon" href="BracketPrinter_logo.png" type="image/png">
+    <link rel="icon" href="image/BracketPrinter_logo.png" type="image/png">
     
     <!-- OGP / Discord Embed 設定 -->
     <meta name="theme-color" content="#FF69B4">
@@ -12,7 +12,7 @@
     <meta property="og:description" content="start.ggのシードCSVやAPIからトーナメント表・チェックイン名簿を生成・印刷するWebアプリ">
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://tesnoo.github.io/BracketPrinter/">
-    <meta property="og:image" content="https://raw.githubusercontent.com/Tesnoo/BracketPrinter/main/BracketPrinter_logo.png">
+    <meta property="og:image" content="https://raw.githubusercontent.com/Tesnoo/BracketPrinter/main/image/BracketPrinter_logo.png">
     <meta name="twitter:card" content="summary">
 
     <!-- Google Fonts: Roboto -->
@@ -153,6 +153,22 @@
 
         .match-wrapper {
             flex: 1 1 0px;
+        /* フェーズ通過枠専用の純粋ベクター破線コネクタ（1枠のみ進出時） */
+        .match-wrapper.qualifier-line::before {
+            content: '';
+            position: absolute;
+            left: calc(var(--col-gap, 22px) * -1);
+            top: 50%;
+            width: var(--col-gap, 22px);
+            height: 0;
+            border-top: 2.5px dashed #000000 !important;
+            transform: translateY(-50%);
+            box-sizing: border-box;
+        }
+
+        /* 勝者側最終戦の勝敗で2つの通過枠に分岐する二股（-[）破線コネクタ */
+        .qual-fork-wrapper {
+            flex: 1 1 0px;
             min-height: 0;
             display: flex;
             flex-direction: column;
@@ -161,59 +177,43 @@
             padding: 0;
             box-sizing: border-box;
         }
-
-        .pair-group {
-            flex: 1 1 0px;
-            min-height: 0;
+        .qual-fork-group {
             display: flex;
             flex-direction: column;
-            justify-content: center;
+            justify-content: space-between;
+            position: relative;
+            height: 124px;
             box-sizing: border-box;
         }
-
-        .match-wrapper.branch-line::before {
+        .qual-fork-group::before {
             content: '';
             position: absolute;
             left: calc(var(--col-gap, 22px) * -1);
-            top: 25%;    
-            bottom: 25%; 
+            top: 50%;
             width: calc(var(--col-gap, 22px) / 2);
-            border-top: 1.5px solid #000;
-            border-bottom: 1.5px solid #000;
-            border-right: 1.5px solid #000;
+            height: 0;
+            border-top: 2.5px dashed #000000;
+            transform: translateY(-50%);
             box-sizing: border-box;
         }
-        .match-wrapper.branch-line::after {
+        .qual-fork-group::after {
             content: '';
             position: absolute;
             left: calc(var(--col-gap, 22px) / -2);
-            top: 50%;
+            top: 25%;
+            bottom: 25%;
             width: calc(var(--col-gap, 22px) / 2);
-            border-top: 1.5px solid #000;
+            border-top: 2.5px dashed #000000;
+            border-bottom: 2.5px dashed #000000;
+            border-left: 2.5px dashed #000000;
             box-sizing: border-box;
         }
-
-        .match-wrapper.straight-line::before {
-            content: '';
-            position: absolute;
-            left: calc(var(--col-gap, 22px) * -1);
-            top: 50%;
-            width: var(--col-gap, 22px);
-            border-top: 1.5px solid #000;
-            box-sizing: border-box;
-        }
-
-        /* フェーズ通過枠専用の純粋ベクター破線コネクタ */
-        .match-wrapper.qualifier-line::before {
-            content: '';
-            position: absolute;
-            left: calc(var(--col-gap, 22px) * -1);
-            top: 50%;
-            width: var(--col-gap, 22px);
-            height: 0;
-            border-top: 3px dashed #000000 !important;
-            transform: translateY(-50%);
-            box-sizing: border-box;
+        .qual-fork-item {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            position: relative;
         }
 
         .match-box {
@@ -257,7 +257,7 @@
             position: absolute;
             top: -15px;
             left: 2px;
-            font-size: 12px;
+            font-size: 11.5px;
             font-weight: 500;
             line-height: 12px;
             color: #000;
@@ -265,10 +265,10 @@
         }
         .qual-drop-label-bottom {
             position: absolute;
-            bottom: -15px;
+            bottom: -16px;
             left: 2px;
             font-size: 12px;
-            font-weight: 500;
+            font-weight: 700;
             line-height: 12px;
             color: #000;
             white-space: nowrap;
@@ -371,12 +371,12 @@
         }
         .score-box:first-child { border-bottom: 1px solid #000; }
 
-        /* フェーズ名が入るブロックの枠を二重線 (4px double #000) に設定 */
+        /* 通過先ブロック：手書きでプレイヤー名を記入できる空欄二重線枠 */
         .qualifier-box {
             display: flex;
             flex-direction: column;
-            width: 100%;
-            min-width: 164px;
+            width: calc(var(--col-w, 244px) - var(--label-w, 25px) - var(--checkbox-w, 27px));
+            min-width: 168px;
             border: 4px double #000;
             background-color: white;
             position: relative;
@@ -386,14 +386,14 @@
         }
         .qualifier-slot {
             flex: 1;
-            padding: 0 10px;
+            padding: 0 8px;
             display: flex;
             align-items: center;
-            justify-content: center;
-            font-size: 13.5px;
-            font-weight: 700;
-            height: calc(var(--match-box-h, 48px) / 2 - 2px);
-            min-height: 22px;
+            justify-content: flex-start;
+            font-size: var(--player-font, 14px);
+            font-weight: 600;
+            height: calc(var(--match-box-h, 48px) / 2 + 2px);
+            min-height: 25px;
             white-space: nowrap;
             line-height: 1;
             box-sizing: border-box;
@@ -498,14 +498,17 @@
         <div class="p-5 flex flex-col gap-4">
             <!-- タイトル＆サイトアイコン -->
             <div class="flex items-center gap-2.5 shrink-0">
-                <img src="BracketPrinter_logo.png" alt="Bracket Printer Logo" class="w-8 h-8 object-contain" onerror="this.style.display='none'">
+                <img src="image/BracketPrinter_logo.png" alt="Bracket Printer Logo" class="w-8 h-8 object-contain" onerror="this.onerror=null;this.src='https://raw.githubusercontent.com/Tesnoo/BracketPrinter/main/image/BracketPrinter_logo.png';">
                 <h1 class="text-2xl font-bold text-gray-800">Bracket Printer</h1>
             </div>
 
             <!-- プリセット＆大会名設定 -->
             <div class="flex flex-col gap-2 bg-gray-50 p-2.5 rounded border border-gray-200 text-xs shrink-0">
                 <div class="flex flex-col gap-1">
-                    <label class="font-bold text-gray-700">主要大会プリセット (任意)</label>
+                    <div class="flex justify-between items-center">
+                        <label class="font-bold text-gray-700">主要大会プリセット (任意)</label>
+                        <span id="preset-profile-badge" class="hidden text-[10px] font-mono bg-blue-50 text-blue-700 border border-blue-200 px-1.5 py-0.2 rounded">.bp読込済</span>
+                    </div>
                     <select id="preset-select" class="w-full border border-gray-300 rounded p-1.5 bg-white text-xs">
                         <option value="" selected>プリセットを使用しない</option>
                         <option value="Vic-Seekers">Vic-Seekers</option>
@@ -814,6 +817,18 @@
                         <p id="text-box-status" class="text-[10px] text-green-600 font-bold mt-0.5 hidden whitespace-pre-line"></p>
                         <span class="text-[10px] text-gray-400 mt-0.5 block">※追加後、プレビュー上でドラッグ移動・編集できます</span>
                     </div>
+                    <div class="pt-1.5 border-t border-gray-200">
+                        <label class="block font-semibold text-gray-600 mb-0.5">プリセットプロファイル (.bp)</label>
+                        <div class="flex gap-1">
+                            <button id="export-bp-profile-btn" type="button" class="flex-1 bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold py-1 px-2 rounded border border-blue-200 transition text-[11px]">
+                                現在の設定を .bp 保存
+                            </button>
+                            <label class="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold py-1 px-2 rounded border border-gray-300 transition text-[11px] text-center cursor-pointer">
+                                .bp テスト読込
+                                <input type="file" id="import-bp-profile-input" accept=".bp,.json" class="hidden">
+                            </label>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -1009,51 +1024,103 @@
             updateGenerateButtonState();
         }
 
-        // === 主要大会プリセット定義 ===
-        const TOURNAMENT_PRESETS = {
+        // === 主要大会プリセットプロファイル (.bp) 管理システム ===
+        // GitHub上の presets/{id}.bp を自動取得し、未配置環境でも内蔵フォールバックで確実に動作するハイブリッド方式
+        const DEFAULT_BP_PROFILES = {
             'Vic-Seekers': {
-                logoFile: 'vix_logo_black_outline.png',
-                logoRawUrl: 'https://raw.githubusercontent.com/Tesnoo/BracketPrinter/main/vix_logo_black_outline.png',
-                formatName: (n) => n ? `Vic-Seekers #${n}` : 'Vic-Seekers',
-                formatUrl: (n) => n ? `https://www.start.gg/tournament/vic-seekers-${n}/event/ultimate-singles` : '',
-                applyBoRule: null
+                formatVersion: '1.0',
+                presetId: 'Vic-Seekers',
+                profileFile: 'presets/vic_seekers.bp',
+                logoFile: 'image/vix_logo_black_outline.png',
+                logoRawUrl: 'https://raw.githubusercontent.com/Tesnoo/BracketPrinter/main/image/vix_logo_black_outline.png',
+                nameTemplate: 'Vic-Seekers #[N]',
+                urlTemplate: 'https://www.start.gg/tournament/vic-seekers-[N]/event/ultimate-singles',
+                boRule: null,
+                notes: []
             },
             'クロブラ': {
-                logoFile: 'kurobra_logo.png',
-                logoRawUrl: 'https://raw.githubusercontent.com/Tesnoo/BracketPrinter/main/kurobra_logo.png',
-                formatName: (n) => n ? `第${n}回クロブラ` : 'クロブラ',
-                formatUrl: (n, gameMode) => {
-                    if (!n) return '';
-                    const eventSlug = (gameMode === 'dx') ? 'kurobra-dx-1on1' : 'kurobra-sp-1on1';
-                    return `https://www.start.gg/tournament/${n}-kurobra${n}/event/${eventSlug}`;
+                formatVersion: '1.0',
+                presetId: 'クロブラ',
+                profileFile: 'presets/kurobra.bp',
+                logoFile: 'image/kurobra_logo.png',
+                logoRawUrl: 'https://raw.githubusercontent.com/Tesnoo/BracketPrinter/main/image/kurobra_logo.png',
+                nameTemplate: '第[N]回クロブラ',
+                urlTemplate: 'https://www.start.gg/tournament/[N]-kurobra[N]/event/kurobra-sp-1on1',
+                urlTemplateDx: 'https://www.start.gg/tournament/[N]-kurobra[N]/event/kurobra-dx-1on1',
+                boRule: {
+                    sp: { baseBo: '3', enableChange: true, wRound: 'Winners Semi-Final', wBo: '5', lRound: 'Losers Quarter-Final', lBo: '5' },
+                    dx: { baseBo: '5', enableChange: false }
                 },
-                applyBoRule: (gameMode) => {
-                    if (gameMode === 'dx') {
-                        setBoConfiguration('5', false);
-                    } else {
-                        setBoConfiguration('3', true, 'Winners Semi-Final', '5', 'Losers Quarter-Final', '5');
-                    }
-                }
+                notes: []
             },
             'IMPACT MAJOR': {
-                logoFile: 'impact_major_logo.png',
-                logoRawUrl: 'https://raw.githubusercontent.com/Tesnoo/BracketPrinter/main/impact_major_logo.png',
-                formatName: (n) => n ? `IMPACT MAJOR#${n}` : 'IMPACT MAJOR',
-                formatUrl: (n) => n ? `https://www.start.gg/tournament/impact-major-${n}/event/singles` : '',
-                applyBoRule: () => {
-                    setBoConfiguration('5', false);
-                }
+                formatVersion: '1.0',
+                presetId: 'IMPACT MAJOR',
+                profileFile: 'presets/impact_major.bp',
+                logoFile: 'image/impact%20major_logo.png',
+                logoRawUrl: 'https://raw.githubusercontent.com/Tesnoo/BracketPrinter/main/image/impact%20major_logo.png',
+                nameTemplate: 'IMPACT MAJOR#[N]',
+                urlTemplate: 'https://www.start.gg/tournament/impact-major-[N]/event/singles-tournament',
+                boRule: {
+                    default: { baseBo: '5', enableChange: false }
+                },
+                notes: [
+                    {
+                        text: '【注意事項】\n・全試合3本先取(Bo5)で進行します。\n・試合開始前にチェックボックスにレ点を入れてください。\n・勝者はスコアを記入し、スタッフへ報告してください。',
+                        x: 1820,
+                        y: 920,
+                        fontSize: '18px'
+                    }
+                ]
             }
         };
 
+        let activePresetProfile = null;
+        let pendingPresetNotes = [];
+
+        async function fetchBpProfile(presetKey) {
+            const fallback = DEFAULT_BP_PROFILES[presetKey];
+            if (!fallback) return null;
+
+            const pathsToTry = [
+                fallback.profileFile,
+                `https://raw.githubusercontent.com/Tesnoo/BracketPrinter/main/${fallback.profileFile}`
+            ];
+
+            for (const url of pathsToTry) {
+                if (!url) continue;
+                try {
+                    const res = await fetch(url, { cache: 'no-cache' });
+                    if (res.ok) {
+                        const data = await res.json();
+                        return { ...fallback, ...data };
+                    }
+                } catch (_) {
+                    // ローカル未配置やCORS時はフォールバックを使用
+                }
+            }
+            return fallback;
+        }
+
+        function formatFromTemplate(template, numStr) {
+            if (!template) return '';
+            if (!numStr) {
+                return template.replace(/#?\[N\]/gi, '').replace(/第回/g, '').trim();
+            }
+            return template.replace(/\[N\]/gi, numStr);
+        }
+
         // === DOM要素参照 ===
         const presetSelect = document.getElementById('preset-select');
+        const presetProfileBadge = document.getElementById('preset-profile-badge');
         const kurobraGameWrapper = document.getElementById('kurobra-game-wrapper');
         const kurobraGameSelect = document.getElementById('kurobra-game-select');
         const presetNumberWrapper = document.getElementById('preset-number-wrapper');
         const presetNumberInput = document.getElementById('preset-number-input');
         const tournamentNameInput = document.getElementById('tournament-name-input');
         const showPhaseNameCheckbox = document.getElementById('show-phase-name-checkbox');
+        const exportBpProfileBtn = document.getElementById('export-bp-profile-btn');
+        const importBpProfileInput = document.getElementById('import-bp-profile-input');
 
         const csvUpload = document.getElementById('csv-upload');
         const csvStatus = document.getElementById('csv-status');
@@ -1259,6 +1326,25 @@
             imgLocal.src = presetConfig.logoFile || presetConfig.logoRawUrl;
         }
 
+        // === プリセットプロファイル (.bp) の注意事項テキストを適用 ===
+        function applyPresetNotesFromProfile(profile) {
+            // 既存のプリセット由来テキストボックスを削除
+            Array.from(customTextsLayer.querySelectorAll('[data-preset-note="true"]')).forEach(el => el.remove());
+            pendingPresetNotes = [];
+
+            if (!profile || !Array.isArray(profile.notes) || profile.notes.length === 0) return;
+
+            const isSheetDrawn = !document.getElementById('main-sheet-body').classList.contains('hidden');
+            if (isSheetDrawn) {
+                profile.notes.forEach(note => {
+                    const box = createDraggableTextBox(note.text || '', note.x ?? 1820, note.y ?? 920, note.fontSize || '18px');
+                    if (box) box.dataset.presetNote = 'true';
+                });
+            } else {
+                pendingPresetNotes = profile.notes.map(n => ({ ...n }));
+            }
+        }
+
         // === プリセット選択・ナンバリング入力時の自動反映処理 ===
         function applyPresetFields(applyBo = false) {
             if (!presetSelect) return;
@@ -1266,31 +1352,44 @@
             const numStr = presetNumberInput ? presetNumberInput.value.trim() : '';
             const kurobraGameMode = kurobraGameSelect ? kurobraGameSelect.value : 'sp';
 
-            if (!selectedPreset) {
+            if (!selectedPreset || !activePresetProfile) {
                 if (presetNumberWrapper) presetNumberWrapper.classList.add('hidden');
                 if (kurobraGameWrapper) kurobraGameWrapper.classList.add('hidden');
+                if (presetProfileBadge) presetProfileBadge.classList.add('hidden');
                 return;
             }
 
             if (presetNumberWrapper) presetNumberWrapper.classList.remove('hidden');
+            if (presetProfileBadge) presetProfileBadge.classList.remove('hidden');
             if (kurobraGameWrapper) {
                 kurobraGameWrapper.classList.toggle('hidden', selectedPreset !== 'クロブラ');
             }
 
-            const config = TOURNAMENT_PRESETS[selectedPreset];
-            if (config) {
-                if (tournamentNameInput) {
-                    tournamentNameInput.value = config.formatName(numStr, kurobraGameMode);
-                }
-                if (startggUrlInput) {
-                    startggUrlInput.value = config.formatUrl(numStr, kurobraGameMode);
-                }
-                if (applyBo && typeof config.applyBoRule === 'function') {
-                    config.applyBoRule(kurobraGameMode);
-                }
-            } else {
-                if (tournamentNameInput) {
-                    tournamentNameInput.value = numStr ? `${selectedPreset} #${numStr}` : selectedPreset;
+            const profile = activePresetProfile;
+            if (tournamentNameInput && profile.nameTemplate) {
+                tournamentNameInput.value = formatFromTemplate(profile.nameTemplate, numStr);
+            }
+
+            if (startggUrlInput) {
+                const urlTpl = (selectedPreset === 'クロブラ' && kurobraGameMode === 'dx' && profile.urlTemplateDx)
+                    ? profile.urlTemplateDx
+                    : profile.urlTemplate;
+                startggUrlInput.value = numStr ? formatFromTemplate(urlTpl, numStr) : '';
+            }
+
+            if (applyBo && profile.boRule) {
+                const rule = (selectedPreset === 'クロブラ')
+                    ? (profile.boRule[kurobraGameMode] || profile.boRule.sp)
+                    : (profile.boRule.default || profile.boRule);
+                if (rule && rule.baseBo) {
+                    setBoConfiguration(
+                        rule.baseBo,
+                        Boolean(rule.enableChange),
+                        rule.wRound || 'none',
+                        rule.wBo || '5',
+                        rule.lRound || 'none',
+                        rule.lBo || '5'
+                    );
                 }
             }
 
@@ -1298,21 +1397,26 @@
         }
 
         if (presetSelect) {
-            presetSelect.addEventListener('change', () => {
+            presetSelect.addEventListener('change', async () => {
                 const selectedPreset = presetSelect.value;
                 if (!selectedPreset) {
+                    activePresetProfile = null;
                     if (presetNumberWrapper) presetNumberWrapper.classList.add('hidden');
                     if (kurobraGameWrapper) kurobraGameWrapper.classList.add('hidden');
+                    if (presetProfileBadge) presetProfileBadge.classList.add('hidden');
                     if (presetNumberInput) presetNumberInput.value = '';
                     if (tournamentNameInput) tournamentNameInput.placeholder = '(例) Vic-Seekers #1';
+                    Array.from(customTextsLayer.querySelectorAll('[data-preset-note="true"]')).forEach(el => el.remove());
+                    pendingPresetNotes = [];
                     return;
                 }
 
+                activePresetProfile = await fetchBpProfile(selectedPreset);
                 applyPresetFields(true);
 
-                const config = TOURNAMENT_PRESETS[selectedPreset];
-                if (config) {
-                    loadPresetLogo(config, selectedPreset);
+                if (activePresetProfile) {
+                    loadPresetLogo(activePresetProfile, selectedPreset);
+                    applyPresetNotesFromProfile(activePresetProfile);
                 }
                 if (presetNumberInput) {
                     presetNumberInput.focus();
@@ -1335,6 +1439,75 @@
                     e.target.value = cleaned;
                 }
                 applyPresetFields(false);
+            });
+        }
+
+        // === .bp プロファイル書き出し＆テスト読み込み機能 ===
+        if (exportBpProfileBtn) {
+            exportBpProfileBtn.addEventListener('click', () => {
+                const selectedPreset = presetSelect.value || 'Custom';
+                const currentNotes = Array.from(customTextsLayer.querySelectorAll('.draggable-text-box')).map(box => {
+                    const contentEl = box.querySelector('.draggable-text-content');
+                    return {
+                        text: contentEl ? contentEl.textContent : '',
+                        x: parseFloat(box.style.left) || 1820,
+                        y: parseFloat(box.style.top) || 920,
+                        fontSize: contentEl ? (contentEl.style.fontSize || '18px') : '18px'
+                    };
+                });
+
+                const isChangeMode = document.querySelector('input[name="change-mode"]:checked')?.value === 'yes';
+                const bpData = {
+                    formatVersion: '1.0',
+                    presetId: selectedPreset,
+                    logoFile: activePresetProfile?.logoFile || 'image/impact%20major_logo.png',
+                    logoRawUrl: activePresetProfile?.logoRawUrl || 'https://raw.githubusercontent.com/Tesnoo/BracketPrinter/main/image/impact%20major_logo.png',
+                    nameTemplate: activePresetProfile?.nameTemplate || `${tournamentNameInput.value.trim() || 'TOURNAMENT'}#[N]`,
+                    urlTemplate: activePresetProfile?.urlTemplate || (startggUrlInput.value.trim() || 'https://www.start.gg/tournament/example-[N]/event/singles-tournament'),
+                    boRule: {
+                        default: {
+                            baseBo: baseBoSelect.value || '5',
+                            enableChange: isChangeMode,
+                            wRound: winnersRoundSelect.value || 'none',
+                            wBo: winnersBoSelect.value || '5',
+                            lRound: losersRoundSelect.value || 'none',
+                            lBo: losersBoSelect.value || '5'
+                        }
+                    },
+                    notes: currentNotes.length > 0 ? currentNotes : (activePresetProfile?.notes || [])
+                };
+
+                const blob = new Blob([JSON.stringify(bpData, null, 2)], { type: 'application/json' });
+                const link = document.createElement('a');
+                const fileSlug = selectedPreset.toLowerCase().replace(/[^a-z0-9]+/g, '_') || 'preset';
+                link.download = `${fileSlug}.bp`;
+                link.href = URL.createObjectURL(blob);
+                link.click();
+                URL.revokeObjectURL(link.href);
+            });
+        }
+
+        if (importBpProfileInput) {
+            importBpProfileInput.addEventListener('change', (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = (ev) => {
+                    try {
+                        const data = JSON.parse(ev.target.result);
+                        activePresetProfile = data;
+                        if (presetProfileBadge) {
+                            presetProfileBadge.textContent = `${file.name} 適用中`;
+                            presetProfileBadge.classList.remove('hidden');
+                        }
+                        applyPresetFields(true);
+                        loadPresetLogo(activePresetProfile, data.presetId || file.name);
+                        applyPresetNotesFromProfile(activePresetProfile);
+                    } catch (err) {
+                        console.error('Invalid .bp file:', err);
+                    }
+                };
+                reader.readAsText(file);
             });
         }
 
@@ -2583,7 +2756,7 @@
         });
 
         // === 描画オプション2: ドラッグ可能なテキストボックスの追加 ===
-        function createDraggableTextBox(initialText = 'テキストを入力', x = 1850, y = 900) {
+        function createDraggableTextBox(initialText = 'テキストを入力', x = 1850, y = 900, initialFontSize = '18px') {
             const box = document.createElement('div');
             box.className = 'draggable-text-box pointer-events-auto';
             box.style.left = `${x}px`;
@@ -2610,7 +2783,7 @@
                 const opt = document.createElement('option');
                 opt.value = optObj.val;
                 opt.textContent = optObj.label;
-                if (optObj.val === '18px') opt.selected = true;
+                if (optObj.val === initialFontSize) opt.selected = true;
                 sizeSelect.appendChild(opt);
             });
 
@@ -2626,7 +2799,7 @@
             const content = document.createElement('div');
             content.className = 'draggable-text-content font-bold';
             content.contentEditable = 'true';
-            content.style.fontSize = '18px';
+            content.style.fontSize = initialFontSize;
             content.textContent = initialText;
 
             sizeSelect.addEventListener('change', (e) => {
@@ -2668,6 +2841,7 @@
 
             box.append(controls, content);
             customTextsLayer.appendChild(box);
+            return box;
         }
 
         addTextBtn.addEventListener('click', () => {
@@ -2798,6 +2972,12 @@
                 logoDisplayContainer.classList.add('hidden');
             }
 
+            while (pendingPresetNotes.length > 0) {
+                const note = pendingPresetNotes.shift();
+                const box = createDraggableTextBox(note.text || '', note.x ?? 1820, note.y ?? 920, note.fontSize || '18px');
+                if (box) box.dataset.presetNote = 'true';
+            }
+
             while (pendingTextBoxesCount > 0) {
                 createDraggableTextBox('自由記述テキスト', 1800, 950 + (customTextsLayer.children.length * 60));
                 pendingTextBoxesCount--;
@@ -2867,45 +3047,55 @@
         }
 
         // === 予選抜け（進出先フェーズ）専用ノード生成 ===
-        function createQualifierNode(matchSourceLabel, targetPhase, targetType = 'W') {
-            const wrapper = createElement('div', 'match-wrapper qualifier-line');
+        // ・ボックス内は空欄（プレイヤー名をボールペンで記入可能）
+        // ・上部に Winner / Loser of X、下部に 通過先フェーズ名 [W]/[L] を配置
+        // ・勝者側最終戦の勝敗で2つに分かれる場合（targetType === 'W'）は二股（-[）で2ブロックに分岐
+        function createSingleQualifierBoxItem(topSourceText, bottomPhaseText) {
             const box = createElement('div', 'qualifier-box');
-            
-            box.appendChild(createElement('span', 'qual-drop-label-top', `Winner of ${matchSourceLabel}`));
+            box.appendChild(createElement('span', 'qual-drop-label-top', topSourceText));
 
+            // ボールペン記入用の空欄スロット
+            const emptySlot = createElement('div', 'qualifier-slot', '');
+            box.appendChild(emptySlot);
+
+            const phaseLabel = createElement('span', 'qual-drop-label-bottom', bottomPhaseText);
+            const len = bottomPhaseText.length;
+            if (len > 26) {
+                phaseLabel.style.fontSize = '10.5px';
+            } else if (len > 20) {
+                phaseLabel.style.fontSize = '11px';
+            }
+            box.appendChild(phaseLabel);
+            return box;
+        }
+
+        function createQualifierNode(matchSourceLabel, targetPhase, targetType = 'W') {
             const fullTextW = `${targetPhase} [W]`;
             const fullTextL = `${targetPhase} [L]`;
-            const len = fullTextW.length;
-
-            let fontSizePx = 13.5;
-            if (len > 26) {
-                fontSizePx = 11;
-            } else if (len > 20) {
-                fontSizePx = 12;
-            } else if (len > 15) {
-                fontSizePx = 13;
-            }
 
             if (targetType === 'W') {
-                const slot1 = createElement('div', 'qualifier-slot border-b border-black', fullTextW);
-                const slot2 = createElement('div', 'qualifier-slot', fullTextL);
-                slot1.style.fontSize = `${fontSizePx}px`;
-                slot2.style.fontSize = `${fontSizePx}px`;
-                box.appendChild(slot1);
-                box.appendChild(slot2);
-                box.appendChild(createElement('span', 'qual-drop-label-bottom', `Loser of ${matchSourceLabel}`));
-            } else if (targetType === 'W_ONLY') {
-                const slot1 = createElement('div', 'qualifier-slot', fullTextW);
-                slot1.style.fontSize = `${fontSizePx}px`;
-                box.appendChild(slot1);
-            } else {
-                const slot1 = createElement('div', 'qualifier-slot', fullTextL);
-                slot1.style.fontSize = `${fontSizePx}px`;
-                box.appendChild(slot1);
-            }
+                // 勝者（[W]）と敗者（[L]）の2股に分岐する構造
+                const wrapper = createElement('div', 'qual-fork-wrapper');
+                const forkGroup = createElement('div', 'qual-fork-group');
 
-            wrapper.appendChild(box);
-            return wrapper;
+                const topItem = createElement('div', 'qual-fork-item');
+                topItem.appendChild(createSingleQualifierBoxItem(`Winner of ${matchSourceLabel}`, fullTextW));
+
+                const botItem = createElement('div', 'qual-fork-item');
+                botItem.appendChild(createSingleQualifierBoxItem(`Loser of ${matchSourceLabel}`, fullTextL));
+
+                forkGroup.append(topItem, botItem);
+                wrapper.appendChild(forkGroup);
+                return wrapper;
+            } else if (targetType === 'W_ONLY') {
+                const wrapper = createElement('div', 'match-wrapper qualifier-line');
+                wrapper.appendChild(createSingleQualifierBoxItem(`Winner of ${matchSourceLabel}`, fullTextW));
+                return wrapper;
+            } else {
+                const wrapper = createElement('div', 'match-wrapper qualifier-line');
+                wrapper.appendChild(createSingleQualifierBoxItem(`Winner of ${matchSourceLabel}`, fullTextL));
+                return wrapper;
+            }
         }
 
         // === ラウンド列を生成 ===
