@@ -375,7 +375,7 @@ function setBoConfiguration(baseBo, enableChange, wRound = 'none', wBo = '5', lR
     updateGenerateButtonState();
 }
 
-// === プリセット用ロゴ画像の自動読み込み・軽量化処理（開発環境用パスフォールバック対応） ===
+// === プリセット用ロゴ画像の自動読み込み・軽量化処理 ===
 function loadPresetLogo(presetConfig, presetKey) {
     if (!presetConfig || (!presetConfig.logoFile && !presetConfig.logoRawUrl)) return;
 
@@ -1152,7 +1152,7 @@ csvUpload.addEventListener('change', (e) => {
     });
 });
 
-// === 手順1-B: start.gg GraphQL APIによるデータ取得（配信台 ＆ DQ自動取得対応） ===
+// === 手順1-B: start.gg GraphQL APIによるデータ取得（1000オブジェクト制限回避・チャンク分割取得方式） ===
 function parseStartggUrl(url) {
     const trimmed = url.trim();
     const eventMatch = trimmed.match(/start\.gg\/(tournament\/[^/?#]+\/event\/[^/?#]+)/i);
@@ -1168,7 +1168,80 @@ function parseStartggUrl(url) {
     };
 }
 
-function populatePoolsFromStartggPhase(phaseObj, targetGroupId = null) {
+// 対象フェーズのPhaseGroup詳細（seeds・sets）を4プールずつ分割取得して1000オブジェクト制限を確実に回避する関数
+async function ensurePhaseGroupsDetailsLoaded(phaseObj, token) {
+    const groups = phaseObj?.phaseGroups?.nodes || [];
+    if (groups.length === 0) return;
+
+    const needsFetch = groups.some(g => !g._detailsLoaded);
+    if (!needsFetch) return;
+
+    const CHUNK_SIZE = 4;
+    for (let i = 0; i < groups.length; i += CHUNK_SIZE) {
+        const chunk = groups.slice(i, i + CHUNK_SIZE);
+        showInlineInfo(apiStatus, `⏳ プールデータを取得しています... (${Math.min(i + CHUNK_SIZE, groups.length)} / ${groups.length} Pool)`);
+
+        const aliasQueries = chunk.map((g, idx) => `
+            g${idx}: phaseGroup(id: ${Number(g.id)}) {
+                id
+                sets(page: 1, perPage: 68, sortType: STANDARD) {
+                    nodes {
+                        id
+                        identifier
+                        round
+                        displayScore
+                        stream {
+                            streamName
+                        }
+                    }
+                }
+                seeds(query: { page: 1, perPage: 36 }) {
+                    nodes {
+                        seedNum
+                        entrant {
+                            name
+                            participants {
+                                gamerTag
+                                prefix
+                            }
+                        }
+                    }
+                }
+            }
+        `).join('\n');
+
+        const batchQuery = `query PhaseGroupBatchQuery {\n${aliasQueries}\n}`;
+
+        const response = await fetch('https://api.start.gg/gql/alpha', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({ query: batchQuery })
+        });
+
+        const json = await response.json();
+        if (!response.ok || json.errors) {
+            const errMsg = json.errors ? json.errors.map(e => e.message).join(', ') : `HTTP ${response.status}`;
+            throw new Error(errMsg);
+        }
+
+        chunk.forEach((g, idx) => {
+            const detailData = json.data?.[`g${idx}`];
+            if (detailData) {
+                g.sets = detailData.sets || { nodes: [] };
+                g.seeds = detailData.seeds || { nodes: [] };
+            } else {
+                g.sets = { nodes: [] };
+                g.seeds = { nodes: [] };
+            }
+            g._detailsLoaded = true;
+        });
+    }
+}
+
+async function populatePoolsFromStartggPhase(phaseObj, targetGroupId = null) {
     poolsData = {};
     lastAutoConfigSummary = '';
     currentDataSource = 'api';
@@ -1176,6 +1249,17 @@ function populatePoolsFromStartggPhase(phaseObj, targetGroupId = null) {
 
     if (!phaseObj || !phaseObj.phaseGroups || !phaseObj.phaseGroups.nodes) {
         applyPoolsDataToUI('start.gg API', apiStatus);
+        return;
+    }
+
+    const token = startggTokenInput.value.trim();
+    try {
+        await ensurePhaseGroupsDetailsLoaded(phaseObj, token);
+    } catch (err) {
+        console.error('PhaseGroup Chunk Fetch Error:', err);
+        isCsvValid = false;
+        showInlineError(apiStatus, `API取得失敗: ${err.message}`);
+        updateGenerateButtonState();
         return;
     }
 
@@ -1218,36 +1302,26 @@ function populatePoolsFromStartggPhase(phaseObj, targetGroupId = null) {
             if (!setsByRound[r]) setsByRound[r] = [];
             setsByRound[r].push(st);
 
-            // start.gg APIのセット情報からDQ（score.value === -1 または displayScore === 'DQ'）を自動検出
-            if (st.identifier) {
+            // displayScore から上段(Slot 1) / 下段(Slot 2)のDQを軽量・正確に自動検出
+            if (st.identifier && st.displayScore) {
                 const normId = String(st.identifier).toUpperCase().trim();
+                const rawScoreStr = String(st.displayScore).trim();
                 let dqP1 = false;
                 let dqP2 = false;
 
-                if (Array.isArray(st.slots)) {
-                    st.slots.forEach((slotObj, sIdx) => {
-                        const idx = (slotObj && slotObj.slotIndex !== undefined && slotObj.slotIndex !== null)
-                            ? Number(slotObj.slotIndex)
-                            : sIdx;
-                        const scoreVal = slotObj?.standing?.stats?.score?.value;
-                        const displayVal = slotObj?.standing?.stats?.score?.displayValue || '';
-                        if (scoreVal === -1 || String(displayVal).toUpperCase() === 'DQ') {
-                            if (idx === 0) dqP1 = true;
-                            if (idx === 1) dqP2 = true;
+                if (rawScoreStr.toUpperCase() === 'DQ') {
+                    dqP1 = true;
+                    dqP2 = true;
+                } else if (/(?:^|\s|-)DQ(?:\s|$|-)/i.test(rawScoreStr)) {
+                    const parts = rawScoreStr.split(' - ');
+                    if (parts.length >= 2) {
+                        const leftPart = parts[0].trim();
+                        const rightPart = parts.slice(1).join(' - ').trim();
+                        if (/(?:^|\s)DQ$/i.test(leftPart) || /^DQ(?:\s|$)/i.test(leftPart)) {
+                            dqP1 = true;
                         }
-                    });
-                }
-
-                // フォールバック: displayScore 文字列から DQ を判定
-                if (!dqP1 && !dqP2 && st.displayScore && /\bDQ\b/i.test(st.displayScore)) {
-                    if (String(st.displayScore).toUpperCase().trim() === 'DQ') {
-                        dqP1 = true;
-                        dqP2 = true;
-                    } else {
-                        const parts = String(st.displayScore).split(' - ');
-                        if (parts.length === 2) {
-                            if (/\bDQ\b$/i.test(parts[0].trim())) dqP1 = true;
-                            if (/\bDQ\b$/i.test(parts[1].trim())) dqP2 = true;
+                        if (/(?:^|\s)DQ$/i.test(rightPart) || /^DQ(?:\s|$)/i.test(rightPart)) {
+                            dqP2 = true;
                         }
                     }
                 }
@@ -1420,11 +1494,13 @@ function populatePoolsFromStartggPhase(phaseObj, targetGroupId = null) {
     }
 }
 
-phaseSelect.addEventListener('change', () => {
+phaseSelect.addEventListener('change', async () => {
     const selectedPhaseId = phaseSelect.value;
     const phaseObj = startggPhasesList.find(p => String(p.id) === String(selectedPhaseId));
     if (phaseObj) {
-        populatePoolsFromStartggPhase(phaseObj, null);
+        phaseSelect.disabled = true;
+        await populatePoolsFromStartggPhase(phaseObj, null);
+        phaseSelect.disabled = false;
     }
 });
 
@@ -1480,10 +1556,11 @@ fetchStartggBtn.addEventListener('click', async () => {
     const originalBtnText = fetchStartggBtn.textContent;
     fetchStartggBtn.disabled = true;
     fetchStartggBtn.textContent = '取得中...';
-    showInlineInfo(apiStatus, '⏳ start.gg API からデータを取得しています...');
+    showInlineInfo(apiStatus, '⏳ start.gg API からイベント構造を取得しています...');
 
-    const query = `
-        query EventPoolsQuery($slug: String!) {
+    // 第1段階: 軽量なイベント＆フェーズ構造のみを取得（1000オブジェクト制限に絶対に引っかからない構造）
+    const metaQuery = `
+        query EventMetadataQuery($slug: String!) {
             event(slug: $slug) {
                 id
                 name
@@ -1509,49 +1586,13 @@ fetchStartggBtn.addEventListener('click', async () => {
                     name
                     bracketType
                     phaseOrder
-                    phaseGroups(query: { page: 1, perPage: 120 }) {
+                    phaseGroups(query: { page: 1, perPage: 150 }) {
                         nodes {
                             id
                             displayIdentifier
                             bracketType
                             progressionsOut {
                                 id
-                            }
-                            sets(page: 1, perPage: 90, sortType: STANDARD) {
-                                nodes {
-                                    id
-                                    identifier
-                                    round
-                                    displayScore
-                                    stream {
-                                        streamName
-                                    }
-                                    slots {
-                                        slotIndex
-                                        standing {
-                                            stats {
-                                                score {
-                                                    value
-                                                    displayValue
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                            seeds(query: { page: 1, perPage: 64 }) {
-                                nodes {
-                                    id
-                                    seedNum
-                                    entrant {
-                                        id
-                                        name
-                                        participants {
-                                            gamerTag
-                                            prefix
-                                        }
-                                    }
-                                }
                             }
                         }
                     }
@@ -1568,7 +1609,7 @@ fetchStartggBtn.addEventListener('click', async () => {
                 'Authorization': `Bearer ${token}`
             },
             body: JSON.stringify({
-                query: query,
+                query: metaQuery,
                 variables: { slug: parsed.eventSlug }
             })
         });
@@ -1624,7 +1665,7 @@ fetchStartggBtn.addEventListener('click', async () => {
         }
 
         phaseSelect.value = targetPhase.id;
-        populatePoolsFromStartggPhase(targetPhase, currentTargetGroupIdFromUrl);
+        await populatePoolsFromStartggPhase(targetPhase, currentTargetGroupIdFromUrl);
 
     } catch (err) {
         console.error('start.gg API Error:', err);
@@ -1950,20 +1991,18 @@ function toggleOverlappingTextBoxZOrder(targetBox) {
     const currentZ = parseInt(targetBox.style.zIndex || '30', 10);
 
     if (currentZ >= maxZ && maxZ !== minZ) {
-        // 現在最前面にいる場合は背面に送り、他の重なっているボックスを1つずつ前面へ押し上げる
         overlappingBoxes.forEach(b => {
             const z = parseInt(b.style.zIndex || '30', 10);
             b.style.zIndex = String(z + 1);
         });
         targetBox.style.zIndex = String(minZ);
     } else {
-        // 背面側にいる場合は最前面へ出す
         topTextBoxZIndex = Math.max(topTextBoxZIndex, maxZ) + 1;
         targetBox.style.zIndex = String(topTextBoxZIndex);
     }
 }
 
-// === 描画オプション2: 高機能ドラッグ可能テキストボックス（太字・斜体・下線・1px単位フォントサイズ・左/中央/右寄せ・重なり前後入れ替え） ===
+// === 描画オプション2: 高機能ドラッグ可能テキストボックス ===
 function createDraggableTextBox(initialText = 'テキストを入力', x = 1240, y = 1480, initialFontSize = '18px', styleOptions = {}) {
     const box = document.createElement('div');
     box.className = 'draggable-text-box pointer-events-auto';
@@ -1988,28 +2027,24 @@ function createDraggableTextBox(initialText = 'テキストを入力', x = 1240,
     const toolGroup = document.createElement('div');
     toolGroup.className = 'flex items-center gap-1 flex-wrap';
 
-    // 太字 (B)
     const boldBtn = document.createElement('button');
     boldBtn.type = 'button';
     boldBtn.textContent = 'B';
     boldBtn.title = '太字';
     boldBtn.className = `text-tool-btn font-bold ${isBoldInit ? 'active' : ''}`;
 
-    // 斜体 (I)
     const italicBtn = document.createElement('button');
     italicBtn.type = 'button';
     italicBtn.textContent = 'I';
     italicBtn.title = '斜体';
     italicBtn.className = `text-tool-btn italic font-serif ${isItalicInit ? 'active' : ''}`;
 
-    // 下線 (U)
     const underlineBtn = document.createElement('button');
     underlineBtn.type = 'button';
     underlineBtn.textContent = 'U';
     underlineBtn.title = '下線';
     underlineBtn.className = `text-tool-btn underline ${isUnderlineInit ? 'active' : ''}`;
 
-    // 1px単位フォントサイズ入力
     const sizeWrapper = document.createElement('div');
     sizeWrapper.className = 'flex items-center gap-0.5 ml-0.5';
     const sizeInput = document.createElement('input');
@@ -2025,7 +2060,6 @@ function createDraggableTextBox(initialText = 'テキストを入力', x = 1240,
     pxUnit.className = 'text-[9.5px] text-gray-500';
     sizeWrapper.append(sizeInput, pxUnit);
 
-    // 左寄せ・中央寄せ・右寄せボタン
     const alignLeftBtn = document.createElement('button');
     alignLeftBtn.type = 'button';
     alignLeftBtn.textContent = '左';
@@ -2044,7 +2078,6 @@ function createDraggableTextBox(initialText = 'テキストを入力', x = 1240,
     alignRightBtn.title = '右寄せ';
     alignRightBtn.className = `text-tool-btn ${alignInit === 'right' ? 'active' : ''}`;
 
-    // 削除ボタン
     const delBtn = document.createElement('button');
     delBtn.type = 'button';
     delBtn.textContent = '×';
@@ -2149,7 +2182,6 @@ function createDraggableTextBox(initialText = 'テキストを入力', x = 1240,
         isDragging = false;
     });
 
-    // 重なっているテキストボックスをクリックした際に前面・後面を入れ替える
     box.addEventListener('click', (e) => {
         if (e.target.closest('button') || e.target.closest('input')) return;
         if (hasMovedDuringDrag) {
@@ -3436,7 +3468,6 @@ function buildBracketSheetContent(poolName, bracketContainerEl, rosterContainerE
 
     const apiDqMap = currentPool.apiDqByMatchLabel || {};
 
-    // トポロジカル順にDQ（API自動検出 ＆ 手動設定）・不戦勝繰り上がり・敗者側落下・両者DQ時の高シード優先進行を解決
     allMatchLabelsSorted.forEach(mLabel => {
         const rec = matchRecordsByLabel[mLabel];
         if (!rec) return;
