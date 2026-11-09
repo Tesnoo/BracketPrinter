@@ -418,8 +418,118 @@
         .score-box {
             flex: 1;
             min-height: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: 800;
+            color: #000000;
+            line-height: 1;
+            letter-spacing: -0.5px;
+            user-select: none;
         }
         .score-box:first-child { border-bottom: 1px solid #000; }
+
+        /* === プレビュー上の対戦カードクリック編集用ホバースタイル === */
+        #preview-area:not(.exporting) .match-box.interactive-match-box {
+            cursor: pointer;
+            transition: transform 0.1s ease, box-shadow 0.1s ease;
+        }
+        #preview-area:not(.exporting) .match-box.interactive-match-box:hover .main-box-area {
+            box-shadow: 0 0 0 2px #FA8534;
+        }
+        #preview-area:not(.exporting) .match-box.interactive-match-box:hover .match-label {
+            background-color: #FA8534;
+        }
+
+        /* === 配信台（Stream）指定カード：モノクロ印刷向け・角丸のグレー破線枠＆ラベル === */
+        .match-box.stream-match-box::after {
+            content: '';
+            position: absolute;
+            top: -5px;
+            bottom: -5px;
+            left: -5px;
+            right: -5px;
+            border: 2px dashed #666666;
+            border-radius: 8px;
+            pointer-events: none;
+            z-index: 20;
+            box-sizing: border-box;
+        }
+        .match-box.stream-match-box .player-slot:first-child .seed-label {
+            top: -15px;
+            background-color: #ffffff;
+            padding: 0 2px;
+            z-index: 22;
+        }
+        .match-box.stream-match-box .player-slot:last-child .seed-label {
+            bottom: -15px;
+            background-color: #ffffff;
+            padding: 0 2px;
+            z-index: 22;
+        }
+        .match-box.stream-match-box .drop-label-top {
+            top: -16px;
+            background-color: #ffffff;
+            padding: 0 2px;
+            z-index: 22;
+        }
+        .match-box.stream-match-box .drop-label-bottom {
+            bottom: -16px;
+            background-color: #ffffff;
+            padding: 0 2px;
+            z-index: 22;
+        }
+        .stream-badge {
+            position: absolute;
+            top: -19px;
+            right: -5px;
+            display: flex;
+            align-items: stretch;
+            height: 15px;
+            border: 1.5px solid #555555;
+            background-color: #ffffff;
+            border-radius: 4px;
+            overflow: hidden;
+            z-index: 25;
+            box-sizing: border-box;
+            white-space: nowrap;
+            pointer-events: none;
+        }
+        .stream-badge-tag {
+            background-color: #4b5563;
+            color: #ffffff;
+            font-size: 10px;
+            font-weight: 700;
+            line-height: 12px;
+            padding: 0 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            letter-spacing: 0.2px;
+        }
+        .stream-badge-channel {
+            background-color: #ffffff;
+            color: #111827;
+            font-size: 10px;
+            font-weight: 700;
+            line-height: 12px;
+            padding: 0 4px;
+            display: flex;
+            align-items: center;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        @media print {
+            #match-edit-modal {
+                display: none !important;
+            }
+            .match-box.interactive-match-box .main-box-area {
+                box-shadow: none !important;
+            }
+        }
 
         /* 通過先ブロック：手書きでプレイヤー名を記入できる空欄二重線枠 */
         .qualifier-box {
@@ -884,6 +994,23 @@
                             </label>
                         </div>
                     </div>
+                    <div class="pt-1.5 border-t border-gray-200 flex flex-col gap-1.5">
+                        <label class="block font-semibold text-gray-600">📺 配信ラベル ＆ 🚫 事前DQ設定</label>
+                        <p class="text-[10.5px] text-gray-500 leading-snug">
+                            ブラケット描画後、プレビュー上の<strong>対戦カードをクリック</strong>すると、そのカードへの「事前DQ書き込み（勝者側DQ時は敗者側へ自動落下＆DQ記入）」および「配信ラベル設定（API取得時限定）」が行えます。
+                        </p>
+                        <div id="card-custom-summary" class="text-[10.5px] text-gray-600 bg-gray-50 p-1.5 rounded border border-gray-200">
+                            現在のPoolの設定: 配信 0件 / 事前DQ 0件
+                        </div>
+                        <div class="flex gap-1">
+                            <button id="clear-pool-streams-btn" type="button" class="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold py-1 px-2 rounded border border-gray-300 transition text-[10px]">
+                                配信ラベルを全解除
+                            </button>
+                            <button id="clear-pool-dqs-btn" type="button" class="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold py-1 px-2 rounded border border-gray-300 transition text-[10px]">
+                                事前DQを全解除
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -962,6 +1089,109 @@
     <!-- 複数プールPDF一括印刷用の非表示コンテナ -->
     <div id="batch-print-container" class="hidden"></div>
 
+    <!-- 対戦カードクリック時の編集モーダル（配信ラベル ＆ 事前DQ設定） -->
+    <div id="match-edit-modal" class="hidden fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
+        <div class="bg-white rounded-lg shadow-xl border border-gray-200 w-full max-w-md overflow-hidden flex flex-col">
+            <div class="bg-gray-800 text-white px-4 py-2.5 flex justify-between items-center">
+                <div class="flex items-center gap-2">
+                    <span id="modal-match-badge" class="bg-[#FA8534] text-white font-bold px-2 py-0.5 rounded text-xs">Match A</span>
+                    <h3 id="modal-match-title" class="font-bold text-sm">対戦カード設定</h3>
+                </div>
+                <button id="modal-close-btn" type="button" class="text-gray-300 hover:text-white text-lg font-bold leading-none">&times;</button>
+            </div>
+
+            <div class="p-4 flex flex-col gap-4 text-xs">
+                <!-- 1. 事前確定DQ書き込み設定 -->
+                <div class="flex flex-col gap-2 border border-gray-200 rounded-lg p-3 bg-gray-50">
+                    <div class="flex items-center justify-between">
+                        <span class="font-bold text-gray-800 text-xs">🚫 事前確定DQの書き込み</span>
+                        <span id="modal-bracket-side-badge" class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-gray-200 text-gray-700">Winners</span>
+                    </div>
+                    <p id="modal-dq-desc" class="text-[11px] text-gray-500 leading-snug">
+                        チェックを入れたプレイヤーのスコア記入欄に「DQ」を書き込みます。勝者側でDQにした場合、落下先の敗者側カードにも自動で落下＆DQが書き込まれます。
+                    </p>
+
+                    <div class="flex flex-col gap-1.5 mt-1">
+                        <label class="flex items-center justify-between p-2 rounded border border-gray-300 bg-white cursor-pointer hover:border-[#FA8534] transition">
+                            <div class="flex flex-col min-w-0 pr-2">
+                                <span class="text-[10px] text-gray-400 font-semibold">上段スロット (Player 1)</span>
+                                <span id="modal-slot1-name" class="font-bold text-gray-800 truncate">Seed 16</span>
+                            </div>
+                            <div class="flex items-center gap-1.5 shrink-0">
+                                <input type="checkbox" id="modal-dq-slot1" class="w-4 h-4 accent-red-600 cursor-pointer">
+                                <span class="font-bold text-red-600">DQ</span>
+                            </div>
+                        </label>
+
+                        <label class="flex items-center justify-between p-2 rounded border border-gray-300 bg-white cursor-pointer hover:border-[#FA8534] transition">
+                            <div class="flex flex-col min-w-0 pr-2">
+                                <span class="text-[10px] text-gray-400 font-semibold">下段スロット (Player 2)</span>
+                                <span id="modal-slot2-name" class="font-bold text-gray-800 truncate">Seed 17</span>
+                            </div>
+                            <div class="flex items-center gap-1.5 shrink-0">
+                                <input type="checkbox" id="modal-dq-slot2" class="w-4 h-4 accent-red-600 cursor-pointer">
+                                <span class="font-bold text-red-600">DQ</span>
+                            </div>
+                        </label>
+                    </div>
+
+                    <label id="modal-dq-propagate-name-wrapper" class="flex items-center gap-1.5 mt-1 pt-1.5 border-t border-gray-200 cursor-pointer text-[11px] text-gray-700 font-medium">
+                        <input type="checkbox" id="modal-dq-propagate-name" checked class="accent-[#FA8534]">
+                        <span>DQ発生時、繰り上がり先・落下先スロットにプレイヤー名も自動記入する</span>
+                    </label>
+                </div>
+
+                <!-- 2. 配信ラベル設定（API限定） -->
+                <div class="flex flex-col gap-2 border border-gray-300 rounded-lg p-3 bg-gray-50">
+                    <div class="flex items-center justify-between">
+                        <span class="font-bold text-gray-800 text-xs">📺 配信ラベル設定 (start.gg API限定)</span>
+                    </div>
+
+                    <div id="modal-stream-csv-notice" class="hidden text-[11px] text-gray-500 bg-gray-100 border border-gray-300 rounded p-2 leading-snug">
+                        ※現在CSVモードのため配信ラベル機能は無効です。「start.gg APIでデータを取得する」から読み込んだ場合のみ使用できます。
+                    </div>
+
+                    <div id="modal-stream-controls" class="flex flex-col gap-2.5">
+                        <label class="flex items-center gap-2 cursor-pointer font-bold text-gray-800 bg-white p-2 rounded border border-gray-300 hover:border-gray-600 transition">
+                            <input type="checkbox" id="modal-stream-enabled" class="w-4 h-4 accent-gray-700 cursor-pointer">
+                            <span>この対戦カードを配信台（角丸グレー破線枠＋「配信」ラベル）にする</span>
+                        </label>
+
+                        <div id="modal-stream-fields" class="flex flex-col gap-2 pl-1">
+                            <div class="flex flex-col gap-1">
+                                <label class="text-[11px] font-semibold text-gray-700">配信チャンネル名</label>
+                                <input type="text" id="modal-stream-channel" placeholder="例: EastGeekSmash / メイン配信" class="w-full border border-gray-300 rounded p-1.5 bg-white text-xs">
+                                <div id="modal-stream-suggestions" class="hidden flex flex-wrap gap-1 mt-0.5"></div>
+                            </div>
+
+                            <div class="flex flex-col gap-1">
+                                <label class="text-[11px] font-semibold text-gray-700">ストリームキュー番号 (手動入力・任意)</label>
+                                <div class="flex items-center gap-2">
+                                    <input type="text" id="modal-stream-queue" inputmode="numeric" placeholder="例: 1 (空欄で番号なし)" class="w-36 border border-gray-300 rounded p-1.5 bg-white text-xs">
+                                    <span class="text-[10.5px] text-gray-500">※ラベルに「配信 #1」のように記載されます</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-gray-100 px-4 py-2.5 border-t border-gray-200 flex justify-between items-center text-xs">
+                <button id="modal-reset-card-btn" type="button" class="text-red-600 hover:underline font-bold">
+                    このカードの設定を解除
+                </button>
+                <div class="flex gap-2">
+                    <button id="modal-cancel-btn" type="button" class="px-3 py-1.5 rounded border border-gray-300 bg-white hover:bg-gray-50 text-gray-700 font-bold transition">
+                        キャンセル
+                    </button>
+                    <button id="modal-save-btn" type="button" class="px-4 py-1.5 rounded bg-[#FA8534] hover:bg-orange-600 text-white font-bold shadow-sm transition">
+                        反映する
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- === app.js メインロジック === -->
     <script>
         // === グローバル状態管理 ===
@@ -979,6 +1209,10 @@
         let currentTargetGroupIdFromUrl = null;
         let lastAutoConfigSummary = '';
         let activeDataSource = ''; // 'csv' or 'api'
+        let tournamentStreamsList = []; // APIから取得した配信チャンネル名リスト
+        let rawTournamentStreamQueue = []; // APIから取得したストリームキュー情報
+        let lastUsedStreamChannelName = ''; // 手動設定時に前回入力したチャンネル名を保持
+        let currentEditingMatchContext = null; // モーダルで編集中のカード情報
 
         // 現在アクティブなラウンド一覧（最大セット数変更の動的プルダウン＆Bo判定用）
         let currentActiveWinnersRounds = [];
@@ -1231,6 +1465,32 @@
         const textBoxStatus = document.getElementById('text-box-status');
         const customTextsLayer = document.getElementById('custom-texts-layer');
         const exportError = document.getElementById('export-error');
+        const cardCustomSummary = document.getElementById('card-custom-summary');
+        const clearPoolStreamsBtn = document.getElementById('clear-pool-streams-btn');
+        const clearPoolDqsBtn = document.getElementById('clear-pool-dqs-btn');
+
+        // 対戦カード編集モーダル要素
+        const matchEditModal = document.getElementById('match-edit-modal');
+        const modalMatchBadge = document.getElementById('modal-match-badge');
+        const modalMatchTitle = document.getElementById('modal-match-title');
+        const modalCloseBtn = document.getElementById('modal-close-btn');
+        const modalBracketSideBadge = document.getElementById('modal-bracket-side-badge');
+        const modalSlot1Name = document.getElementById('modal-slot1-name');
+        const modalSlot2Name = document.getElementById('modal-slot2-name');
+        const modalDqSlot1 = document.getElementById('modal-dq-slot1');
+        const modalDqSlot2 = document.getElementById('modal-dq-slot2');
+        const modalDqPropagateNameWrapper = document.getElementById('modal-dq-propagate-name-wrapper');
+        const modalDqPropagateName = document.getElementById('modal-dq-propagate-name');
+        const modalStreamCsvNotice = document.getElementById('modal-stream-csv-notice');
+        const modalStreamControls = document.getElementById('modal-stream-controls');
+        const modalStreamEnabled = document.getElementById('modal-stream-enabled');
+        const modalStreamFields = document.getElementById('modal-stream-fields');
+        const modalStreamChannel = document.getElementById('modal-stream-channel');
+        const modalStreamSuggestions = document.getElementById('modal-stream-suggestions');
+        const modalStreamQueue = document.getElementById('modal-stream-queue');
+        const modalResetCardBtn = document.getElementById('modal-reset-card-btn');
+        const modalCancelBtn = document.getElementById('modal-cancel-btn');
+        const modalSaveBtn = document.getElementById('modal-save-btn');
 
         const zoomSlider = document.getElementById('zoom-slider');
         const zoomValue = document.getElementById('zoom-value');
@@ -2136,7 +2396,10 @@
                                 phaseName: rawPhase,
                                 playersByPoolSeed: {},
                                 rosterList: [],
-                                count: 0
+                                count: 0,
+                                streamByMatch: {},
+                                dqByMatch: {},
+                                setsFetched: false
                             };
                         } else if (!poolsData[poolName].phaseName && rawPhase) {
                             poolsData[poolName].phaseName = rawPhase;
@@ -2177,6 +2440,143 @@
             };
         }
 
+        // === start.gg の streamQueue ＆ PhaseGroup.sets から配信カード・キュー番号・事前DQを自動反映 ===
+        function applyTournamentStreamQueueToPools() {
+            if (activeDataSource !== 'api' || !Array.isArray(rawTournamentStreamQueue)) return;
+
+            rawTournamentStreamQueue.forEach(sq => {
+                const chName = sq?.stream?.streamName || '';
+                if (chName && !tournamentStreamsList.includes(chName)) {
+                    tournamentStreamsList.push(chName);
+                }
+                const sets = Array.isArray(sq?.sets) ? sq.sets : [];
+                sets.forEach((setNode, idx) => {
+                    const queueOrderStr = String(idx + 1);
+                    const pgId = setNode?.phaseGroup?.id ? Number(setNode.phaseGroup.id) : null;
+                    const rawIdent = setNode?.phaseGroup?.displayIdentifier ? normalizePoolName(setNode.phaseGroup.displayIdentifier) : null;
+                    const matchIdent = setNode?.identifier ? String(setNode.identifier).trim().toUpperCase() : '';
+                    if (!matchIdent) return;
+
+                    const poolKey = Object.keys(poolsData).find(k =>
+                        (pgId && poolsData[k].groupId === pgId) || (rawIdent && k === rawIdent)
+                    );
+                    if (poolKey && poolsData[poolKey]) {
+                        if (!poolsData[poolKey].streamByMatch) poolsData[poolKey].streamByMatch = {};
+                        poolsData[poolKey].streamByMatch[matchIdent] = {
+                            enabled: true,
+                            channelName: chName || lastUsedStreamChannelName || '',
+                            queueNum: queueOrderStr
+                        };
+                        if (chName && !lastUsedStreamChannelName) {
+                            lastUsedStreamChannelName = chName;
+                        }
+                    }
+                });
+            });
+        }
+
+        async function fetchPhaseGroupSetsForPool(poolName) {
+            if (activeDataSource !== 'api') return;
+            const poolObj = poolsData[poolName];
+            if (!poolObj || !poolObj.groupId || poolObj.setsFetched) return;
+
+            const token = startggTokenInput ? startggTokenInput.value.trim() : '';
+            if (!token) return;
+
+            const pgQuery = `
+                query PhaseGroupSetsQuery($pgId: ID!) {
+                    phaseGroup(id: $pgId) {
+                        id
+                        sets(page: 1, perPage: 96, sortType: STANDARD) {
+                            nodes {
+                                id
+                                identifier
+                                round
+                                fullRoundText
+                                displayScore
+                                winnerId
+                                stream {
+                                    id
+                                    streamName
+                                    streamSource
+                                }
+                                slots {
+                                    entrant {
+                                        id
+                                        name
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            `;
+
+            try {
+                const res = await fetch('https://api.start.gg/gql/alpha', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                        query: pgQuery,
+                        variables: { pgId: poolObj.groupId }
+                    })
+                });
+                const json = await res.json();
+                const setNodes = json?.data?.phaseGroup?.sets?.nodes;
+                poolObj.setsFetched = true;
+
+                if (Array.isArray(setNodes)) {
+                    if (!poolObj.streamByMatch) poolObj.streamByMatch = {};
+                    if (!poolObj.dqByMatch) poolObj.dqByMatch = {};
+
+                    setNodes.forEach(sNode => {
+                        const ident = sNode?.identifier ? String(sNode.identifier).trim().toUpperCase() : '';
+                        if (!ident) return;
+
+                        // セットに直接割り当てられている配信台があれば反映（streamQueue側のキュー番号があれば維持）
+                        const stName = sNode?.stream?.streamName || '';
+                        if (stName) {
+                            if (!tournamentStreamsList.includes(stName)) {
+                                tournamentStreamsList.push(stName);
+                            }
+                            if (!lastUsedStreamChannelName) {
+                                lastUsedStreamChannelName = stName;
+                            }
+                            const existing = poolObj.streamByMatch[ident];
+                            poolObj.streamByMatch[ident] = {
+                                enabled: true,
+                                channelName: stName,
+                                queueNum: existing?.queueNum || ''
+                            };
+                        }
+
+                        // 既にstart.gg上でDQ結果が入っている場合の自動検出
+                        if (sNode.displayScore === 'DQ' && Array.isArray(sNode.slots) && sNode.slots.length === 2) {
+                            const wId = sNode.winnerId;
+                            const e0 = sNode.slots[0]?.entrant?.id;
+                            const e1 = sNode.slots[1]?.entrant?.id;
+                            if (wId && (e0 || e1) && !poolObj.dqByMatch[ident]) {
+                                const isSlot1Dq = (e0 && String(e0) !== String(wId));
+                                const isSlot2Dq = (e1 && String(e1) !== String(wId));
+                                if (isSlot1Dq || isSlot2Dq) {
+                                    poolObj.dqByMatch[ident] = {
+                                        slot1: Boolean(isSlot1Dq),
+                                        slot2: Boolean(isSlot2Dq),
+                                        propagatePlayerName: true
+                                    };
+                                }
+                            }
+                        }
+                    });
+                }
+            } catch (err) {
+                console.warn('PhaseGroup sets 取得スキップ:', err);
+            }
+        }
+
         function populatePoolsFromStartggPhase(phaseObj, targetGroupId = null) {
             poolsData = {};
             lastAutoConfigSummary = '';
@@ -2200,7 +2600,10 @@
                     playersByPoolSeed: {},
                     rosterList: [],
                     count: 0,
-                    groupId: Number(group.id)
+                    groupId: Number(group.id),
+                    streamByMatch: {},
+                    dqByMatch: {},
+                    setsFetched: false
                 };
 
                 sortedSeeds.forEach((seedNode, index) => {
@@ -2235,6 +2638,9 @@
                     poolsData[poolName].count++;
                 });
             });
+
+            // トーナメント全体のストリームキュー情報を各Poolへ反映
+            applyTournamentStreamQueueToPools();
 
             const autoMessages = [];
             const bType = phaseObj.bracketType || groups[0]?.bracketType || '';
@@ -2322,6 +2728,12 @@
                     updateRecommendedPrintUI(true);
                 }
             }
+
+            if (poolSelect.value) {
+                fetchPhaseGroupSetsForPool(poolSelect.value).then(() => {
+                    updateCardCustomSummaryUI();
+                });
+            }
         }
 
         phaseSelect.addEventListener('change', () => {
@@ -2332,11 +2744,18 @@
             }
         });
 
-        poolSelect.addEventListener('change', () => {
+        poolSelect.addEventListener('change', async () => {
             updateAdvanceCountConstraints();
             updateRoundChangeDropdowns();
             updateRecommendedPrintUI(true);
             updateGenerateButtonState();
+            if (activeDataSource === 'api' && poolSelect.value) {
+                await fetchPhaseGroupSetsForPool(poolSelect.value);
+            }
+            updateCardCustomSummaryUI();
+            if (!document.getElementById('main-sheet-body').classList.contains('hidden')) {
+                generateBtn.click();
+            }
         });
 
         fetchStartggBtn.addEventListener('click', async () => {
@@ -2472,6 +2891,71 @@
 
                 if (tournamentNameInput && !tournamentNameInput.value.trim() && tName) {
                     tournamentNameInput.value = tName;
+                }
+
+                // 配信チャンネル＆ストリームキュー情報の取得（別クエリで安全に取得）
+                tournamentStreamsList = [];
+                rawTournamentStreamQueue = [];
+                try {
+                    const streamQuery = `
+                        query EventStreamsQuery($slug: String!) {
+                            event(slug: $slug) {
+                                tournament {
+                                    streams {
+                                        id
+                                        streamName
+                                        streamSource
+                                    }
+                                    streamQueue {
+                                        stream {
+                                            id
+                                            streamName
+                                            streamSource
+                                        }
+                                        sets {
+                                            id
+                                            identifier
+                                            fullRoundText
+                                            round
+                                            phaseGroup {
+                                                id
+                                                displayIdentifier
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    `;
+                    const stRes = await fetch('https://api.start.gg/gql/alpha', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${token}`
+                        },
+                        body: JSON.stringify({
+                            query: streamQuery,
+                            variables: { slug: parsed.eventSlug }
+                        })
+                    });
+                    const stJson = await stRes.json();
+                    const tStreams = stJson?.data?.event?.tournament?.streams;
+                    const tQueue = stJson?.data?.event?.tournament?.streamQueue;
+                    if (Array.isArray(tStreams)) {
+                        tStreams.forEach(s => {
+                            if (s?.streamName && !tournamentStreamsList.includes(s.streamName)) {
+                                tournamentStreamsList.push(s.streamName);
+                            }
+                        });
+                        if (tournamentStreamsList.length > 0 && !lastUsedStreamChannelName) {
+                            lastUsedStreamChannelName = tournamentStreamsList[0];
+                        }
+                    }
+                    if (Array.isArray(tQueue)) {
+                        rawTournamentStreamQueue = tQueue;
+                    }
+                } catch (stErr) {
+                    console.warn('ストリーム情報の取得をスキップしました:', stErr);
                 }
 
                 startggPhasesList = eventData.phases;
@@ -3053,7 +3537,12 @@
             if (lineType === 'branch') wrapper.classList.add('branch-line');
             if (lineType === 'straight') wrapper.classList.add('straight-line');
 
-            const matchBox = createElement('div', 'match-box');
+            const matchBox = createElement('div', 'match-box interactive-match-box');
+            matchBox.dataset.matchLabel = matchLabel;
+            if (topLabel) matchBox.dataset.topDropLabel = topLabel;
+            if (bottomLabel) matchBox.dataset.bottomDropLabel = bottomLabel;
+            if (seed1) matchBox.dataset.seed1 = String(seed1);
+            if (seed2) matchBox.dataset.seed2 = String(seed2);
 
             if (topLabel) matchBox.appendChild(createElement('span', 'drop-label-top', topLabel));
             if (bottomLabel) matchBox.appendChild(createElement('span', 'drop-label-bottom', bottomLabel));
@@ -3068,26 +3557,359 @@
 
             const playersArea = createElement('div', 'player-slots-area');
 
-            const p1Slot = createElement('div', 'player-slot');
-            p1Slot.appendChild(createElement('span', 'player-name-text', player1Name));
+            const p1Slot = createElement('div', 'player-slot slot-p1');
+            p1Slot.appendChild(createElement('span', 'player-name-text p1-name-text', player1Name));
             if (seed1) p1Slot.appendChild(createElement('span', 'seed-label', seed1));
             playersArea.appendChild(p1Slot);
             
-            const p2Slot = createElement('div', 'player-slot');
-            p2Slot.appendChild(createElement('span', 'player-name-text', player2Name));
+            const p2Slot = createElement('div', 'player-slot slot-p2');
+            p2Slot.appendChild(createElement('span', 'player-name-text p2-name-text', player2Name));
             if (seed2) p2Slot.appendChild(createElement('span', 'seed-label', seed2));
             playersArea.appendChild(p2Slot);
 
             mainBoxArea.appendChild(playersArea);
 
             const scoreArea = createElement('div', 'score-box-area');
-            scoreArea.appendChild(createElement('div', 'score-box'));
-            scoreArea.appendChild(createElement('div', 'score-box'));
+            scoreArea.appendChild(createElement('div', 'score-box score-p1'));
+            scoreArea.appendChild(createElement('div', 'score-box score-p2'));
             mainBoxArea.appendChild(scoreArea);
 
             matchBox.appendChild(mainBoxArea);
             wrapper.appendChild(matchBox);
             return wrapper;
+        }
+
+        // === コンテナ内のラウンド構造から「勝者が進む次マッチ・スロット」の接続マップを構築 ===
+        function buildWinnerProgressionMapForContainer(containerEl, winnerTargetMap, allMatchBoxByLabel) {
+            // 1. 明示的な「Winner of X」ラベルによる接続（GFや13〜16人WQFなど）
+            const allBoxes = Array.from(containerEl.querySelectorAll('.match-box'));
+            allBoxes.forEach(mb => {
+                const topDrop = mb.dataset.topDropLabel || '';
+                const botDrop = mb.dataset.bottomDropLabel || '';
+                if (topDrop.startsWith('Winner of ')) {
+                    const srcLbl = topDrop.replace('Winner of ', '').trim();
+                    if (srcLbl) winnerTargetMap[srcLbl] = { matchBox: mb, slotIndex: 1 };
+                }
+                if (botDrop.startsWith('Winner of ')) {
+                    const srcLbl = botDrop.replace('Winner of ', '').trim();
+                    if (srcLbl) winnerTargetMap[srcLbl] = { matchBox: mb, slotIndex: 2 };
+                }
+            });
+
+            // 2. 隣接するラウンド列間の構造的な接続（直線・二股）
+            const roundCols = Array.from(containerEl.querySelectorAll('.round-col:not(.qualifier-col)'));
+            for (let c = 0; c < roundCols.length - 1; c++) {
+                const colCurr = roundCols[c];
+                const colNext = roundCols[c + 1];
+
+                const currItems = Array.from(colCurr.children).filter(el => !el.classList.contains('round-header'));
+                const nextItems = Array.from(colNext.children).filter(el => !el.classList.contains('round-header'));
+
+                if (currItems.length === nextItems.length) {
+                    for (let i = 0; i < nextItems.length; i++) {
+                        const targetMb = nextItems[i].querySelector('.match-box');
+                        if (!targetMb) continue;
+
+                        const sourceMbs = Array.from(currItems[i].querySelectorAll('.match-box'));
+                        if (sourceMbs.length === 2) {
+                            const lbl0 = sourceMbs[0].dataset.matchLabel;
+                            const lbl1 = sourceMbs[1].dataset.matchLabel;
+                            if (lbl0 && !winnerTargetMap[lbl0]) winnerTargetMap[lbl0] = { matchBox: targetMb, slotIndex: 1 };
+                            if (lbl1 && !winnerTargetMap[lbl1]) winnerTargetMap[lbl1] = { matchBox: targetMb, slotIndex: 2 };
+                        } else if (sourceMbs.length === 1) {
+                            const lbl0 = sourceMbs[0].dataset.matchLabel;
+                            if (!lbl0 || winnerTargetMap[lbl0]) continue;
+
+                            const isSlot1Occupied = Boolean(targetMb.dataset.seed1 || targetMb.dataset.topDropLabel);
+                            const isSlot2Occupied = Boolean(targetMb.dataset.seed2 || targetMb.dataset.bottomDropLabel);
+                            const targetSlot = isSlot1Occupied && !isSlot2Occupied ? 2 : 1;
+                            winnerTargetMap[lbl0] = { matchBox: targetMb, slotIndex: targetSlot };
+                        }
+                    }
+                } else if (currItems.length === 2 * nextItems.length) {
+                    for (let p = 0; p < nextItems.length; p++) {
+                        const targetMb = nextItems[p].querySelector('.match-box');
+                        if (!targetMb) continue;
+
+                        const topMbs = Array.from(currItems[2 * p].querySelectorAll('.match-box'));
+                        const botMbs = Array.from(currItems[2 * p + 1].querySelectorAll('.match-box'));
+
+                        if (topMbs.length > 0) {
+                            const lblTop = topMbs[topMbs.length - 1].dataset.matchLabel;
+                            if (lblTop && !winnerTargetMap[lblTop]) {
+                                winnerTargetMap[lblTop] = { matchBox: targetMb, slotIndex: 1 };
+                            }
+                        }
+                        if (botMbs.length > 0) {
+                            const lblBot = botMbs[0].dataset.matchLabel;
+                            if (lblBot && !winnerTargetMap[lblBot]) {
+                                winnerTargetMap[lblBot] = { matchBox: targetMb, slotIndex: 2 };
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // === ブラケットDOMへの「事前DQ（繰り上がり・敗者側落下・両者DQ時の高シード優先進行）」＆「配信ラベル（API限定）」適用パス ===
+        function applyDqAndStreamDecorationsToBracket(poolName, wContainer, lContainer) {
+            const currentPool = poolsData[poolName];
+            if (!currentPool) return;
+
+            const dqMap = currentPool.dqByMatch || {};
+            const streamMap = currentPool.streamByMatch || {};
+
+            // プレイヤー名からシード番号を逆引きするマップを構築
+            const seedByPlayerName = {};
+            if (currentPool.playersByPoolSeed) {
+                Object.entries(currentPool.playersByPoolSeed).forEach(([seedStr, pName]) => {
+                    if (pName) seedByPlayerName[String(pName).trim()] = Number(seedStr);
+                });
+            }
+
+            const wMatchBoxes = Array.from(wContainer.querySelectorAll('.match-box'));
+            const lMatchBoxes = Array.from(lContainer.querySelectorAll('.match-box'));
+
+            wMatchBoxes.forEach(mb => { mb.dataset.bracketSide = 'W'; });
+            lMatchBoxes.forEach(mb => { mb.dataset.bracketSide = 'L'; });
+
+            const allMatchBoxes = [...wMatchBoxes, ...lMatchBoxes];
+            const matchBoxByLabel = {};
+            allMatchBoxes.forEach(mb => {
+                if (mb.dataset.matchLabel) {
+                    matchBoxByLabel[mb.dataset.matchLabel] = mb;
+                }
+            });
+
+            // 勝者進行先マップ（winnerTargetMap）と敗者落下先マップ（loserDropTargetMap）を構築
+            const winnerTargetMap = {};
+            buildWinnerTargetsForContainer(wContainer, winnerTargetMap, matchBoxByLabel);
+            buildWinnerTargetsForContainer(lContainer, winnerTargetMap, matchBoxByLabel);
+
+            const loserDropTargetMap = {};
+            allMatchBoxes.forEach(mb => {
+                const topDrop = mb.dataset.topDropLabel || '';
+                const botDrop = mb.dataset.bottomDropLabel || '';
+                if (topDrop.startsWith('Loser of ')) {
+                    const srcLbl = topDrop.replace('Loser of ', '').trim();
+                    loserDropTargetMap[srcLbl] = { matchBox: mb, slotIndex: 1 };
+                }
+                if (botDrop.startsWith('Loser of ')) {
+                    const srcLbl = botDrop.replace('Loser of ', '').trim();
+                    loserDropTargetMap[srcLbl] = { matchBox: mb, slotIndex: 2 };
+                }
+            });
+
+            // 各試合のスロット状態（プレイヤー名・シード・自動DQフラグ）を初期化
+            const matchStateMap = {};
+            allMatchBoxes.forEach(mb => {
+                const lbl = mb.dataset.matchLabel;
+                const p1Name = mb.querySelector('.p1-name-text')?.textContent?.trim() || '';
+                const p2Name = mb.querySelector('.p2-name-text')?.textContent?.trim() || '';
+                const s1 = mb.dataset.seed1 ? Number(mb.dataset.seed1) : (seedByPlayerName[p1Name] || null);
+                const s2 = mb.dataset.seed2 ? Number(mb.dataset.seed2) : (seedByPlayerName[p2Name] || null);
+                const manualDq = dqMap[lbl] || {};
+
+                matchStateMap[lbl] = {
+                    slot1: {
+                        name: p1Name,
+                        seed: s1,
+                        isDq: Boolean(manualDq.slot1),
+                        isAutoDq: false
+                    },
+                    slot2: {
+                        name: p2Name,
+                        seed: s2,
+                        isDq: Boolean(manualDq.slot2),
+                        isAutoDq: false
+                    },
+                    propagatePlayerName: manualDq.propagatePlayerName !== false
+                };
+            });
+
+            // 指定したターゲットスロットにプレイヤー情報（および自動DQ状態）を送り込むヘルパー
+            const assignPlayerToTargetSlot = (targetInfo, playerObj, shouldWriteName) => {
+                if (!targetInfo || !targetInfo.matchBox || !playerObj) return;
+                const targetMb = targetInfo.matchBox;
+                const targetLbl = targetMb.dataset.matchLabel;
+                const targetState = matchStateMap[targetLbl];
+                if (!targetState) return;
+
+                const slotKey = targetInfo.slotIndex === 1 ? 'slot1' : 'slot2';
+                const nameSelector = targetInfo.slotIndex === 1 ? '.p1-name-text' : '.p2-name-text';
+                const targetSlotState = targetState[slotKey];
+
+                if (shouldWriteName && playerObj.name) {
+                    targetSlotState.name = playerObj.name;
+                    const nameEl = targetMb.querySelector(nameSelector);
+                    if (nameEl) nameEl.textContent = playerObj.name;
+                }
+                if (playerObj.seed) {
+                    targetSlotState.seed = playerObj.seed;
+                    if (targetInfo.slotIndex === 1) {
+                        targetMb.dataset.resolvedSeed1 = String(playerObj.seed);
+                    } else {
+                        targetMb.dataset.resolvedSeed2 = String(playerObj.seed);
+                    }
+                }
+                if (playerObj.isAutoDq) {
+                    targetSlotState.isDq = true;
+                    targetSlotState.isAutoDq = true;
+                    if (targetInfo.slotIndex === 1) {
+                        targetMb.dataset.autoDqSlot1 = 'true';
+                    } else {
+                        targetMb.dataset.autoDqSlot2 = 'true';
+                    }
+                }
+            };
+
+            // 1試合分のDQ判定・スコア記入・次マッチへの進行／敗者側への落下を実行する関数
+            const evaluateMatchBox = (mb) => {
+                const mLabel = mb.dataset.matchLabel;
+                const state = matchStateMap[mLabel];
+                if (!state) return;
+
+                const s1 = state.slot1;
+                const s2 = state.slot2;
+                const p1ScoreEl = mb.querySelector('.score-p1');
+                const p2ScoreEl = mb.querySelector('.score-p2');
+                const writeName = state.propagatePlayerName !== false;
+
+                if (!s1.isDq && !s2.isDq) return;
+
+                if (s1.isDq && s2.isDq) {
+                    // 両者DQの場合：両方のスコア欄に「DQ」を記入し、シードが高い方（数値が小さい方）を次マッチへ自動DQ状態で進める
+                    if (p1ScoreEl) p1ScoreEl.textContent = 'DQ';
+                    if (p2ScoreEl) p2ScoreEl.textContent = 'DQ';
+
+                    const seed1Val = (s1.seed !== null && !isNaN(s1.seed)) ? Number(s1.seed) : 9999;
+                    const seed2Val = (s2.seed !== null && !isNaN(s2.seed)) ? Number(s2.seed) : 9999;
+
+                    const higherSeedSlot = (seed1Val <= seed2Val) ? s1 : s2;
+                    const lowerSeedSlot = (seed1Val <= seed2Val) ? s2 : s1;
+
+                    // 勝者側で両者DQとなった場合、シードが低い方はこのラウンドの敗者として敗者側へ落下（DQ）
+                    if (loserDropTargetMap[mLabel]) {
+                        assignPlayerToTargetSlot(
+                            loserDropTargetMap[mLabel],
+                            { name: lowerSeedSlot.name, seed: lowerSeedSlot.seed, isAutoDq: true },
+                            writeName
+                        );
+                    }
+
+                    // シードが高い方は次のマッチへ進み、進んだ先でも自動的にDQとなる
+                    if (winnerTargetMap[mLabel]) {
+                        assignPlayerToTargetSlot(
+                            winnerTargetMap[mLabel],
+                            { name: higherSeedSlot.name, seed: higherSeedSlot.seed, isAutoDq: true },
+                            writeName
+                        );
+                    }
+                } else if (s1.isDq && !s2.isDq) {
+                    // 上段（Slot 1）のみがDQの場合
+                    if (p1ScoreEl) p1ScoreEl.textContent = 'DQ';
+
+                    // 上段プレイヤーは敗者側へ落下し、落下先でも自動でDQとなる
+                    if (loserDropTargetMap[mLabel]) {
+                        assignPlayerToTargetSlot(
+                            loserDropTargetMap[mLabel],
+                            { name: s1.name, seed: s1.seed, isAutoDq: true },
+                            writeName
+                        );
+                    }
+
+                    // 下段（Slot 2）にプレイヤーが確定している場合、スコア欄に「✔」を入れて次マッチへ繰り上げ進行
+                    if (s2.name) {
+                        if (p2ScoreEl) p2ScoreEl.textContent = '✔';
+                        if (winnerTargetMap[mLabel]) {
+                            assignPlayerToTargetSlot(
+                                winnerTargetMap[mLabel],
+                                { name: s2.name, seed: s2.seed, isAutoDq: false },
+                                writeName
+                            );
+                        }
+                    }
+                } else if (!s1.isDq && s2.isDq) {
+                    // 下段（Slot 2）のみがDQの場合
+                    if (p2ScoreEl) p2ScoreEl.textContent = 'DQ';
+
+                    // 下段プレイヤーは敗者側へ落下し、落下先でも自動でDQとなる
+                    if (loserDropTargetMap[mLabel]) {
+                        assignPlayerToTargetSlot(
+                            loserDropTargetMap[mLabel],
+                            { name: s2.name, seed: s2.seed, isAutoDq: true },
+                            writeName
+                        );
+                    }
+
+                    // 上段（Slot 1）にプレイヤーが確定している場合、スコア欄に「✔」を入れて次マッチへ繰り上げ進行
+                    if (s1.name) {
+                        if (p1ScoreEl) p1ScoreEl.textContent = '✔';
+                        if (winnerTargetMap[mLabel]) {
+                            assignPlayerToTargetSlot(
+                                winnerTargetMap[mLabel],
+                                { name: s1.name, seed: s1.seed, isAutoDq: false },
+                                writeName
+                            );
+                        }
+                    }
+                }
+            };
+
+            // トポロジカル順序で評価：
+            // 1. 勝者側（Grand Final系を除く左からの各ラウンド）
+            // 2. 敗者側（左からの各ラウンド）
+            // 3. Grand Final / Grand Final Reset（存在する場合）
+            const wRoundCols = Array.from(wContainer.querySelectorAll('.round-col:not(.qualifier-col)'));
+            const lRoundCols = Array.from(lContainer.querySelectorAll('.round-col:not(.qualifier-col)'));
+
+            const gfCols = [];
+            wRoundCols.forEach(col => {
+                const headerText = col.querySelector('.round-header')?.textContent || '';
+                if (headerText.includes('Grand Final')) {
+                    gfCols.push(col);
+                } else {
+                    Array.from(col.querySelectorAll('.match-box')).forEach(evaluateMatchBox);
+                }
+            });
+
+            lRoundCols.forEach(col => {
+                Array.from(col.querySelectorAll('.match-box')).forEach(evaluateMatchBox);
+            });
+
+            gfCols.forEach(col => {
+                Array.from(col.querySelectorAll('.match-box')).forEach(evaluateMatchBox);
+            });
+
+            // 配信ラベル（API使用時限定）：モノクロ印刷向けの角丸グレー破線枠＆バッジ描画
+            if (activeDataSource === 'api') {
+                allMatchBoxes.forEach(mb => {
+                    const mLabel = mb.dataset.matchLabel;
+                    const stCfg = streamMap[mLabel];
+                    if (!stCfg || !stCfg.enabled) return;
+
+                    mb.classList.add('stream-match-box');
+
+                    const badge = createElement('div', 'stream-badge');
+                    const hasDropTop = Boolean(mb.dataset.topDropLabel);
+                    badge.style.maxWidth = hasDropTop ? '136px' : '196px';
+
+                    const qNum = stCfg.queueNum ? String(stCfg.queueNum).trim() : '';
+                    const tagText = qNum ? `配信 #${qNum}` : '配信';
+                    badge.appendChild(createElement('span', 'stream-badge-tag', tagText));
+
+                    const chName = stCfg.channelName ? String(stCfg.channelName).trim() : '';
+                    if (chName) {
+                        badge.appendChild(createElement('span', 'stream-badge-channel', chName));
+                    }
+
+                    mb.appendChild(badge);
+                });
+            }
+        }
+
+        function buildWinnerTargetsForContainer(containerEl, winnerTargetMap, allMatchBoxByLabel) {
+            buildWinnerProgressionMapForContainer(containerEl, winnerTargetMap, allMatchBoxByLabel);
         }
 
         // === 空白スペーサーノード ===
@@ -4026,6 +4848,9 @@
                 bracketContainerEl.style.gap = '0px';
             }
 
+            // 事前確定DQ（勝者側→敗者側自動落下連動）および配信ラベル（API限定）をブラケットDOMへ適用
+            applyDqAndStreamDecorationsToBracket(poolName, wContainer, lContainer);
+
             renderCheckinRosterToContainer(currentPool.rosterList, rosterContainerEl);
 
             const totalBracketHeight = winnersHeightPx + ((!isSingle && (isGfMode || lCountNum > 0)) ? (bracketGapPx + losersHeightPx) : 0);
@@ -4076,8 +4901,224 @@
             el.style.setProperty('--player-pad-x', vars.playerPadX);
         }
 
+        // === サイドバーの配信・DQ設定件数サマリー更新 ===
+        function updateCardCustomSummaryUI() {
+            if (!cardCustomSummary) return;
+            const selectedPoolName = poolSelect.value;
+            const currentPool = poolsData[selectedPoolName];
+            if (!currentPool) {
+                cardCustomSummary.textContent = '現在のPoolの設定: 配信 0件 / 事前DQ 0件';
+                return;
+            }
+            const streamCount = (activeDataSource === 'api' && currentPool.streamByMatch)
+                ? Object.values(currentPool.streamByMatch).filter(v => v && v.enabled).length
+                : 0;
+            const dqCount = currentPool.dqByMatch
+                ? Object.values(currentPool.dqByMatch).reduce((acc, v) => acc + (v?.slot1 ? 1 : 0) + (v?.slot2 ? 1 : 0), 0)
+                : 0;
+            const streamNote = activeDataSource === 'api' ? `配信 ${streamCount}件` : '配信 -(CSV無効)';
+            cardCustomSummary.textContent = `現在のPool (${selectedPoolName}): ${streamNote} / 事前DQ ${dqCount}枠`;
+        }
+
+        // === プレビュー上の対戦カードクリックによる編集モーダル制御 ===
+        function openMatchEditModal(matchBoxEl) {
+            const selectedPoolName = poolSelect.value;
+            const currentPool = poolsData[selectedPoolName];
+            if (!currentPool || !matchBoxEl) return;
+
+            const matchLabel = matchBoxEl.dataset.matchLabel;
+            if (!matchLabel) return;
+
+            const bracketSide = matchBoxEl.dataset.bracketSide || 'W';
+            const roundCol = matchBoxEl.closest('.round-col');
+            const roundHeaderText = roundCol?.querySelector('.round-header')?.textContent?.trim() || '';
+
+            const p1Name = matchBoxEl.querySelector('.p1-name-text')?.textContent?.trim() || '';
+            const p2Name = matchBoxEl.querySelector('.p2-name-text')?.textContent?.trim() || '';
+            const s1 = matchBoxEl.dataset.seed1 || matchBoxEl.dataset.resolvedSeed1 || '';
+            const s2 = matchBoxEl.dataset.seed2 || matchBoxEl.dataset.resolvedSeed2 || '';
+            const topDrop = matchBoxEl.dataset.topDropLabel || '';
+            const botDrop = matchBoxEl.dataset.bottomDropLabel || '';
+            const isAutoDq1 = matchBoxEl.dataset.autoDqSlot1 === 'true';
+            const isAutoDq2 = matchBoxEl.dataset.autoDqSlot2 === 'true';
+
+            const slot1Label = p1Name
+                ? (s1 ? `[Seed ${s1}] ${p1Name}${isAutoDq1 ? ' (前試合DQ)' : ''}` : `${p1Name}${isAutoDq1 ? ' (前試合DQ)' : ''}`)
+                : (topDrop ? `(${topDrop})` : (s1 ? `Seed ${s1}` : '上段プレイヤー (未確定枠)'));
+            const slot2Label = p2Name
+                ? (s2 ? `[Seed ${s2}] ${p2Name}${isAutoDq2 ? ' (前試合DQ)' : ''}` : `${p2Name}${isAutoDq2 ? ' (前試合DQ)' : ''}`)
+                : (botDrop ? `(${botDrop})` : (s2 ? `Seed ${s2}` : '下段プレイヤー (未確定枠)'));
+
+            currentEditingMatchContext = {
+                poolName: selectedPoolName,
+                matchLabel,
+                bracketSide
+            };
+
+            modalMatchBadge.textContent = `Match ${matchLabel}`;
+            modalMatchTitle.textContent = roundHeaderText || '対戦カード設定';
+            modalBracketSideBadge.textContent = bracketSide === 'W' ? '勝者側 (Winners)' : '敗者側 (Losers)';
+            modalBracketSideBadge.className = bracketSide === 'W'
+                ? 'text-[10px] font-bold px-1.5 py-0.5 rounded bg-orange-100 text-[#FA8534]'
+                : 'text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-100 text-blue-700';
+
+            modalSlot1Name.textContent = slot1Label;
+            modalSlot2Name.textContent = slot2Label;
+
+            const existingDq = currentPool.dqByMatch?.[matchLabel] || { slot1: false, slot2: false, propagatePlayerName: true };
+            modalDqSlot1.checked = Boolean(existingDq.slot1 || isAutoDq1);
+            modalDqSlot2.checked = Boolean(existingDq.slot2 || isAutoDq2);
+            modalDqPropagateName.checked = existingDq.propagatePlayerName !== false;
+            modalDqPropagateNameWrapper.classList.remove('hidden');
+
+            // 配信設定（APIモード時のみ有効）
+            if (activeDataSource === 'api') {
+                modalStreamCsvNotice.classList.add('hidden');
+                modalStreamControls.classList.remove('hidden');
+
+                const existingStream = currentPool.streamByMatch?.[matchLabel] || { enabled: false, channelName: '', queueNum: '' };
+                modalStreamEnabled.checked = Boolean(existingStream.enabled);
+                modalStreamChannel.value = existingStream.channelName || lastUsedStreamChannelName || (tournamentStreamsList[0] || '');
+                modalStreamQueue.value = existingStream.queueNum || '';
+                modalStreamFields.classList.toggle('opacity-50', !modalStreamEnabled.checked);
+
+                modalStreamSuggestions.innerHTML = '';
+                const candidateChannels = [...new Set([...tournamentStreamsList, lastUsedStreamChannelName].filter(Boolean))];
+                if (candidateChannels.length > 0) {
+                    modalStreamSuggestions.classList.remove('hidden');
+                    candidateChannels.forEach(ch => {
+                        const chip = createElement('button', 'text-[10px] bg-gray-100 hover:bg-gray-200 text-gray-800 border border-gray-300 px-2 py-0.5 rounded font-bold transition', `📺 ${ch}`);
+                        chip.type = 'button';
+                        chip.addEventListener('click', () => {
+                            modalStreamChannel.value = ch;
+                            modalStreamEnabled.checked = true;
+                            modalStreamFields.classList.remove('opacity-50');
+                        });
+                        modalStreamSuggestions.appendChild(chip);
+                    });
+                } else {
+                    modalStreamSuggestions.classList.add('hidden');
+                }
+            } else {
+                modalStreamCsvNotice.classList.remove('hidden');
+                modalStreamControls.classList.add('hidden');
+            }
+
+            matchEditModal.classList.remove('hidden');
+        }
+
+        function closeMatchEditModal() {
+            matchEditModal.classList.add('hidden');
+            currentEditingMatchContext = null;
+        }
+
+        modalStreamEnabled.addEventListener('change', () => {
+            modalStreamFields.classList.toggle('opacity-50', !modalStreamEnabled.checked);
+            if (modalStreamEnabled.checked && !modalStreamChannel.value.trim()) {
+                modalStreamChannel.value = lastUsedStreamChannelName || tournamentStreamsList[0] || '';
+            }
+        });
+
+        modalStreamQueue.addEventListener('input', (e) => {
+            const cleaned = e.target.value.replace(/[^0-9]/g, '');
+            if (e.target.value !== cleaned) {
+                e.target.value = cleaned;
+            }
+        });
+
+        modalCloseBtn.addEventListener('click', closeMatchEditModal);
+        modalCancelBtn.addEventListener('click', closeMatchEditModal);
+        matchEditModal.addEventListener('click', (e) => {
+            if (e.target === matchEditModal) closeMatchEditModal();
+        });
+
+        modalResetCardBtn.addEventListener('click', () => {
+            if (!currentEditingMatchContext) return;
+            const { poolName, matchLabel } = currentEditingMatchContext;
+            const poolObj = poolsData[poolName];
+            if (poolObj) {
+                if (poolObj.dqByMatch) delete poolObj.dqByMatch[matchLabel];
+                if (poolObj.streamByMatch) delete poolObj.streamByMatch[matchLabel];
+            }
+            closeMatchEditModal();
+            updateCardCustomSummaryUI();
+            generateBtn.click();
+        });
+
+        modalSaveBtn.addEventListener('click', () => {
+            if (!currentEditingMatchContext) return;
+            const { poolName, matchLabel } = currentEditingMatchContext;
+            const poolObj = poolsData[poolName];
+            if (!poolObj) return;
+
+            if (!poolObj.dqByMatch) poolObj.dqByMatch = {};
+            if (!poolObj.streamByMatch) poolObj.streamByMatch = {};
+
+            if (modalDqSlot1.checked || modalDqSlot2.checked) {
+                poolObj.dqByMatch[matchLabel] = {
+                    slot1: modalDqSlot1.checked,
+                    slot2: modalDqSlot2.checked,
+                    propagatePlayerName: modalDqPropagateName.checked
+                };
+            } else {
+                delete poolObj.dqByMatch[matchLabel];
+            }
+
+            if (activeDataSource === 'api') {
+                if (modalStreamEnabled.checked) {
+                    const chVal = modalStreamChannel.value.trim();
+                    const qVal = modalStreamQueue.value.trim();
+                    if (chVal) lastUsedStreamChannelName = chVal;
+                    poolObj.streamByMatch[matchLabel] = {
+                        enabled: true,
+                        channelName: chVal,
+                        queueNum: qVal
+                    };
+                } else {
+                    delete poolObj.streamByMatch[matchLabel];
+                }
+            }
+
+            closeMatchEditModal();
+            updateCardCustomSummaryUI();
+            generateBtn.click();
+        });
+
+        // プレビュー領域内の対戦カード（.match-box）クリックイベント委譲
+        document.getElementById('bracket-container').addEventListener('click', (e) => {
+            const matchBoxEl = e.target.closest('.match-box');
+            if (!matchBoxEl) return;
+            openMatchEditModal(matchBoxEl);
+        });
+
+        if (clearPoolStreamsBtn) {
+            clearPoolStreamsBtn.addEventListener('click', () => {
+                const selectedPoolName = poolSelect.value;
+                if (poolsData[selectedPoolName]) {
+                    poolsData[selectedPoolName].streamByMatch = {};
+                    updateCardCustomSummaryUI();
+                    if (!document.getElementById('main-sheet-body').classList.contains('hidden')) {
+                        generateBtn.click();
+                    }
+                }
+            });
+        }
+
+        if (clearPoolDqsBtn) {
+            clearPoolDqsBtn.addEventListener('click', () => {
+                const selectedPoolName = poolSelect.value;
+                if (poolsData[selectedPoolName]) {
+                    poolsData[selectedPoolName].dqByMatch = {};
+                    updateCardCustomSummaryUI();
+                    if (!document.getElementById('main-sheet-body').classList.contains('hidden')) {
+                        generateBtn.click();
+                    }
+                }
+            });
+        }
+
         // === ブラケット描画処理（プレビュー画面への反映） ===
-        generateBtn.addEventListener('click', () => {
+        generateBtn.addEventListener('click', async () => {
             const selectedPoolName = poolSelect.value;
             const currentPool = poolsData[selectedPoolName];
             if (!currentPool) return;
@@ -4087,6 +5128,10 @@
             if (!verifySourceIdentifierIntegrity(urlVal) || !verifySourceIdentifierIntegrity(tNameVal)) {
                 handleUnsupportedIdentifierError(activeDataSource === 'api' ? 'url' : 'csv');
                 return;
+            }
+
+            if (activeDataSource === 'api' && !currentPool.setsFetched) {
+                await fetchPhaseGroupSetsForPool(selectedPoolName);
             }
 
             showInlineMessage(generateError, '');
@@ -4124,6 +5169,7 @@
             previewArea.style.minHeight = `${canvasHeight}px`;
             previewArea.style.height = `${canvasHeight}px`;
 
+            updateCardCustomSummaryUI();
             applyPrintAndDrawOptions();
             requestAnimationFrame(fitToViewport);
         });
@@ -4196,6 +5242,14 @@
         // === PDF出力の共通エンジン（単一Pool出力 ＆ 全Pool一括出力を完全統合） ===
         async function executePrintPools(targetPoolNames) {
             if (!targetPoolNames || targetPoolNames.length === 0) return;
+
+            if (activeDataSource === 'api') {
+                for (const pName of targetPoolNames) {
+                    if (poolsData[pName] && !poolsData[pName].setsFetched) {
+                        await fetchPhaseGroupSetsForPool(pName);
+                    }
+                }
+            }
 
             isPrintingMode = true;
             applyPrintAndDrawOptions();
