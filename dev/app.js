@@ -138,7 +138,14 @@ const BUILTIN_BP_PROFILES = {
         logoRawUrl: 'https://raw.githubusercontent.com/Tesnoo/BracketPrinter/main/image/vix_logo_black_outline.png',
         nameTemplate: 'Vic-Seekers #[N]',
         urlTemplate: 'https://www.start.gg/tournament/vic-seekers-[N]/event/ultimate-singles',
-        boConfig: null,
+        boConfig: {
+            baseBo: '3',
+            enableChange: true,
+            wRound: 'Winners Quarter-Final',
+            wBo: '5',
+            lRound: 'Losers Round 4',
+            lBo: '5'
+        },
         notes: []
     },
     'クロブラ': {
@@ -251,7 +258,9 @@ const logoDisplayContainer = document.getElementById('logo-display-container');
 const addTextBtn = document.getElementById('add-text-btn');
 const textBoxStatus = document.getElementById('text-box-status');
 const customTextsLayer = document.getElementById('custom-texts-layer');
-const clearMatchOverridesBtn = document.getElementById('clear-match-overrides-btn');
+
+const clearDqOverridesBtn = document.getElementById('clear-dq-overrides-btn');
+const clearStreamOverridesBtn = document.getElementById('clear-stream-overrides-btn');
 
 const matchEditModal = document.getElementById('match-edit-modal');
 const modalMatchTitle = document.getElementById('modal-match-title');
@@ -444,24 +453,30 @@ function applyBpProfileObject(profile, applyBoAndNotes = true) {
     if (tournamentNameInput && profile.nameTemplate) {
         tournamentNameInput.value = numStr
             ? profile.nameTemplate.replace(/\[N\]/g, numStr)
-            : (profile.presetKey || '');
+            : (profile.presetKey || profile.presetId || '');
     }
 
     if (startggUrlInput) {
         let urlTpl = profile.urlTemplate || '';
-        if (profile.presetKey === 'クロブラ') {
-            urlTpl = (kurobraGameMode === 'dx') ? profile.urlTemplateDx : profile.urlTemplateSp;
+        if ((profile.presetKey || profile.presetId) === 'クロブラ') {
+            urlTpl = (kurobraGameMode === 'dx')
+                ? (profile.urlTemplateDx || profile.urlTemplate)
+                : (profile.urlTemplateSp || profile.urlTemplate);
         }
         startggUrlInput.value = numStr ? replaceNumberToken(urlTpl) : '';
         hideInlineMessage(urlErrorMsg);
     }
 
     if (applyBoAndNotes) {
-        let boCfg = profile.boConfig;
-        if (profile.presetKey === 'クロブラ') {
-            boCfg = (kurobraGameMode === 'dx') ? profile.boConfigDx : profile.boConfigSp;
+        let boCfg = profile.boConfig || (profile.boRule && (profile.boRule.default || profile.boRule));
+        if ((profile.presetKey || profile.presetId) === 'クロブラ') {
+            if (kurobraGameMode === 'dx') {
+                boCfg = profile.boConfigDx || (profile.boRule && profile.boRule.dx);
+            } else {
+                boCfg = profile.boConfigSp || (profile.boRule && profile.boRule.sp);
+            }
         }
-        if (boCfg) {
+        if (boCfg && boCfg.baseBo) {
             setBoConfiguration(
                 boCfg.baseBo || '5',
                 Boolean(boCfg.enableChange),
@@ -506,7 +521,12 @@ async function loadAndApplyPresetProfile(presetKey, applyBoAndNotes = true) {
                 const res = await fetch(u, { cache: 'no-store' });
                 if (res.ok) {
                     const loadedJson = await res.json();
-                    activeProfile = { ...fallbackProfile, ...loadedJson };
+                    // .bp ファイル側に boConfig または boRule が未設定の場合でも内蔵定義を保持
+                    activeProfile = {
+                        ...fallbackProfile,
+                        ...loadedJson,
+                        boConfig: loadedJson.boConfig || (loadedJson.boRule && (loadedJson.boRule.default || loadedJson.boRule)) || fallbackProfile.boConfig
+                    };
                     BUILTIN_BP_PROFILES[presetKey] = activeProfile;
                     break;
                 }
@@ -625,8 +645,17 @@ function getCurrentPoolPlayerCount() {
     return maxPoolPlayerCount || 24;
 }
 
+// 複数プール間で人数帯が異なる場合は常に最大人数側（maxPoolPlayerCount）に合わせる
+function getEffectiveMaxPlayerCount() {
+    const poolKeys = Object.keys(poolsData);
+    if (poolKeys.length > 0) {
+        return Math.max(...poolKeys.map(k => poolsData[k].count));
+    }
+    return maxPoolPlayerCount || 24;
+}
+
 function updateAdvanceCountConstraints() {
-    const n = getCurrentPoolPlayerCount();
+    const n = getEffectiveMaxPlayerCount();
 
     Array.from(winnersAdvanceCount.options).forEach(opt => {
         if (opt.value === '4') {
@@ -870,7 +899,7 @@ document.querySelectorAll('.accordion-toggle').forEach(button => {
     });
 });
 
-// === 推奨印刷設定の自動計算＆適用 ===
+// === 推奨印刷設定の自動計算＆適用（複数プール混在時は常に最大人数側に統一） ===
 function getRecommendedPrintSettings(maxPlayers, elimFormat) {
     const isSingle = elimFormat === 'single';
     const n = maxPlayers || 24;
@@ -893,8 +922,8 @@ function getRecommendedPrintSettings(maxPlayers, elimFormat) {
 }
 
 function updateRecommendedPrintUI(autoApply = true) {
-    const currentPoolName = poolSelect.value;
-    const targetCount = (currentPoolName && poolsData[currentPoolName]) ? poolsData[currentPoolName].count : maxPoolPlayerCount;
+    // 16-17人や24-25人など複数プールで人数が異なる場合、常に最大人数側（maxPoolPlayerCount）に合わせる
+    const targetCount = getEffectiveMaxPlayerCount();
     const format = elimFormatSelect.value || 'double';
     recommendedPrintConfig = getRecommendedPrintSettings(targetCount, format);
 
@@ -1493,13 +1522,18 @@ async function populatePoolsFromStartggPhase(phaseObj, targetGroupId = null) {
 
     applyPoolsDataToUI(`start.gg (${phaseObj.name})`, apiStatus);
 
+    // プリセットが選択されている場合はプリセット固有のBo設定（Vic-Seekers等）を再適用して優先維持
+    if (presetSelect && presetSelect.value && BUILTIN_BP_PROFILES[presetSelect.value]) {
+        applyBpProfileObject(BUILTIN_BP_PROFILES[presetSelect.value], true);
+    }
+
     if (targetGroupId) {
         const matchedPoolKey = Object.keys(poolsData).find(k => poolsData[k].groupId === Number(targetGroupId));
         if (matchedPoolKey) {
             poolSelect.value = matchedPoolKey;
             updateAdvanceCountConstraints();
             updateRoundChangeDropdowns();
-            updateRecommendedPrintUI(true);
+            updateRecommendedPrintUI(false);
         }
     }
 }
@@ -1517,7 +1551,8 @@ phaseSelect.addEventListener('change', async () => {
 poolSelect.addEventListener('change', () => {
     updateAdvanceCountConstraints();
     updateRoundChangeDropdowns();
-    updateRecommendedPrintUI(true);
+    // 複数プール間で推奨設定が変わらないよう、最大人数基準の推奨設定を維持
+    updateRecommendedPrintUI(false);
     updateGenerateButtonState();
 });
 
@@ -1859,25 +1894,35 @@ losersRoundSelect.addEventListener('change', updateGenerateButtonState);
 // === 手順6: 通過先フェーズ名の入力監視 ===
 targetPhaseInput.addEventListener('input', updateGenerateButtonState);
 
-function getBoStringForRound(side, roundName) {
+// 24人以下と25人以上が混在するフェーズで「Losers Round 4（25-32人時）」と「Losers Round 3（17-24人時）」のずれを自動吸収してBoを返す関数
+function getBoStringForRound(side, roundName, playerCountForPool = null) {
     let bo = baseBoValue || '5';
     const isChangeMode = document.querySelector('input[name="change-mode"]:checked').value === 'yes';
 
     if (isChangeMode) {
+        const pCount = playerCountForPool || getCurrentPoolPlayerCount();
+        const isSingle = elimFormatSelect.value === 'single';
+        const wCountNum = winnersAdvanceCount.value !== '' ? Number(winnersAdvanceCount.value) : 1;
+        const lCountNum = isSingle ? 0 : (losersAdvanceCount.value !== '' ? Number(losersAdvanceCount.value) : 2);
+        const { winnersRounds, losersRounds } = computeActiveRounds(pCount, isSingle, wCountNum, lCountNum);
+
         if (side === 'W') {
             const targetRound = winnersRoundSelect.value;
             if (targetRound !== 'none') {
-                const startIndex = currentActiveWinnersRounds.indexOf(targetRound);
-                const currentIndex = currentActiveWinnersRounds.indexOf(roundName);
+                const startIndex = winnersRounds.indexOf(targetRound);
+                const currentIndex = winnersRounds.indexOf(roundName);
                 if (startIndex !== -1 && currentIndex >= startIndex) {
                     bo = winnersBoSelect.value === 'custom' ? (winnersCustomInput.value.trim() || bo) : winnersBoSelect.value;
                 }
             }
         } else if (side === 'L') {
-            const targetRound = losersRoundSelect.value;
+            let targetRound = losersRoundSelect.value;
             if (targetRound !== 'none') {
-                const startIndex = currentActiveLosersRounds.indexOf(targetRound);
-                const currentIndex = currentActiveLosersRounds.indexOf(roundName);
+                let startIndex = losersRounds.indexOf(targetRound);
+                if (startIndex === -1 && targetRound === 'Losers Round 5' && losersRounds.includes('Losers Round 4')) {
+                    startIndex = losersRounds.indexOf('Losers Round 4');
+                }
+                const currentIndex = losersRounds.indexOf(roundName);
                 if (startIndex !== -1 && currentIndex >= startIndex) {
                     bo = losersBoSelect.value === 'custom' ? (losersCustomInput.value.trim() || bo) : losersBoSelect.value;
                 }
@@ -2287,9 +2332,41 @@ modalSaveBtn.addEventListener('click', () => {
     }
 });
 
-if (clearMatchOverridesBtn) {
-    clearMatchOverridesBtn.addEventListener('click', () => {
-        matchOverrides = {};
+// === DQリセットボタン（手動・API自動検出を含む現在のプールのDQ設定をすべて解除） ===
+if (clearDqOverridesBtn) {
+    clearDqOverridesBtn.addEventListener('click', () => {
+        const selectedPoolName = poolSelect.value;
+        const currentPool = poolsData[selectedPoolName];
+        if (currentPool && currentPool.apiDqByMatchLabel) {
+            currentPool.apiDqByMatchLabel = {};
+        }
+        Object.keys(matchOverrides).forEach(k => {
+            if (!selectedPoolName || k.startsWith(`${selectedPoolName}_`)) {
+                delete matchOverrides[k].dqP1;
+                delete matchOverrides[k].dqP2;
+            }
+        });
+        if (!document.getElementById('main-sheet-body').classList.contains('hidden')) {
+            generateBtn.click();
+        }
+    });
+}
+
+// === 配信台リセットボタン（手動・API自動検出を含む現在のプールの配信台設定をすべて解除） ===
+if (clearStreamOverridesBtn) {
+    clearStreamOverridesBtn.addEventListener('click', () => {
+        const selectedPoolName = poolSelect.value;
+        const currentPool = poolsData[selectedPoolName];
+        if (currentPool && currentPool.apiStreamByRoundIndex) {
+            currentPool.apiStreamByRoundIndex = {};
+        }
+        Object.keys(matchOverrides).forEach(k => {
+            if (!selectedPoolName || k.startsWith(`${selectedPoolName}_`)) {
+                delete matchOverrides[k].streamEnabled;
+                delete matchOverrides[k].streamChannel;
+                delete matchOverrides[k].streamQueue;
+            }
+        });
         if (!document.getElementById('main-sheet-body').classList.contains('hidden')) {
             generateBtn.click();
         }
@@ -2699,7 +2776,7 @@ function buildBracketSheetContent(poolName, bracketContainerEl, rosterContainerE
             { topSeed: 6,  pair: [11, 22] }
         ];
 
-        const wr1 = createRoundColumn(`Winners Round 1 ${getBoStringForRound('W', 'Winners Round 1')}`);
+        const wr1 = createRoundColumn(`Winners Round 1 ${getBoStringForRound('W', 'Winners Round 1', playerCount)}`);
         const wr1ActiveLabels = new Array(8).fill(null);
 
         wr1Slots.forEach((slot, i) => {
@@ -2714,7 +2791,7 @@ function buildBracketSheetContent(poolName, bracketContainerEl, rosterContainerE
             }
         });
 
-        const wr2 = createRoundColumn(`Winners Round 2 ${getBoStringForRound('W', 'Winners Round 2')}`);
+        const wr2 = createRoundColumn(`Winners Round 2 ${getBoStringForRound('W', 'Winners Round 2', playerCount)}`);
         const wr2Labels = [];
         wr2Slots.forEach((slot, i) => {
             const lbl = nextMatchLabel();
@@ -2740,7 +2817,7 @@ function buildBracketSheetContent(poolName, bracketContainerEl, rosterContainerE
             wr2.appendChild(createInteractiveMatchNode(lbl, p1Name, p2Name, s1, s2, lineType, '', '', 'W'));
         });
 
-        const wr3 = createRoundColumn(`Winners Quarter-Final ${getBoStringForRound('W', 'Winners Quarter-Final')}`);
+        const wr3 = createRoundColumn(`Winners Quarter-Final ${getBoStringForRound('W', 'Winners Quarter-Final', playerCount)}`);
         const wqfLabels = [0, 1, 2, 3].map(() => nextMatchLabel());
         wqfLabels.forEach(l => wr3.appendChild(createInteractiveMatchNode(l, '', '', '', '', 'branch', '', '', 'W')));
 
@@ -2753,7 +2830,7 @@ function buildBracketSheetContent(poolName, bracketContainerEl, rosterContainerE
             appendWinnersStopQualifiers(wqfLabels);
             currentMatchIdx += 5;
         } else {
-            const wr4 = createRoundColumn(`Winners Semi-Final ${getBoStringForRound('W', 'Winners Semi-Final')}`);
+            const wr4 = createRoundColumn(`Winners Semi-Final ${getBoStringForRound('W', 'Winners Semi-Final', playerCount)}`);
             wsfLabels = [0, 1].map(() => nextMatchLabel());
             wsfLabels.forEach(l => wr4.appendChild(createInteractiveMatchNode(l, '', '', '', '', 'branch', '', '', 'W')));
             wContainer.appendChild(wr4);
@@ -2762,7 +2839,7 @@ function buildBracketSheetContent(poolName, bracketContainerEl, rosterContainerE
                 appendWinnersStopQualifiers(wsfLabels);
                 currentMatchIdx += 3;
             } else {
-                const wr5 = createRoundColumn(`Winners Final ${getBoStringForRound('W', 'Winners Final')}`);
+                const wr5 = createRoundColumn(`Winners Final ${getBoStringForRound('W', 'Winners Final', playerCount)}`);
                 wfLabel = nextMatchLabel();
                 wfMatchLabelForGf = wfLabel;
                 wr5.appendChild(createInteractiveMatchNode(wfLabel, '', '', '', '', 'branch', '', '', 'W'));
@@ -2780,8 +2857,8 @@ function buildBracketSheetContent(poolName, bracketContainerEl, rosterContainerE
             let current4Labels = [];
 
             if (playerCount <= 24) {
-                const lr1 = createRoundColumn(`Losers Round 1 ${getBoStringForRound('L', 'Losers Round 1')}`);
-                const lr2 = createRoundColumn(`Losers Round 2 ${getBoStringForRound('L', 'Losers Round 2')}`);
+                const lr1 = createRoundColumn(`Losers Round 1 ${getBoStringForRound('L', 'Losers Round 1', playerCount)}`);
+                const lr2 = createRoundColumn(`Losers Round 2 ${getBoStringForRound('L', 'Losers Round 2', playerCount)}`);
 
                 for (let p = 0; p < 4; p++) {
                     const pairGroup = createElement('div', 'pair-group');
@@ -2837,11 +2914,11 @@ function buildBracketSheetContent(poolName, bracketContainerEl, rosterContainerE
 
                 lContainer.append(lr1, lr2);
                 current4Labels = lr2Labels;
-                wqfDropCol = () => createRoundColumn(`Losers Round 3 ${getBoStringForRound('L', 'Losers Round 3')}`);
-                consolidate2Col = () => createRoundColumn(`Losers Round 4 ${getBoStringForRound('L', 'Losers Round 4')}`);
-                wsfDropCol = () => createRoundColumn(`Losers Quarter-Final ${getBoStringForRound('L', 'Losers Quarter-Final')}`);
-                consolidate1Col = () => createRoundColumn(`Losers Semi-Final ${getBoStringForRound('L', 'Losers Semi-Final')}`);
-                wfDropCol = () => createRoundColumn(`Losers Final ${getBoStringForRound('L', 'Losers Final')}`);
+                wqfDropCol = () => createRoundColumn(`Losers Round 3 ${getBoStringForRound('L', 'Losers Round 3', playerCount)}`);
+                consolidate2Col = () => createRoundColumn(`Losers Round 4 ${getBoStringForRound('L', 'Losers Round 4', playerCount)}`);
+                wsfDropCol = () => createRoundColumn(`Losers Quarter-Final ${getBoStringForRound('L', 'Losers Quarter-Final', playerCount)}`);
+                consolidate1Col = () => createRoundColumn(`Losers Semi-Final ${getBoStringForRound('L', 'Losers Semi-Final', playerCount)}`);
+                wfDropCol = () => createRoundColumn(`Losers Final ${getBoStringForRound('L', 'Losers Final', playerCount)}`);
             } else {
                 // === 25〜32人規模の完全16スロット構成 ===
                 const wr1_32Slots = [
@@ -2857,8 +2934,8 @@ function buildBracketSheetContent(poolName, bracketContainerEl, rosterContainerE
                 Object.keys(matchRecordsByLabel).forEach(k => delete matchRecordsByLabel[k]);
                 currentMatchIdx = 0;
 
-                const wr1_32 = createRoundColumn(`Winners Round 1 ${getBoStringForRound('W', 'Winners Round 1')}`);
-                const wr2_32 = createRoundColumn(`Winners Round 2 ${getBoStringForRound('W', 'Winners Round 2')}`);
+                const wr1_32 = createRoundColumn(`Winners Round 1 ${getBoStringForRound('W', 'Winners Round 1', playerCount)}`);
+                const wr2_32 = createRoundColumn(`Winners Round 2 ${getBoStringForRound('W', 'Winners Round 2', playerCount)}`);
                 const wr1TopLabels = new Array(8).fill(null);
                 const wr1BotLabels = new Array(8).fill(null);
 
@@ -2898,7 +2975,7 @@ function buildBracketSheetContent(poolName, bracketContainerEl, rosterContainerE
                     }
                 }
 
-                const wr3_32 = createRoundColumn(`Winners Quarter-Final ${getBoStringForRound('W', 'Winners Quarter-Final')}`);
+                const wr3_32 = createRoundColumn(`Winners Quarter-Final ${getBoStringForRound('W', 'Winners Quarter-Final', playerCount)}`);
                 const wqf32Labels = [0, 1, 2, 3].map(() => nextMatchLabel());
                 wqf32Labels.forEach(l => wr3_32.appendChild(createInteractiveMatchNode(l, '', '', '', '', 'branch', '', '', 'W')));
                 wqfLabels.splice(0, 4, ...wqf32Labels);
@@ -2909,7 +2986,7 @@ function buildBracketSheetContent(poolName, bracketContainerEl, rosterContainerE
                     appendWinnersStopQualifiers(wqfLabels);
                     currentMatchIdx += 5;
                 } else {
-                    const wr4_32 = createRoundColumn(`Winners Semi-Final ${getBoStringForRound('W', 'Winners Semi-Final')}`);
+                    const wr4_32 = createRoundColumn(`Winners Semi-Final ${getBoStringForRound('W', 'Winners Semi-Final', playerCount)}`);
                     wsfLabels = [0, 1].map(() => nextMatchLabel());
                     wsfLabels.forEach(l => wr4_32.appendChild(createInteractiveMatchNode(l, '', '', '', '', 'branch', '', '', 'W')));
                     wContainer.appendChild(wr4_32);
@@ -2918,7 +2995,7 @@ function buildBracketSheetContent(poolName, bracketContainerEl, rosterContainerE
                         appendWinnersStopQualifiers(wsfLabels);
                         currentMatchIdx += 3;
                     } else {
-                        const wr5_32 = createRoundColumn(`Winners Final ${getBoStringForRound('W', 'Winners Final')}`);
+                        const wr5_32 = createRoundColumn(`Winners Final ${getBoStringForRound('W', 'Winners Final', playerCount)}`);
                         wfLabel = nextMatchLabel();
                         wfMatchLabelForGf = wfLabel;
                         wr5_32.appendChild(createInteractiveMatchNode(wfLabel, '', '', '', '', 'branch', '', '', 'W'));
@@ -2931,9 +3008,9 @@ function buildBracketSheetContent(poolName, bracketContainerEl, rosterContainerE
                     }
                 }
 
-                const lr1_32 = createRoundColumn(`Losers Round 1 ${getBoStringForRound('L', 'Losers Round 1')}`);
-                const lr2_32 = createRoundColumn(`Losers Round 2 ${getBoStringForRound('L', 'Losers Round 2')}`);
-                const lr3_32 = createRoundColumn(`Losers Round 3 ${getBoStringForRound('L', 'Losers Round 3')}`);
+                const lr1_32 = createRoundColumn(`Losers Round 1 ${getBoStringForRound('L', 'Losers Round 1', playerCount)}`);
+                const lr2_32 = createRoundColumn(`Losers Round 2 ${getBoStringForRound('L', 'Losers Round 2', playerCount)}`);
+                const lr3_32 = createRoundColumn(`Losers Round 3 ${getBoStringForRound('L', 'Losers Round 3', playerCount)}`);
 
                 const lr1Active32 = new Array(8).fill(null);
                 for (let i = 0; i < 8; i++) {
@@ -2966,11 +3043,11 @@ function buildBracketSheetContent(poolName, bracketContainerEl, rosterContainerE
                 lContainer.append(lr1_32, lr2_32, lr3_32);
                 current4Labels = lr3Labels32;
 
-                wqfDropCol = () => createRoundColumn(`Losers Round 4 ${getBoStringForRound('L', 'Losers Round 4')}`);
-                consolidate2Col = () => createRoundColumn(`Losers Round 5 ${getBoStringForRound('L', 'Losers Round 5')}`);
-                wsfDropCol = () => createRoundColumn(`Losers Quarter-Final ${getBoStringForRound('L', 'Losers Quarter-Final')}`);
-                consolidate1Col = () => createRoundColumn(`Losers Semi-Final ${getBoStringForRound('L', 'Losers Semi-Final')}`);
-                wfDropCol = () => createRoundColumn(`Losers Final ${getBoStringForRound('L', 'Losers Final')}`);
+                wqfDropCol = () => createRoundColumn(`Losers Round 4 ${getBoStringForRound('L', 'Losers Round 4', playerCount)}`);
+                consolidate2Col = () => createRoundColumn(`Losers Round 5 ${getBoStringForRound('L', 'Losers Round 5', playerCount)}`);
+                wsfDropCol = () => createRoundColumn(`Losers Quarter-Final ${getBoStringForRound('L', 'Losers Quarter-Final', playerCount)}`);
+                consolidate1Col = () => createRoundColumn(`Losers Semi-Final ${getBoStringForRound('L', 'Losers Semi-Final', playerCount)}`);
+                wfDropCol = () => createRoundColumn(`Losers Final ${getBoStringForRound('L', 'Losers Final', playerCount)}`);
             }
 
             if (effW === 4 && isFinalWLoserDirectQual) {
@@ -3060,8 +3137,8 @@ function buildBracketSheetContent(poolName, bracketContainerEl, rosterContainerE
             { topSeed: 3, pair: [14, 3], botSeedPair: [6, 11] }
         ];
 
-        const wr1 = createRoundColumn(`Winners Round 1 ${getBoStringForRound('W', 'Winners Round 1')}`);
-        const wqf = createRoundColumn(`Winners Quarter-Final ${getBoStringForRound('W', 'Winners Quarter-Final')}`);
+        const wr1 = createRoundColumn(`Winners Round 1 ${getBoStringForRound('W', 'Winners Round 1', playerCount)}`);
+        const wqf = createRoundColumn(`Winners Quarter-Final ${getBoStringForRound('W', 'Winners Quarter-Final', playerCount)}`);
 
         const wr1TopLabels = new Array(4).fill(null);
         const wr1BotLabels = new Array(4).fill(null);
@@ -3124,7 +3201,7 @@ function buildBracketSheetContent(poolName, bracketContainerEl, rosterContainerE
             appendWinnersStopQualifiers(wqfLabels);
             currentMatchIdx += 5;
         } else {
-            const wsf = createRoundColumn(`Winners Semi-Final ${getBoStringForRound('W', 'Winners Semi-Final')}`);
+            const wsf = createRoundColumn(`Winners Semi-Final ${getBoStringForRound('W', 'Winners Semi-Final', playerCount)}`);
             wsfLabels = [0, 1].map(() => nextMatchLabel());
             wsfLabels.forEach(l => wsf.appendChild(createInteractiveMatchNode(l, '', '', '', '', 'branch', '', '', 'W')));
             wContainer.appendChild(wsf);
@@ -3133,7 +3210,7 @@ function buildBracketSheetContent(poolName, bracketContainerEl, rosterContainerE
                 appendWinnersStopQualifiers(wsfLabels);
                 currentMatchIdx += 3;
             } else {
-                const wf = createRoundColumn(`Winners Final ${getBoStringForRound('W', 'Winners Final')}`);
+                const wf = createRoundColumn(`Winners Final ${getBoStringForRound('W', 'Winners Final', playerCount)}`);
                 wfLabel = nextMatchLabel();
                 wfMatchLabelForGf = wfLabel;
                 wf.appendChild(createInteractiveMatchNode(wfLabel, '', '', '', '', 'branch', '', '', 'W'));
@@ -3151,7 +3228,7 @@ function buildBracketSheetContent(poolName, bracketContainerEl, rosterContainerE
             let wsfDropCol, consolidate1Col, wfDropCol;
 
             if (playerCount <= 12) {
-                const lr1 = createRoundColumn(`Losers Round 1 ${getBoStringForRound('L', 'Losers Round 1')}`);
+                const lr1 = createRoundColumn(`Losers Round 1 ${getBoStringForRound('L', 'Losers Round 1', playerCount)}`);
                 const lr1Labels = [];
 
                 for (let p = 0; p < 2; p++) {
@@ -3178,12 +3255,12 @@ function buildBracketSheetContent(poolName, bracketContainerEl, rosterContainerE
                 lContainer.appendChild(lr1);
                 current2Labels = lr1Labels;
 
-                wsfDropCol = () => createRoundColumn(`Losers Round 2 ${getBoStringForRound('L', 'Losers Round 2')}`);
-                consolidate1Col = () => createRoundColumn(`Losers Semi-Final ${getBoStringForRound('L', 'Losers Semi-Final')}`);
-                wfDropCol = () => createRoundColumn(`Losers Final ${getBoStringForRound('L', 'Losers Final')}`);
+                wsfDropCol = () => createRoundColumn(`Losers Round 2 ${getBoStringForRound('L', 'Losers Round 2', playerCount)}`);
+                consolidate1Col = () => createRoundColumn(`Losers Semi-Final ${getBoStringForRound('L', 'Losers Semi-Final', playerCount)}`);
+                wfDropCol = () => createRoundColumn(`Losers Final ${getBoStringForRound('L', 'Losers Final', playerCount)}`);
             } else {
-                const lr1 = createRoundColumn(`Losers Round 1 ${getBoStringForRound('L', 'Losers Round 1')}`);
-                const lr2 = createRoundColumn(`Losers Round 2 ${getBoStringForRound('L', 'Losers Round 2')}`);
+                const lr1 = createRoundColumn(`Losers Round 1 ${getBoStringForRound('L', 'Losers Round 1', playerCount)}`);
+                const lr2 = createRoundColumn(`Losers Round 2 ${getBoStringForRound('L', 'Losers Round 2', playerCount)}`);
                 const lr1Labels = [];
                 for (let i = 0; i < 4; i++) {
                     const lbl = nextMatchLabel();
@@ -3197,9 +3274,9 @@ function buildBracketSheetContent(poolName, bracketContainerEl, rosterContainerE
                 lContainer.append(lr1, lr2);
                 current2Labels = lr2Labels;
 
-                wsfDropCol = () => createRoundColumn(`Losers Quarter-Final ${getBoStringForRound('L', 'Losers Quarter-Final')}`);
-                consolidate1Col = () => createRoundColumn(`Losers Semi-Final ${getBoStringForRound('L', 'Losers Semi-Final')}`);
-                wfDropCol = () => createRoundColumn(`Losers Final ${getBoStringForRound('L', 'Losers Final')}`);
+                wsfDropCol = () => createRoundColumn(`Losers Quarter-Final ${getBoStringForRound('L', 'Losers Quarter-Final', playerCount)}`);
+                consolidate1Col = () => createRoundColumn(`Losers Semi-Final ${getBoStringForRound('L', 'Losers Semi-Final', playerCount)}`);
+                wfDropCol = () => createRoundColumn(`Losers Final ${getBoStringForRound('L', 'Losers Final', playerCount)}`);
             }
 
             if ((effW === 2 && isFinalWLoserDirectQual) || (effW === 4 && targetLosersBracketQuals >= 2)) {
@@ -3266,8 +3343,8 @@ function buildBracketSheetContent(poolName, bracketContainerEl, rosterContainerE
             { topSeed: 2, botPair: [3, 6] }
         ];
 
-        const wr1 = createRoundColumn(`Winners Round 1 ${getBoStringForRound('W', 'Winners Round 1')}`);
-        const wsf = createRoundColumn(`Winners Semi-Final ${getBoStringForRound('W', 'Winners Semi-Final')}`);
+        const wr1 = createRoundColumn(`Winners Round 1 ${getBoStringForRound('W', 'Winners Round 1', playerCount)}`);
+        const wsf = createRoundColumn(`Winners Semi-Final ${getBoStringForRound('W', 'Winners Semi-Final', playerCount)}`);
 
         const wr1Labels = [];
         wr1Slots8.forEach(slot => {
@@ -3290,7 +3367,7 @@ function buildBracketSheetContent(poolName, bracketContainerEl, rosterContainerE
             appendWinnersStopQualifiers(wsfLabels);
             currentMatchIdx += 3;
         } else {
-            const wf = createRoundColumn(`Winners Final ${getBoStringForRound('W', 'Winners Final')}`);
+            const wf = createRoundColumn(`Winners Final ${getBoStringForRound('W', 'Winners Final', playerCount)}`);
             wfLabel = nextMatchLabel();
             wfMatchLabelForGf = wfLabel;
             wf.appendChild(createInteractiveMatchNode(wfLabel, '', '', '', '', 'branch', '', '', 'W'));
@@ -3303,7 +3380,7 @@ function buildBracketSheetContent(poolName, bracketContainerEl, rosterContainerE
         }
 
         if (!isSingle && (isGfMode || lCountNum > 0)) {
-            const lr1 = createRoundColumn(`Losers Round 1 ${getBoStringForRound('L', 'Losers Round 1')}`);
+            const lr1 = createRoundColumn(`Losers Round 1 ${getBoStringForRound('L', 'Losers Round 1', playerCount)}`);
             const lr1Labels = [0, 1].map(() => nextMatchLabel());
             lr1.appendChild(createInteractiveMatchNode(lr1Labels[0], '', '', '', '', 'none', `Loser of ${wsfLabels[1]}`, `Loser of ${wr1Labels[0]}`, 'L'));
             lr1.appendChild(createInteractiveMatchNode(lr1Labels[1], '', '', '', '', 'none', `Loser of ${wsfLabels[0]}`, `Loser of ${wr1Labels[1]}`, 'L'));
@@ -3312,7 +3389,7 @@ function buildBracketSheetContent(poolName, bracketContainerEl, rosterContainerE
             if ((effW >= 2 && isFinalWLoserDirectQual) || (effW === 1 && isFinalWLoserDirectQual && targetLosersBracketQuals >= 2)) {
                 appendLosersQualifiersColumn(lr1Labels);
             } else {
-                const lsf = createRoundColumn(`Losers Semi-Final ${getBoStringForRound('L', 'Losers Semi-Final')}`);
+                const lsf = createRoundColumn(`Losers Semi-Final ${getBoStringForRound('L', 'Losers Semi-Final', playerCount)}`);
                 const lsfLbl = nextMatchLabel();
                 lsf.appendChild(createInteractiveMatchNode(lsfLbl, '', '', '', '', 'branch', '', '', 'L'));
                 lContainer.appendChild(lsf);
@@ -3320,7 +3397,7 @@ function buildBracketSheetContent(poolName, bracketContainerEl, rosterContainerE
                 if (effW >= 2 || (effW === 1 && isFinalWLoserDirectQual && targetLosersBracketQuals === 1)) {
                     appendLosersQualifiersColumn([lsfLbl]);
                 } else {
-                    const lf = createRoundColumn(`Losers Final ${getBoStringForRound('L', 'Losers Final')}`);
+                    const lf = createRoundColumn(`Losers Final ${getBoStringForRound('L', 'Losers Final', playerCount)}`);
                     const lfLbl = nextMatchLabel();
                     lfMatchLabelForGf = lfLbl;
                     lf.appendChild(createInteractiveMatchNode(lfLbl, '', '', '', '', 'straight', `Loser of ${wfLabel}`, '', 'L'));
@@ -3339,12 +3416,12 @@ function buildBracketSheetContent(poolName, bracketContainerEl, rosterContainerE
         const gfLabel = indexToMatchLabel(gfMatchNumIdx);
         const gfResetLabel = indexToMatchLabel(gfMatchNumIdx + 1);
 
-        const gfCol = createRoundColumn(`Grand Final ${getBoStringForRound('W', 'Grand Final')}`);
+        const gfCol = createRoundColumn(`Grand Final ${getBoStringForRound('W', 'Grand Final', playerCount)}`);
         const bottomLabelText = lfMatchLabelForGf ? `Winner of ${lfMatchLabelForGf}` : '';
         gfCol.appendChild(createInteractiveMatchNode(gfLabel, '', '', '', '', 'straight', '', bottomLabelText, 'W'));
         wContainer.appendChild(gfCol);
 
-        const gfResetCol = createRoundColumn(`Grand Final Reset ${getBoStringForRound('W', 'Grand Final Reset')}`);
+        const gfResetCol = createRoundColumn(`Grand Final Reset ${getBoStringForRound('W', 'Grand Final Reset', playerCount)}`);
         gfResetCol.appendChild(createInteractiveMatchNode(gfResetLabel, '', '', '', '', 'straight', `Winner of ${gfLabel}`, `Loser of ${gfLabel}`, 'W'));
         wContainer.appendChild(gfResetCol);
     }
@@ -3386,7 +3463,6 @@ function buildBracketSheetContent(poolName, bracketContainerEl, rosterContainerE
             const col = cols[c];
             const currUnits = Array.from(col.children).filter(el => !el.classList.contains('round-header'));
 
-            // 1. ラベル表記（Winner of X / Loser of X）による明示的な接続登録
             currUnits.forEach(unit => {
                 const matches = getMatchesInSlotUnit(unit);
                 matches.forEach(rec => {
@@ -3406,7 +3482,6 @@ function buildBracketSheetContent(poolName, bracketContainerEl, rosterContainerE
             const prevCol = cols[c - 1];
             const prevUnits = Array.from(prevCol.children).filter(el => !el.classList.contains('round-header'));
 
-            // 2. スロット単位（1対1 または 2対1）の勝者進行先登録
             if (prevUnits.length === currUnits.length) {
                 currUnits.forEach((currUnit, idx) => {
                     const currMatches = getMatchesInSlotUnit(currUnit);
@@ -3512,7 +3587,6 @@ function buildBracketSheetContent(poolName, bracketContainerEl, rosterContainerE
 
     const apiDqMap = currentPool.apiDqByMatchLabel || {};
 
-    // トポロジカル順にDQ（API自動検出 ＆ 手動設定）・不戦勝繰り上がり・敗者側落下・両者DQ時の高シード優先進行を解決
     allMatchLabelsSorted.forEach(mLabel => {
         const rec = matchRecordsByLabel[mLabel];
         if (!rec) return;
@@ -3638,8 +3712,10 @@ function buildBracketSheetContent(poolName, bracketContainerEl, rosterContainerE
         });
     });
 
-    // === 用紙サイズ・スリム幅の計算 ===
-    const isPortrait32Mode = playerCount >= 25;
+    // === 用紙サイズ・スリム幅の計算（24-25人混在時や縦向き選択時は全プールで縦向きレイアウトに統一） ===
+    const effectiveMaxCount = getEffectiveMaxPlayerCount();
+    const isPortraitLayout = (printOrientationSelect.value === 'portrait') || (effectiveMaxCount >= 25 && printOrientationSelect.value !== 'landscape');
+
     let boxHeightPx = 48;
     let colWidthPx = 244;
     let colGapPx = 22;
@@ -3648,7 +3724,7 @@ function buildBracketSheetContent(poolName, bracketContainerEl, rosterContainerE
     let playerFontPx = 14.5;
     let playerPadXPx = 6;
 
-    if (isPortrait32Mode) {
+    if (isPortraitLayout) {
         boxHeightPx = 54;
         colWidthPx = 228;
         colGapPx = 16;
@@ -3656,8 +3732,13 @@ function buildBracketSheetContent(poolName, bracketContainerEl, rosterContainerE
         checkboxWidthPx = 22;
         playerFontPx = 13;
         playerPadXPx = 5;
-        wSlotUnit = WINNERS_SLOT_HEIGHT_32;
-        lSlotUnit = LOSERS_SLOT_HEIGHT_32;
+        if (playerCount >= 25) {
+            wSlotUnit = WINNERS_SLOT_HEIGHT_32;
+            lSlotUnit = LOSERS_SLOT_HEIGHT_32;
+        } else {
+            wSlotUnit = Math.max(wSlotUnit, boxHeightPx + 34);
+            lSlotUnit = Math.max(lSlotUnit, boxHeightPx + 34);
+        }
     } else {
         if (isGfMode || playerCount <= 16) {
             boxHeightPx = 56;
@@ -3687,7 +3768,7 @@ function buildBracketSheetContent(poolName, bracketContainerEl, rosterContainerE
     let bracketGapPx = 0;
     if (!isSingle && (isGfMode || lCountNum > 0)) {
         lContainer.style.height = `${losersHeightPx}px`;
-        bracketGapPx = isPortrait32Mode ? 38 : 28;
+        bracketGapPx = isPortraitLayout ? 38 : 28;
         bracketContainerEl.style.gap = `${bracketGapPx}px`;
         bracketContainerEl.appendChild(lContainer);
     } else {
@@ -3706,7 +3787,7 @@ function buildBracketSheetContent(poolName, bracketContainerEl, rosterContainerE
     let totalCanvasWidth = 2362;
     let totalCanvasHeight = 1670;
 
-    if (isPortrait32Mode) {
+    if (isPortraitLayout) {
         const wRowWidth = (wColsCount * (colWidthPx + colGapPx)) + 356 + 24;
         const lRowWidth = (lColsCount * (colWidthPx + colGapPx)) + 20;
         const rawNeedW = Math.max(1680, wRowWidth, lRowWidth);
