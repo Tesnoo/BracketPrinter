@@ -215,7 +215,7 @@
             box-sizing: border-box;
         }
 
-        /* フェーズ通過枠（勝敗で2枠に分かれる二股 -[ コネクタ：間隔を約1.5〜2ブロック分に拡大） */
+        /* フェーズ通過枠（勝敗で2枠に分かれる二股 -[ コネクタ） */
         .match-wrapper.qualifier-branch-group {
             justify-content: center;
             gap: 60px;
@@ -910,10 +910,15 @@
                         <p id="text-box-status" class="text-[10px] text-blue-600 font-bold mt-0.5 hidden whitespace-pre-line leading-relaxed"></p>
                         <span class="text-[10px] text-gray-400 mt-0.5 block">※追加後、プレビュー上でドラッグ移動・編集が可能です（重なった場合はクリックで前後を入れ替えられます）</span>
                     </div>
-                    <div class="pt-2 border-t border-gray-200 flex flex-col gap-1">
-                        <div class="flex justify-between items-center">
-                            <label class="font-semibold text-gray-600">対戦カード個別設定（DQ / 配信台）</label>
-                            <button id="clear-match-overrides-btn" type="button" class="text-[10px] text-red-500 hover:underline">全リセット</button>
+                    <div class="pt-2 border-t border-gray-200 flex flex-col gap-1.5">
+                        <label class="font-semibold text-gray-600">対戦カード個別設定（DQ / 配信台）</label>
+                        <div class="grid grid-cols-2 gap-1.5">
+                            <button id="clear-dq-overrides-btn" type="button" class="bg-gray-100 hover:bg-red-50 text-gray-700 hover:text-red-600 border border-gray-300 hover:border-red-300 rounded py-1 px-2 text-[10.5px] font-bold transition text-center">
+                                DQリセット
+                            </button>
+                            <button id="clear-stream-overrides-btn" type="button" class="bg-gray-100 hover:bg-red-50 text-gray-700 hover:text-red-600 border border-gray-300 hover:border-red-300 rounded py-1 px-2 text-[10.5px] font-bold transition text-center">
+                                配信台リセット
+                            </button>
                         </div>
                         <p class="text-[10px] text-gray-500 leading-relaxed">
                             💡 ブラケット描画後、プレビュー上の<strong>対戦カードをクリック</strong>すると「事前DQの記入」および「配信台ラベルの設定」を行えます。
