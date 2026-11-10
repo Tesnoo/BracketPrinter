@@ -1,10 +1,28 @@
 {
-  "formatVersion": "1.0",
-  "presetId": "Vic-Seekers",
-  "logoFile": "image/vix_logo_black_outline.png",
-  "logoRawUrl": "https://raw.githubusercontent.com/Tesnoo/BracketPrinter/main/image/vix_logo_black_outline.png",
-  "nameTemplate": "Vic-Seekers #[N]",
-  "urlTemplate": "https://www.start.gg/tournament/vic-seekers-[N]/event/ultimate-singles",
-  "boRule": null,
-  "notes": []
+"formatVersion": "1.0",
+"presetId": "Vic-Seekers",
+"presetKey": "Vic-Seekers",
+"logoFile": "image/vix_logo_black_outline.png",
+"logoRawUrl": "https://raw.githubusercontent.com/Tesnoo/BracketPrinter/main/image/vix_logo_black_outline.png",
+"nameTemplate": "Vic-Seekers #[N]",
+"urlTemplate": "https://www.start.gg/tournament/vic-seekers-[N]/event/ultimate-singles",
+"boConfig": {
+"baseBo": "3",
+"enableChange": true,
+"wRound": "Winners Quarter-Final",
+"wBo": "5",
+"lRound": "Losers Round 4",
+"lBo": "5"
+},
+"boRule": {
+"default": {
+"baseBo": "3",
+"enableChange": true,
+"wRound": "Winners Quarter-Final",
+"wBo": "5",
+"lRound": "Losers Round 4",
+"lBo": "5"
+}
+},
+"notes": []
 }
