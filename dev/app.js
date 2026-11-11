@@ -2771,16 +2771,22 @@ function buildBracketSheetContent(poolName, bracketContainerEl, rosterContainerE
         const wr1 = createRoundColumn(`Winners Round 1 ${getBoStringForRound('W', 'Winners Round 1', playerCount)}`);
         const wr1ActiveLabels = new Array(8).fill(null);
 
+        // WR2のpair-group上段と高さを完全一致させるため、WR1もpair-group（上段:試合、下段:スペーサー）で構築
         wr1_40Slots.forEach((slot, i) => {
+            const pairGroup = createElement('div', 'pair-group');
             if (playerCount >= slot.s2) {
                 const lbl = nextMatchLabel();
                 wr1ActiveLabels[i] = lbl;
-                wr1.appendChild(createInteractiveMatchNode(lbl, pMap[slot.s1] || '', pMap[slot.s2] || '', String(slot.s1), String(slot.s2), 'none', '', '', 'W'));
+                pairGroup.appendChild(createInteractiveMatchNode(lbl, pMap[slot.s1] || '', pMap[slot.s2] || '', String(slot.s1), String(slot.s2), 'none', '', '', 'W'));
             } else {
-                const wrapper = createElement('div', 'match-wrapper');
-                wrapper.appendChild(createElement('div', 'dummy-spacer-box'));
-                wr1.appendChild(wrapper);
+                const topSpacer = createElement('div', 'match-wrapper');
+                topSpacer.appendChild(createElement('div', 'dummy-spacer-box'));
+                pairGroup.appendChild(topSpacer);
             }
+            const botSpacer = createElement('div', 'match-wrapper');
+            botSpacer.appendChild(createElement('div', 'dummy-spacer-box'));
+            pairGroup.appendChild(botSpacer);
+            wr1.appendChild(pairGroup);
         });
 
         const wr2 = createRoundColumn(`Winners Round 2 ${getBoStringForRound('W', 'Winners Round 2', playerCount)}`);
@@ -2843,7 +2849,7 @@ function buildBracketSheetContent(poolName, bracketContainerEl, rosterContainerE
                 const wf = createRoundColumn(`Winners Final ${getBoStringForRound('W', 'Winners Final', playerCount)}`);
                 wfLabel = nextMatchLabel();
                 wfMatchLabelForGf = wfLabel;
-                wf.appendChild(createInteractiveMatchNode(wfLabel, '', '', '', '', 'branch', '', '', 'W'));
+                wr5_appendHelper(wf, wfLabel);
                 wContainer.appendChild(wf);
 
                 if (!isGfMode) {
@@ -2851,6 +2857,10 @@ function buildBracketSheetContent(poolName, bracketContainerEl, rosterContainerE
                 }
                 currentMatchIdx += 2;
             }
+        }
+
+        function wr5_appendHelper(colEl, lbl) {
+            colEl.appendChild(createInteractiveMatchNode(lbl, '', '', '', '', 'branch', '', '', 'W'));
         }
 
         // 33〜40人規模 Losers Bracket
@@ -2882,9 +2892,11 @@ function buildBracketSheetContent(poolName, bracketContainerEl, rosterContainerE
                 const wr2TopLoser = wr2TopLabels[7 - i];
                 const wr2BotLoser = wr2BotLabels[7 - i];
                 if (lr1Active40[i] !== null) {
-                    lr2.appendChild(createInteractiveMatchNode(lbl, '', '', '', '', 'straight', `Loser of ${wr2TopLoser}`, '', 'L'));
+                    // LR1が存在する場合は上段が空欄（LR1勝者進行枠）、下段にWR2上段の敗者（Loser of W, U, S...）が落下
+                    lr2.appendChild(createInteractiveMatchNode(lbl, '', '', '', '', 'straight', '', `Loser of ${wr2TopLoser}`, 'L'));
                 } else {
-                    lr2.appendChild(createInteractiveMatchNode(lbl, '', '', '', '', 'none', `Loser of ${wr2TopLoser}`, `Loser of ${wr2BotLoser}`, 'L'));
+                    // LR1が存在しない場合は上段にWR2下段の敗者、下段にWR2上段の敗者が落下
+                    lr2.appendChild(createInteractiveMatchNode(lbl, '', '', '', '', 'none', `Loser of ${wr2BotLoser}`, `Loser of ${wr2TopLoser}`, 'L'));
                 }
             }
 
@@ -3705,8 +3717,17 @@ function buildBracketSheetContent(poolName, bracketContainerEl, rosterContainerE
 
     // === Grand Final & Grand Final Reset の追加（W0L0時・ダブルエリミのみ） ===
     if (isGfMode && !isSingle && wfMatchLabelForGf) {
-        const gfLabel = nextMatchLabel();
-        const gfResetLabel = nextMatchLabel();
+        // Winners Final の直後に予約しておいた2つのラベル（例: 40人時は AN, AO）を割り当てる
+        const findLabelIndex = (lbl) => {
+            let idx = 0;
+            for (let i = 0; i < lbl.length; i++) {
+                idx = idx * 26 + (lbl.charCodeAt(i) - 64);
+            }
+            return idx - 1;
+        };
+        const wfIdx = findLabelIndex(wfMatchLabelForGf);
+        const gfLabel = indexToMatchLabel(wfIdx + 1);
+        const gfResetLabel = indexToMatchLabel(wfIdx + 2);
 
         const gfCol = createRoundColumn(`Grand Final ${getBoStringForRound('W', 'Grand Final', playerCount)}`);
         const bottomLabelText = lfMatchLabelForGf ? `Winner of ${lfMatchLabelForGf}` : '';
@@ -4024,15 +4045,15 @@ function buildBracketSheetContent(poolName, bracketContainerEl, rosterContainerE
     let playerPadXPx = 6;
 
     if (playerCount >= 33) {
-        boxHeightPx = 50;
+        boxHeightPx = 54;
         colWidthPx = 216;
         colGapPx = 14;
         labelWidthPx = 21;
         checkboxWidthPx = 21;
         playerFontPx = 12.5;
         playerPadXPx = 5;
-        wSlotUnit = 84;
-        lSlotUnit = 86;
+        wSlotUnit = 88;
+        lSlotUnit = 92;
     } else if (isPortraitLayout) {
         boxHeightPx = 54;
         colWidthPx = 228;
@@ -4059,39 +4080,17 @@ function buildBracketSheetContent(poolName, bracketContainerEl, rosterContainerE
         lSlotUnit = Math.max(lSlotUnit, boxHeightPx + 28);
     }
 
-    targetSheetEl.style.setProperty('--match-box-h', `${boxHeightPx}px`);
-    targetSheetEl.style.setProperty('--col-w', `${colWidthPx}px`);
-    targetSheetEl.style.setProperty('--col-gap', `${colGapPx}px`);
-    targetSheetEl.style.setProperty('--label-w', `${labelWidthPx}px`);
-    targetSheetEl.style.setProperty('--checkbox-w', `${checkboxWidthPx}px`);
-    targetSheetEl.style.setProperty('--player-font', `${playerFontPx}px`);
-    targetSheetEl.style.setProperty('--player-pad-x', `${playerPadXPx}px`);
-
-    const winnersHeightPx = ROUND_HEADER_TOTAL_HEIGHT + (winnersSlots * wSlotUnit);
-    const losersHeightPx = ROUND_HEADER_TOTAL_HEIGHT + (losersSlots * lSlotUnit);
-
-    wContainer.style.height = `${winnersHeightPx}px`;
-    bracketContainerEl.innerHTML = '';
-    bracketContainerEl.appendChild(wContainer);
-
-    let bracketGapPx = 0;
-    if (!isSingle && (isGfMode || lCountNum > 0)) {
-        lContainer.style.height = `${losersHeightPx}px`;
-        bracketGapPx = isPortraitLayout ? 38 : 28;
-        bracketContainerEl.style.gap = `${bracketGapPx}px`;
-        bracketContainerEl.appendChild(lContainer);
-    } else {
-        bracketContainerEl.style.gap = '0px';
-    }
-
-    renderCheckinRosterToContainer(currentPool.rosterList, rosterContainerEl);
-
-    const totalBracketHeight = winnersHeightPx + ((!isSingle && (isGfMode || lCountNum > 0)) ? (bracketGapPx + losersHeightPx) : 0);
-    const rosterEstimatedHeight = 36 + (playerCount * 25) + (pendingLogoDataUrl ? 165 : 10);
-    const bodyHeight = Math.max(totalBracketHeight, rosterEstimatedHeight);
-
     const wColsCount = wContainer.children.length;
     const lColsCount = (!isSingle && (isGfMode || lCountNum > 0)) ? lContainer.children.length : 0;
+
+    let bracketGapPx = (!isSingle && (isGfMode || lCountNum > 0)) ? (isPortraitLayout ? 48 : 28) : 0;
+
+    let winnersHeightPx = ROUND_HEADER_TOTAL_HEIGHT + (winnersSlots * wSlotUnit);
+    let losersHeightPx = ROUND_HEADER_TOTAL_HEIGHT + (losersSlots * lSlotUnit);
+
+    const minBracketHeight = winnersHeightPx + ((!isSingle && (isGfMode || lCountNum > 0)) ? (bracketGapPx + losersHeightPx) : 0);
+    const rosterEstimatedHeight = 36 + (playerCount * 25) + (pendingLogoDataUrl ? 165 : 10);
+    const minBodyHeight = Math.max(minBracketHeight, rosterEstimatedHeight);
 
     let totalCanvasWidth = 2362;
     let totalCanvasHeight = 1670;
@@ -4100,7 +4099,7 @@ function buildBracketSheetContent(poolName, bracketContainerEl, rosterContainerE
         const wRowWidth = (wColsCount * (colWidthPx + colGapPx)) + 356 + 24;
         const lRowWidth = (lColsCount * (colWidthPx + colGapPx)) + 20;
         const rawNeedW = Math.max(1680, wRowWidth, lRowWidth);
-        const rawNeedH = Math.max(2300, bodyHeight + 76);
+        const rawNeedH = Math.max(2300, minBodyHeight + 76);
 
         totalCanvasWidth = Math.max(rawNeedW, Math.round(rawNeedH / Math.SQRT2));
         totalCanvasHeight = Math.round(totalCanvasWidth * Math.SQRT2);
@@ -4108,11 +4107,53 @@ function buildBracketSheetContent(poolName, bracketContainerEl, rosterContainerE
         const maxCols = Math.max(wColsCount, lColsCount);
         const estimatedBracketWidth = maxCols * (colWidthPx + colGapPx);
         const rawNeedW = Math.max(2362, estimatedBracketWidth + 356 + 40);
-        const rawNeedH = Math.max(1670, bodyHeight + 76);
+        const rawNeedH = Math.max(1670, minBodyHeight + 76);
 
         totalCanvasWidth = Math.max(rawNeedW, Math.round(rawNeedH * Math.SQRT2));
         totalCanvasHeight = Math.round(totalCanvasWidth / Math.SQRT2);
     }
+
+    // 用紙下部に不自然な空白が残らないよう、キャンバスの縦幅に合わせてブラケット高さを均等拡張
+    const targetBodyHeight = totalCanvasHeight - 82;
+    if (!isSingle && (isGfMode || lCountNum > 0)) {
+        const availForSlots = targetBodyHeight - bracketGapPx - (ROUND_HEADER_TOTAL_HEIGHT * 2);
+        if (availForSlots > (winnersSlots * wSlotUnit + losersSlots * lSlotUnit)) {
+            const wWeight = winnersSlots;
+            const lWeight = losersSlots * 1.15;
+            wSlotUnit = Math.floor((availForSlots * (wWeight / (wWeight + lWeight))) / winnersSlots);
+            lSlotUnit = Math.floor((availForSlots * (lWeight / (wWeight + lWeight))) / losersSlots);
+            winnersHeightPx = ROUND_HEADER_TOTAL_HEIGHT + (winnersSlots * wSlotUnit);
+            losersHeightPx = ROUND_HEADER_TOTAL_HEIGHT + (losersSlots * lSlotUnit);
+        }
+    } else {
+        const availForWSlots = targetBodyHeight - ROUND_HEADER_TOTAL_HEIGHT - (pendingLogoDataUrl ? 140 : 20);
+        if (availForWSlots > winnersSlots * wSlotUnit) {
+            wSlotUnit = Math.min(150, Math.floor(availForWSlots / winnersSlots));
+            winnersHeightPx = ROUND_HEADER_TOTAL_HEIGHT + (winnersSlots * wSlotUnit);
+        }
+    }
+
+    targetSheetEl.style.setProperty('--match-box-h', `${boxHeightPx}px`);
+    targetSheetEl.style.setProperty('--col-w', `${colWidthPx}px`);
+    targetSheetEl.style.setProperty('--col-gap', `${colGapPx}px`);
+    targetSheetEl.style.setProperty('--label-w', `${labelWidthPx}px`);
+    targetSheetEl.style.setProperty('--checkbox-w', `${checkboxWidthPx}px`);
+    targetSheetEl.style.setProperty('--player-font', `${playerFontPx}px`);
+    targetSheetEl.style.setProperty('--player-pad-x', `${playerPadXPx}px`);
+
+    wContainer.style.height = `${winnersHeightPx}px`;
+    bracketContainerEl.innerHTML = '';
+    bracketContainerEl.appendChild(wContainer);
+
+    if (!isSingle && (isGfMode || lCountNum > 0)) {
+        lContainer.style.height = `${losersHeightPx}px`;
+        bracketContainerEl.style.gap = `${bracketGapPx}px`;
+        bracketContainerEl.appendChild(lContainer);
+    } else {
+        bracketContainerEl.style.gap = '0px';
+    }
+
+    renderCheckinRosterToContainer(currentPool.rosterList, rosterContainerEl);
 
     return { canvasWidth: totalCanvasWidth, canvasHeight: totalCanvasHeight, boxHeightPx };
 }
@@ -4138,50 +4179,24 @@ generateBtn.addEventListener('click', () => {
     document.getElementById('main-sheet-body').classList.remove('hidden');
 
     const isSingle = elimFormatSelect.value === 'single';
-    const wCount = winnersAdvanceCount.value;
-    const lCount = isSingle ? '0' : losersAdvanceCount.value;
-    const isGfMode = isGrandFinalModeSelected();
-    const elimTitle = isSingle ? 'Single Elimination' : 'Double Elimination';
+// === シート要素をキャプチャする共通ヘルパー（PDF出力時はモノクロ白スナップ圧縮で容量を約1/7に軽量化） ===
+async function captureSheetElementToJpeg(sheetEl, width, height, pixelRatio = 2, forPdfCompression = false) {
+    const effectiveRatio = forPdfCompression
+        ? Math.min(1.35, 2250 / Math.max(width, height))
+        : pixelRatio;
 
-    document.getElementById('pool-title').textContent = buildPoolHeaderTitle(selectedPoolName, elimTitle, currentPool.count);
-
-    const subtitleEl = document.getElementById('pool-subtitle');
-    if (isGfMode) {
-        subtitleEl.textContent = '';
-        subtitleEl.classList.add('hidden');
-    } else {
-        subtitleEl.classList.remove('hidden');
-        subtitleEl.textContent = isSingle
-            ? `Winners side qualifier: ${wCount}`
-            : `Winners side qualifier: ${wCount} / Losers side qualifier: ${lCount}`;
-    }
-
-    const bracketContainer = document.getElementById('bracket-container');
-    const rosterContainer = document.getElementById('checkin-roster-container');
-
-    const { canvasWidth, canvasHeight } = buildBracketSheetContent(selectedPoolName, bracketContainer, rosterContainer, previewArea);
-    previewArea.style.width = `${canvasWidth}px`;
-    previewArea.style.minHeight = `${canvasHeight}px`;
-    previewArea.style.height = `${canvasHeight}px`;
-
-    applyPrintAndDrawOptions();
-    requestAnimationFrame(fitToViewport);
-});
-
-// === シート要素を高解像度JPEG DataURLとしてキャプチャする共通ヘルパー ===
-async function captureSheetElementToJpeg(sheetEl, width, height, pixelRatio = 2) {
-    if (window.htmlToImage) {
-        return await htmlToImage.toJpeg(sheetEl, {
-            quality: 0.92,
-            pixelRatio: pixelRatio,
+    let rawCanvas = null;
+    if (window.htmlToImage && window.htmlToImage.toCanvas) {
+        rawCanvas = await htmlToImage.toCanvas(sheetEl, {
+            pixelRatio: effectiveRatio,
             backgroundColor: '#ffffff',
             width: width,
             height: height,
             style: { transform: 'none', margin: '0' }
         });
-    } else {
-        const canvas = await html2canvas(sheetEl, {
-            scale: pixelRatio,
+    } else if (window.html2canvas) {
+        rawCanvas = await html2canvas(sheetEl, {
+            scale: effectiveRatio,
             useCORS: true,
             backgroundColor: '#ffffff',
             width: width,
@@ -4191,8 +4206,34 @@ async function captureSheetElementToJpeg(sheetEl, width, height, pixelRatio = 2)
             scrollX: 0,
             scrollY: 0
         });
-        return canvas.toDataURL('image/jpeg', 0.92);
     }
+
+    if (rawCanvas) {
+        if (forPdfCompression) {
+            const ctx = rawCanvas.getContext('2d');
+            const imgData = ctx.getImageData(0, 0, rawCanvas.width, rawCanvas.height);
+            const data = imgData.data;
+            for (let i = 0; i < data.length; i += 4) {
+                const y = (data[i] * 77 + data[i + 1] * 150 + data[i + 2] * 29) >> 8;
+                const v = y >= 244 ? 255 : y;
+                data[i] = v;
+                data[i + 1] = v;
+                data[i + 2] = v;
+            }
+            ctx.putImageData(imgData, 0, 0);
+            return rawCanvas.toDataURL('image/jpeg', 0.68);
+        }
+        return rawCanvas.toDataURL('image/jpeg', 0.92);
+    }
+
+    return await htmlToImage.toJpeg(sheetEl, {
+        quality: forPdfCompression ? 0.68 : 0.92,
+        pixelRatio: effectiveRatio,
+        backgroundColor: '#ffffff',
+        width: width,
+        height: height,
+        style: { transform: 'none', margin: '0' }
+    });
 }
 
 // === 画像エクスポート機能 (.jpg) ===
@@ -4258,10 +4299,11 @@ async function downloadPoolsAsPdfDirect(targetPoolNames, triggerBtn, downloadFil
     const orientation = printOrientationSelect.value;
     const marginType = printMarginSelect.value;
 
-    const marginMapMm = { standard: 8, wide: 14, narrow: 4 };
-    const marginMm = marginMapMm[marginType] ?? 8;
+    // 余白を最小限に引き締め、用紙いっぱいに大きく出力する
+    const marginMapMm = { standard: 3.5, wide: 8, narrow: 1.5 };
+    const marginMm = marginMapMm[marginType] ?? 3.5;
 
-    const pad = { v: 8, h: 10 };
+    const pad = { v: 6, h: 8 };
 
     const paperDimensionsMm = {
         A3: { long: 420, short: 297 },
@@ -4373,13 +4415,15 @@ async function downloadPoolsAsPdfDirect(targetPoolNames, triggerBtn, downloadFil
 
             await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
 
-            const dataUrl = await captureSheetElementToJpeg(sheet, canvasWidth, canvasHeight, 2);
+            const dataUrl = await captureSheetElementToJpeg(sheet, canvasWidth, canvasHeight, 2, true);
 
             const ratio = Math.min(availW_mm / canvasWidth, availH_mm / canvasHeight);
             const drawW_mm = canvasWidth * ratio;
             const drawH_mm = canvasHeight * ratio;
+            const offsetX_mm = (pageW_mm - drawW_mm) / 2;
+            const offsetY_mm = (pageH_mm - drawH_mm) / 2;
 
-            pdf.addImage(dataUrl, 'JPEG', marginMm, marginMm, drawW_mm, drawH_mm, undefined, 'FAST');
+            pdf.addImage(dataUrl, 'JPEG', offsetX_mm, offsetY_mm, drawW_mm, drawH_mm, undefined, 'FAST');
         }
 
         pdf.save(downloadFileName);
