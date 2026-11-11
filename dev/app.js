@@ -2756,12 +2756,10 @@ function buildBracketSheetContent(poolName, bracketContainerEl, rosterContainerE
     // パターンS: 33〜40人規模（Winners Round 1〜3 / Losers Round 1〜6）
     // =========================================================
     if (playerCount >= 33) {
-        // WR1: 8スロット（Seeds 25..32 vs 33..40）
         const wr1_40Slots = [
             { s1: 32, s2: 33 }, { s1: 25, s2: 40 }, { s1: 29, s2: 36 }, { s1: 28, s2: 37 },
             { s1: 31, s2: 34 }, { s1: 26, s2: 39 }, { s1: 30, s2: 35 }, { s1: 27, s2: 38 }
         ];
-        // WR2: 8組のペアグループ（上段: Top8シード vs WR1勝者、下段: 9..16 vs 17..24）
         const wr2_40TopSeeds = [1, 8, 4, 5, 2, 7, 3, 6];
         const wr2_40BotPairs = [
             { s1: 16, s2: 17 }, { s1: 9,  s2: 24 }, { s1: 13, s2: 20 }, { s1: 12, s2: 21 },
@@ -2771,7 +2769,6 @@ function buildBracketSheetContent(poolName, bracketContainerEl, rosterContainerE
         const wr1 = createRoundColumn(`Winners Round 1 ${getBoStringForRound('W', 'Winners Round 1', playerCount)}`);
         const wr1ActiveLabels = new Array(8).fill(null);
 
-        // WR2のpair-group上段と高さを完全一致させるため、WR1もpair-group（上段:試合、下段:スペーサー）で構築
         wr1_40Slots.forEach((slot, i) => {
             const pairGroup = createElement('div', 'pair-group');
             if (playerCount >= slot.s2) {
@@ -2849,7 +2846,7 @@ function buildBracketSheetContent(poolName, bracketContainerEl, rosterContainerE
                 const wf = createRoundColumn(`Winners Final ${getBoStringForRound('W', 'Winners Final', playerCount)}`);
                 wfLabel = nextMatchLabel();
                 wfMatchLabelForGf = wfLabel;
-                wr5_appendHelper(wf, wfLabel);
+                wf.appendChild(createInteractiveMatchNode(wfLabel, '', '', '', '', 'branch', '', '', 'W'));
                 wContainer.appendChild(wf);
 
                 if (!isGfMode) {
@@ -2857,10 +2854,6 @@ function buildBracketSheetContent(poolName, bracketContainerEl, rosterContainerE
                 }
                 currentMatchIdx += 2;
             }
-        }
-
-        function wr5_appendHelper(colEl, lbl) {
-            colEl.appendChild(createInteractiveMatchNode(lbl, '', '', '', '', 'branch', '', '', 'W'));
         }
 
         // 33〜40人規模 Losers Bracket
@@ -2892,10 +2885,8 @@ function buildBracketSheetContent(poolName, bracketContainerEl, rosterContainerE
                 const wr2TopLoser = wr2TopLabels[7 - i];
                 const wr2BotLoser = wr2BotLabels[7 - i];
                 if (lr1Active40[i] !== null) {
-                    // LR1が存在する場合は上段が空欄（LR1勝者進行枠）、下段にWR2上段の敗者（Loser of W, U, S...）が落下
                     lr2.appendChild(createInteractiveMatchNode(lbl, '', '', '', '', 'straight', '', `Loser of ${wr2TopLoser}`, 'L'));
                 } else {
-                    // LR1が存在しない場合は上段にWR2下段の敗者、下段にWR2上段の敗者が落下
                     lr2.appendChild(createInteractiveMatchNode(lbl, '', '', '', '', 'none', `Loser of ${wr2BotLoser}`, `Loser of ${wr2TopLoser}`, 'L'));
                 }
             }
@@ -3088,7 +3079,6 @@ function buildBracketSheetContent(poolName, bracketContainerEl, rosterContainerE
             }
         }
 
-        // 25〜32人の場合（シングルエリミ時・ダブルエリミ時ともにWR1の16スロット構成を適用）
         if (playerCount >= 25) {
             const wr1_32Slots = [
                 { s1: 16, s2: 17 }, { s1: 9,  s2: 24 }, { s1: 13, s2: 20 }, { s1: 12, s2: 21 },
@@ -3291,7 +3281,6 @@ function buildBracketSheetContent(poolName, bracketContainerEl, rosterContainerE
                 }
             }
         } else if (!isSingle && (isGfMode || lCountNum > 0)) {
-            // 17〜24人のLosers Bracket
             const lr1 = createRoundColumn(`Losers Round 1 ${getBoStringForRound('L', 'Losers Round 1', playerCount)}`);
             const lr2 = createRoundColumn(`Losers Round 2 ${getBoStringForRound('L', 'Losers Round 2', playerCount)}`);
 
@@ -3717,7 +3706,6 @@ function buildBracketSheetContent(poolName, bracketContainerEl, rosterContainerE
 
     // === Grand Final & Grand Final Reset の追加（W0L0時・ダブルエリミのみ） ===
     if (isGfMode && !isSingle && wfMatchLabelForGf) {
-        // Winners Final の直後に予約しておいた2つのラベル（例: 40人時は AN, AO）を割り当てる
         const findLabelIndex = (lbl) => {
             let idx = 0;
             for (let i = 0; i < lbl.length; i++) {
@@ -3824,7 +3812,6 @@ function buildBracketSheetContent(poolName, bracketContainerEl, rosterContainerE
                             }
                         }
                     } else if (currMatches.length === 2 && prevMatches.length === 1) {
-                        // 33〜40人 WR1 (1試合) -> WR2 (pair-groupの上段マッチの下スロット)
                         const prevRec = prevMatches[0];
                         const topTargetRec = currMatches[0];
                         if (prevRec && topTargetRec && !winnerTargetByMatch[prevRec.matchLabel]) {
@@ -4113,7 +4100,6 @@ function buildBracketSheetContent(poolName, bracketContainerEl, rosterContainerE
         totalCanvasHeight = Math.round(totalCanvasWidth / Math.SQRT2);
     }
 
-    // 用紙下部に不自然な空白が残らないよう、キャンバスの縦幅に合わせてブラケット高さを均等拡張
     const targetBodyHeight = totalCanvasHeight - 82;
     if (!isSingle && (isGfMode || lCountNum > 0)) {
         const availForSlots = targetBodyHeight - bracketGapPx - (ROUND_HEADER_TOTAL_HEIGHT * 2);
@@ -4179,6 +4165,36 @@ generateBtn.addEventListener('click', () => {
     document.getElementById('main-sheet-body').classList.remove('hidden');
 
     const isSingle = elimFormatSelect.value === 'single';
+    const wCount = winnersAdvanceCount.value;
+    const lCount = isSingle ? '0' : losersAdvanceCount.value;
+    const isGfMode = isGrandFinalModeSelected();
+    const elimTitle = isSingle ? 'Single Elimination' : 'Double Elimination';
+
+    document.getElementById('pool-title').textContent = buildPoolHeaderTitle(selectedPoolName, elimTitle, currentPool.count);
+
+    const subtitleEl = document.getElementById('pool-subtitle');
+    if (isGfMode) {
+        subtitleEl.textContent = '';
+        subtitleEl.classList.add('hidden');
+    } else {
+        subtitleEl.classList.remove('hidden');
+        subtitleEl.textContent = isSingle
+            ? `Winners side qualifier: ${wCount}`
+            : `Winners side qualifier: ${wCount} / Losers side qualifier: ${lCount}`;
+    }
+
+    const bracketContainer = document.getElementById('bracket-container');
+    const rosterContainer = document.getElementById('checkin-roster-container');
+
+    const { canvasWidth, canvasHeight } = buildBracketSheetContent(selectedPoolName, bracketContainer, rosterContainer, previewArea);
+    previewArea.style.width = `${canvasWidth}px`;
+    previewArea.style.minHeight = `${canvasHeight}px`;
+    previewArea.style.height = `${canvasHeight}px`;
+
+    applyPrintAndDrawOptions();
+    requestAnimationFrame(fitToViewport);
+});
+
 // === シート要素をキャプチャする共通ヘルパー（PDF出力時はモノクロ白スナップ圧縮で容量を約1/7に軽量化） ===
 async function captureSheetElementToJpeg(sheetEl, width, height, pixelRatio = 2, forPdfCompression = false) {
     const effectiveRatio = forPdfCompression
@@ -4299,7 +4315,6 @@ async function downloadPoolsAsPdfDirect(targetPoolNames, triggerBtn, downloadFil
     const orientation = printOrientationSelect.value;
     const marginType = printMarginSelect.value;
 
-    // 余白を最小限に引き締め、用紙いっぱいに大きく出力する
     const marginMapMm = { standard: 3.5, wide: 8, narrow: 1.5 };
     const marginMm = marginMapMm[marginType] ?? 3.5;
 
@@ -4330,7 +4345,6 @@ async function downloadPoolsAsPdfDirect(targetPoolNames, triggerBtn, downloadFil
             ? `Winners side qualifier: ${wCount}`
             : `Winners side qualifier: ${wCount} / Losers side qualifier: ${lCount}`);
 
-    // オフスクリーンレンダリング用の固定コンテナを準備
     batchPrintContainer.innerHTML = '';
     batchPrintContainer.classList.remove('hidden');
     batchPrintContainer.style.cssText = 'position: fixed; left: -99999px; top: 0; z-index: -1; background: #ffffff;';
