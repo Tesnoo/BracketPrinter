@@ -50,6 +50,21 @@
             display: inline-block;
         }
 
+        /* プレビュー画面：横スクロールバーを非表示にし、ドラッグで視点移動可能にする */
+        #preview-viewport {
+            overflow-x: hidden;
+            overflow-y: auto;
+            cursor: grab;
+            user-select: none;
+        }
+        #preview-viewport.is-panning {
+            cursor: grabbing !important;
+        }
+        #preview-viewport::-webkit-scrollbar:horizontal {
+            display: none;
+            height: 0;
+        }
+
         @media print {
             * {
                 -webkit-print-color-adjust: exact !important;
@@ -535,7 +550,7 @@
             line-height: 25px;
         }
 
-        /* === ドラッグ可能な高機能テキストボックス用スタイル === */
+        /* === ドラッグ可能な高機能テキストボックス用スタイル（部分選択リッチテキスト対応） === */
         .draggable-text-box {
             position: absolute;
             z-index: 30;
@@ -543,6 +558,8 @@
             background-color: rgba(255, 255, 255, 0.85);
             border-radius: 4px;
             min-width: 240px;
+            cursor: default;
+            user-select: text;
         }
         .draggable-text-box:hover {
             border-color: #DB2777;
@@ -584,7 +601,7 @@
             border-color: #DB2777;
         }
         .text-size-input {
-            width: 42px;
+            width: 44px;
             border: 1px solid #d1d5db;
             border-radius: 3px;
             padding: 1px 3px;
@@ -602,9 +619,22 @@
             outline: none;
             min-height: 32px;
             color: #000000;
-            line-height: 1.4;
+            line-height: 1.35;
             white-space: pre-wrap;
             word-break: break-word;
+            cursor: text;
+            user-select: text;
+        }
+        .draggable-text-content b,
+        .draggable-text-content strong {
+            font-weight: 700;
+        }
+        .draggable-text-content i,
+        .draggable-text-content em {
+            font-style: italic;
+        }
+        .draggable-text-content u {
+            text-decoration: underline;
         }
     </style>
 
@@ -628,7 +658,7 @@
 
             <!-- 大会プリセット＆大会名設定 -->
             <div class="flex flex-col gap-2 bg-gray-50 p-2.5 rounded border border-gray-200 text-xs shrink-0">
-                <div class="flex flex-col gap-1">
+                <div class="flex flex-col gap-1.5">
                     <label class="font-bold text-gray-700">大会プリセット（任意）</label>
                     <select id="preset-select" class="w-full border border-gray-300 rounded p-1.5 bg-white text-xs">
                         <option value="" selected>プリセットを使用しない</option>
@@ -636,6 +666,12 @@
                         <option value="クロブラ">クロブラ</option>
                         <option value="IMPACT MAJOR">IMPACT MAJOR</option>
                     </select>
+                    <!-- ローカルから .bp プリセットファイルを読み込むボタン -->
+                    <input type="file" id="load-preset-file-input" accept=".bp,.json" class="hidden">
+                    <button id="load-preset-btn" type="button" class="w-full bg-white hover:bg-pink-50 text-gray-700 hover:text-[#DB2777] border border-gray-300 hover:border-pink-300 font-bold py-1.5 px-2.5 rounded transition text-[11px] flex items-center justify-center gap-1 shadow-sm">
+                        <span>📂 作成したプリセットを読み込む</span>
+                    </button>
+                    <p id="preset-load-status" class="text-[10.5px] font-bold hidden whitespace-pre-line leading-relaxed"></p>
                 </div>
 
                 <div id="kurobra-game-wrapper" class="hidden flex flex-col gap-1 pt-1 border-t border-gray-200">
@@ -847,7 +883,7 @@
                 </button>
                 <div class="accordion-content bg-white px-3 py-2.5 flex flex-col gap-2.5 text-xs border-t border-gray-200 rounded-b-lg" style="display: none;">
                     <div id="print-rec-reason-box" class="bg-pink-50 border border-pink-200 rounded p-1.5 text-[11px] text-pink-900 flex items-center justify-between">
-                        <span id="print-rec-reason-text">💡 17〜24人 ダブルエリミの推奨設定</span>
+                        <span id="print-rec-reason-text">💡 13〜24人 ダブルエリミの推奨設定</span>
                         <button id="reset-print-rec-btn" type="button" class="hidden text-[10px] bg-[#DB2777] text-white px-1.5 py-0.5 rounded font-bold hover:bg-pink-700 transition">推奨に戻す</button>
                     </div>
 
@@ -917,7 +953,7 @@
                             + テキストボックスを追加
                         </button>
                         <p id="text-box-status" class="text-[10px] text-blue-600 font-bold mt-0.5 hidden whitespace-pre-line leading-relaxed"></p>
-                        <span class="text-[10px] text-gray-400 mt-0.5 block">※追加後、プレビュー上でドラッグ移動・編集が可能です（重なった場合はクリックで前後を入れ替えられます）</span>
+                        <span class="text-[10px] text-gray-400 mt-0.5 block">※文字をドラッグやShift+矢印で部分選択してサイズ・太字・斜体・下線を個別に変更できます</span>
                     </div>
                     <div class="pt-2 border-t border-gray-200 flex flex-col gap-1.5">
                         <label class="font-semibold text-gray-600">対戦カード個別設定（DQ / 配信台）</label>
@@ -966,13 +1002,16 @@
                 <button id="export-all-pdf-btn" type="button" class="bg-[#DB2777] text-white px-4 py-2 rounded shadow hover:bg-pink-700 transition font-bold text-sm">
                     全プールをPDF一括出力
                 </button>
+                <button id="create-preset-btn" type="button" class="bg-gray-800 text-white px-4 py-2 rounded shadow hover:bg-gray-900 transition font-bold text-xs mt-1 flex items-center justify-center gap-1.5">
+                    <span>💾 オリジナルのプリセットを作成する</span>
+                </button>
                 <p id="export-error-msg" class="text-[11px] text-red-600 font-bold hidden whitespace-pre-line leading-relaxed"></p>
             </div>
         </div>
     </div>
 
     <!-- 右側：プレビュー＆描画領域 -->
-    <div id="preview-viewport" class="flex-1 p-6 overflow-auto bg-gray-200">
+    <div id="preview-viewport" class="flex-1 p-6 bg-gray-200">
         <div id="preview-scale-wrapper" class="inline-block">
             <div id="preview-area" class="shadow-md text-gray-800 relative">
                 <div id="preview-placeholder" class="flex flex-col items-center justify-center flex-1 text-gray-400 font-bold text-5xl gap-5 text-center px-8">
@@ -1003,7 +1042,7 @@
         </div>
     </div>
 
-    <!-- 対戦カード個別編集モーダル（ストリームキュー番号欄を削除しチャンネル名のみに簡略化） -->
+    <!-- 対戦カード個別編集モーダル -->
     <div id="match-edit-modal" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
         <div class="bg-white rounded-lg shadow-xl w-full max-w-md overflow-hidden border border-gray-200">
             <div class="bg-gray-800 text-white px-4 py-2.5 flex justify-between items-center">
