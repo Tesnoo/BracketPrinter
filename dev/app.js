@@ -1,6 +1,7 @@
 // === グローバル状態管理 ===
 let poolsData = {};
 let maxPoolPlayerCount = 24;
+let minPoolPlayerCount = 24;
 let isCsvValid = false;
 let currentDataSource = 'none'; // 'csv' | 'api'
 let baseBoValue = '';
@@ -46,7 +47,7 @@ let recommendedPrintConfig = {
     size: 'A3',
     orientation: 'landscape',
     margin: 'standard',
-    reason: '17〜24人 ダブルエリミの推奨設定'
+    reason: '13〜24人 ダブルエリミの推奨設定'
 };
 
 // === インラインメッセージ表示ヘルパー ===
@@ -210,6 +211,11 @@ const BUILTIN_BP_PROFILES = {
 
 // === DOM要素参照 ===
 const presetSelect = document.getElementById('preset-select');
+const loadPresetBtn = document.getElementById('load-preset-btn');
+const loadPresetFileInput = document.getElementById('load-preset-file-input');
+const presetLoadStatus = document.getElementById('preset-load-status');
+const createPresetBtn = document.getElementById('create-preset-btn');
+
 const kurobraGameWrapper = document.getElementById('kurobra-game-wrapper');
 const kurobraGameSelect = document.getElementById('kurobra-game-select');
 const presetNumberWrapper = document.getElementById('preset-number-wrapper');
@@ -327,13 +333,33 @@ if (startggUrlInput) {
 }
 
 // === Bo設定を一括適用するヘルパー関数 ===
-function setBoConfiguration(baseBo, enableChange, wRound = 'none', wBo = '5', lRound = 'none', lBo = '5') {
+function setBoConfiguration(baseBo, enableChange, wRound = 'none', wBo = '5', lRound = 'none', lBo = '5', wCustom = '', lCustom = '') {
+    const customBoContainer = document.getElementById('custom-bo-container');
+    const customBoInput = document.getElementById('custom-bo-input');
+    const customBoConfirmArea = document.getElementById('custom-bo-confirm-area');
+    const customBoConfirmText = document.getElementById('custom-bo-confirm-text');
+
     if (baseBoSelect) {
-        baseBoSelect.value = baseBo;
-        baseBoValue = baseBo;
-        isCustomBoConfirmed = false;
-        const customBoContainer = document.getElementById('custom-bo-container');
-        if (customBoContainer) customBoContainer.classList.add('hidden');
+        if (baseBo === '3' || baseBo === '5') {
+            baseBoSelect.value = baseBo;
+            baseBoValue = baseBo;
+            isCustomBoConfirmed = false;
+            if (customBoContainer) customBoContainer.classList.add('hidden');
+        } else if (baseBo) {
+            baseBoSelect.value = 'custom';
+            baseBoValue = String(baseBo);
+            isCustomBoConfirmed = true;
+            if (customBoContainer) customBoContainer.classList.remove('hidden');
+            if (customBoInput) {
+                customBoInput.value = String(baseBo);
+                customBoInput.disabled = true;
+            }
+            if (customBoConfirmArea) customBoConfirmArea.classList.remove('hidden');
+            if (customBoConfirmText) {
+                const n = Number(baseBo);
+                customBoConfirmText.textContent = `✅成功\nBo${n} / ${Math.ceil(n / 2)}本先取 で確定しました。`;
+            }
+        }
     }
 
     const targetMode = enableChange ? 'yes' : 'no';
@@ -356,8 +382,16 @@ function setBoConfiguration(baseBo, enableChange, wRound = 'none', wBo = '5', lR
             winnersRoundSelect.value = wRound;
         }
         if (winnersBoSelect) {
-            winnersBoSelect.value = wBo;
-            if (winnersCustomInput) winnersCustomInput.classList.add('hidden');
+            if (wBo === '3' || wBo === '5') {
+                winnersBoSelect.value = wBo;
+                if (winnersCustomInput) winnersCustomInput.classList.add('hidden');
+            } else {
+                winnersBoSelect.value = 'custom';
+                if (winnersCustomInput) {
+                    winnersCustomInput.classList.remove('hidden');
+                    winnersCustomInput.value = wCustom || String(wBo);
+                }
+            }
         }
 
         if (losersRoundSelect) {
@@ -371,8 +405,16 @@ function setBoConfiguration(baseBo, enableChange, wRound = 'none', wBo = '5', lR
             losersRoundSelect.value = lRound;
         }
         if (losersBoSelect) {
-            losersBoSelect.value = lBo;
-            if (losersCustomInput) losersCustomInput.classList.add('hidden');
+            if (lBo === '3' || lBo === '5') {
+                losersBoSelect.value = lBo;
+                if (losersCustomInput) losersCustomInput.classList.add('hidden');
+            } else {
+                losersBoSelect.value = 'custom';
+                if (losersCustomInput) {
+                    losersCustomInput.classList.remove('hidden');
+                    losersCustomInput.value = lCustom || String(lBo);
+                }
+            }
         }
     } else {
         if (roundChangeContainer) roundChangeContainer.classList.add('hidden');
@@ -385,7 +427,19 @@ function setBoConfiguration(baseBo, enableChange, wRound = 'none', wBo = '5', lR
 
 // === プリセット用ロゴ画像の自動読み込み・軽量化処理 ===
 function loadPresetLogo(presetConfig, presetKey) {
-    if (!presetConfig || (!presetConfig.logoFile && !presetConfig.logoRawUrl)) return;
+    if (!presetConfig) return;
+
+    // カスタム作成された .bp に Base64 ロゴデータ (logoDataUrl) が埋め込まれている場合
+    if (presetConfig.logoDataUrl) {
+        pendingLogoDataUrl = presetConfig.logoDataUrl;
+        logoUpload.value = '';
+        showInlineSuccess(logoStatus, `プリセットロゴを適用しました (${presetKey || 'カスタム'})`);
+        clearLogoBtn.classList.remove('hidden');
+        applyPrintAndDrawOptions();
+        return;
+    }
+
+    if (!presetConfig.logoFile && !presetConfig.logoRawUrl) return;
 
     const processImageToLogo = (img) => {
         const origW = img.naturalWidth || img.width;
@@ -449,10 +503,16 @@ function applyBpProfileObject(profile, applyBoAndNotes = true) {
         return tpl.replace(/\[N\]/g, numStr);
     };
 
-    if (tournamentNameInput && profile.nameTemplate) {
-        tournamentNameInput.value = numStr
-            ? profile.nameTemplate.replace(/\[N\]/g, numStr)
-            : (profile.presetKey || profile.presetId || '');
+    if (tournamentNameInput) {
+        if (profile.nameTemplate && profile.nameTemplate.includes('[N]')) {
+            tournamentNameInput.value = numStr
+                ? profile.nameTemplate.replace(/\[N\]/g, numStr)
+                : (profile.presetKey || profile.presetId || '');
+        } else if (profile.tournamentName !== undefined) {
+            tournamentNameInput.value = profile.tournamentName;
+        } else if (profile.nameTemplate) {
+            tournamentNameInput.value = profile.nameTemplate;
+        }
     }
 
     if (startggUrlInput) {
@@ -462,11 +522,32 @@ function applyBpProfileObject(profile, applyBoAndNotes = true) {
                 ? (profile.urlTemplateDx || profile.urlTemplate)
                 : (profile.urlTemplateSp || profile.urlTemplate);
         }
-        startggUrlInput.value = numStr ? replaceNumberToken(urlTpl) : '';
+        if (urlTpl.includes('[N]')) {
+            startggUrlInput.value = numStr ? replaceNumberToken(urlTpl) : '';
+        } else if (urlTpl) {
+            startggUrlInput.value = urlTpl;
+        }
         hideInlineMessage(urlErrorMsg);
     }
 
     if (applyBoAndNotes) {
+        if (profile.elimFormat && elimFormatSelect) {
+            elimFormatSelect.value = profile.elimFormat;
+            const isSingle = profile.elimFormat === 'single';
+            losersAdvanceWrapper.classList.toggle('hidden', isSingle);
+            losersRoundChangeBlock.classList.toggle('hidden', isSingle);
+        }
+        if (profile.winnersAdvanceCount !== undefined && winnersAdvanceCount) {
+            winnersAdvanceCount.value = String(profile.winnersAdvanceCount);
+        }
+        if (profile.losersAdvanceCount !== undefined && losersAdvanceCount) {
+            losersAdvanceCount.value = String(profile.losersAdvanceCount);
+        }
+        if (profile.targetPhaseName !== undefined && targetPhaseInput) {
+            targetPhaseInput.value = profile.targetPhaseName;
+        }
+        updateTargetPhaseInputState();
+
         let boCfg = profile.boConfig || (profile.boRule && (profile.boRule.default || profile.boRule));
         if ((profile.presetKey || profile.presetId) === 'クロブラ') {
             if (kurobraGameMode === 'dx') {
@@ -482,8 +563,20 @@ function applyBpProfileObject(profile, applyBoAndNotes = true) {
                 boCfg.wRound || 'none',
                 boCfg.wBo || '5',
                 boCfg.lRound || 'none',
-                boCfg.lBo || '5'
+                boCfg.lBo || '5',
+                boCfg.wCustom || '',
+                boCfg.lCustom || ''
             );
+        }
+
+        if (profile.printConfig) {
+            if (profile.printConfig.size && printSizeSelect) printSizeSelect.value = profile.printConfig.size;
+            if (profile.printConfig.orientation && printOrientationSelect) printOrientationSelect.value = profile.printConfig.orientation;
+            if (profile.printConfig.margin && printMarginSelect) printMarginSelect.value = profile.printConfig.margin;
+            if (profile.printConfig.showPhaseName !== undefined && showPhaseNameCheckbox) {
+                showPhaseNameCheckbox.checked = Boolean(profile.printConfig.showPhaseName);
+            }
+            checkIfPrintSettingsMatchRecommendation();
         }
 
         if (Array.isArray(profile.notes)) {
@@ -498,7 +591,8 @@ function applyBpProfileObject(profile, applyBoAndNotes = true) {
                         bold: noteObj.bold !== undefined ? Boolean(noteObj.bold) : true,
                         italic: Boolean(noteObj.italic),
                         underline: Boolean(noteObj.underline),
-                        align: noteObj.align || 'left'
+                        align: noteObj.align || 'left',
+                        html: noteObj.html || null
                     }
                 );
             });
@@ -506,6 +600,7 @@ function applyBpProfileObject(profile, applyBoAndNotes = true) {
     }
 
     refreshRenderedHeaderTitle();
+    updateGenerateButtonState();
 }
 
 async function loadAndApplyPresetProfile(presetKey, applyBoAndNotes = true) {
@@ -542,6 +637,7 @@ async function loadAndApplyPresetProfile(presetKey, applyBoAndNotes = true) {
 
 if (presetSelect) {
     presetSelect.addEventListener('change', async () => {
+        hideInlineMessage(presetLoadStatus);
         const selectedPreset = presetSelect.value;
         if (!selectedPreset) {
             if (presetNumberWrapper) presetNumberWrapper.classList.add('hidden');
@@ -563,6 +659,120 @@ if (presetSelect) {
     });
 }
 
+// === オリジナルプリセットの作成（.bpファイルのダウンロード） ===
+if (createPresetBtn) {
+    createPresetBtn.addEventListener('click', () => {
+        hideInlineMessage(exportErrorMsg);
+
+        const tName = tournamentNameInput ? tournamentNameInput.value.trim() : '';
+        const urlVal = startggUrlInput ? startggUrlInput.value.trim() : '';
+        const isChangeMode = document.querySelector('input[name="change-mode"]:checked')?.value === 'yes';
+
+        const notesList = Array.from(customTextsLayer.querySelectorAll('.draggable-text-box')).map(box => {
+            const contentEl = box.querySelector('.draggable-text-content');
+            return {
+                text: contentEl ? contentEl.innerText : '',
+                html: contentEl ? contentEl.innerHTML : '',
+                x: Math.round(parseFloat(box.style.left) || 1240),
+                y: Math.round(parseFloat(box.style.top) || 1480),
+                fontSize: contentEl?.style?.fontSize || '18px',
+                bold: contentEl ? (contentEl.style.fontWeight === '700' || contentEl.style.fontWeight === 'bold') : true,
+                italic: contentEl ? (contentEl.style.fontStyle === 'italic') : false,
+                underline: contentEl ? (contentEl.style.textDecoration || '').includes('underline') : false,
+                align: contentEl?.style?.textAlign || 'left'
+            };
+        });
+
+        const bpObject = {
+            formatVersion: '1.0',
+            presetId: tName || 'Custom_Preset',
+            presetKey: tName || 'Custom_Preset',
+            tournamentName: tName,
+            nameTemplate: tName,
+            urlTemplate: urlVal,
+            elimFormat: elimFormatSelect.value || 'double',
+            winnersAdvanceCount: winnersAdvanceCount.value || '',
+            losersAdvanceCount: losersAdvanceCount.value || '',
+            targetPhaseName: targetPhaseInput.value.trim(),
+            boConfig: {
+                baseBo: baseBoValue || baseBoSelect.value || '5',
+                enableChange: isChangeMode,
+                wRound: winnersRoundSelect.value || 'none',
+                wBo: winnersBoSelect.value || '5',
+                wCustom: winnersCustomInput ? winnersCustomInput.value.trim() : '',
+                lRound: losersRoundSelect.value || 'none',
+                lBo: losersBoSelect.value || '5',
+                lCustom: losersCustomInput ? losersCustomInput.value.trim() : ''
+            },
+            printConfig: {
+                size: printSizeSelect.value || 'A3',
+                orientation: printOrientationSelect.value || 'landscape',
+                margin: printMarginSelect.value || 'standard',
+                showPhaseName: showPhaseNameCheckbox ? showPhaseNameCheckbox.checked : true
+            },
+            logoDataUrl: pendingLogoDataUrl || null,
+            notes: notesList
+        };
+
+        const blob = new Blob([JSON.stringify(bpObject, null, 2)], { type: 'application/json' });
+        const safeName = (tName || 'custom_preset').replace(/[\\/:*?"<>|\s]+/g, '_');
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = `${safeName}.bp`;
+        link.click();
+        setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+    });
+}
+
+// === ローカルから作成したプリセット (.bp) を読み込む ===
+if (loadPresetBtn && loadPresetFileInput) {
+    loadPresetBtn.addEventListener('click', () => {
+        loadPresetFileInput.value = '';
+        loadPresetFileInput.click();
+    });
+
+    loadPresetFileInput.addEventListener('change', (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        hideInlineMessage(presetLoadStatus);
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+            try {
+                const parsed = JSON.parse(String(ev.target.result || ''));
+                if (!parsed || typeof parsed !== 'object') {
+                    throw new Error('無効なファイル形式です。');
+                }
+
+                if (presetSelect) presetSelect.value = '';
+                const hasNumberToken = (parsed.nameTemplate && parsed.nameTemplate.includes('[N]')) ||
+                                       (parsed.urlTemplate && parsed.urlTemplate.includes('[N]'));
+                if (presetNumberWrapper) {
+                    presetNumberWrapper.classList.toggle('hidden', !hasNumberToken);
+                }
+                if (kurobraGameWrapper) {
+                    kurobraGameWrapper.classList.add('hidden');
+                }
+
+                BUILTIN_BP_PROFILES['__CUSTOM_LOADED__'] = parsed;
+                applyBpProfileObject(parsed, true);
+                if (parsed.logoDataUrl || parsed.logoFile || parsed.logoRawUrl) {
+                    loadPresetLogo(parsed, parsed.presetKey || parsed.presetId || file.name);
+                }
+
+                showInlineSuccess(presetLoadStatus, `プリセット「${file.name}」を読み込みました。`);
+                if (!document.getElementById('main-sheet-body').classList.contains('hidden') && !generateBtn.disabled) {
+                    generateBtn.click();
+                }
+            } catch (err) {
+                console.error('Preset Load Error:', err);
+                showInlineError(presetLoadStatus, 'プリセットファイル (.bp) の読み込みに失敗しました。');
+            }
+        };
+        reader.readAsText(file);
+    });
+}
+
 if (kurobraGameSelect) {
     kurobraGameSelect.addEventListener('change', () => {
         if (presetSelect && presetSelect.value === 'クロブラ') {
@@ -578,8 +788,9 @@ if (presetNumberInput) {
             e.target.value = cleaned;
         }
         const selectedPreset = presetSelect ? presetSelect.value : '';
-        if (selectedPreset && BUILTIN_BP_PROFILES[selectedPreset]) {
-            applyBpProfileObject(BUILTIN_BP_PROFILES[selectedPreset], false);
+        const targetProfile = selectedPreset ? BUILTIN_BP_PROFILES[selectedPreset] : BUILTIN_BP_PROFILES['__CUSTOM_LOADED__'];
+        if (targetProfile) {
+            applyBpProfileObject(targetProfile, false);
         }
     });
 }
@@ -643,17 +854,30 @@ function getCurrentPoolPlayerCount() {
     return maxPoolPlayerCount || 24;
 }
 
-// 複数プール間で人数帯が異なる場合は常に最大人数側（maxPoolPlayerCount）に合わせる
-function getEffectiveMaxPlayerCount() {
+// === プール人数判定：通常大会で12-13人や24-25人のように境界をまたぐ場合（最大と最小の差が4人以内）は大きい方に統一 ===
+function getEffectivePlayerCountForPool(poolName = null) {
     const poolKeys = Object.keys(poolsData);
-    if (poolKeys.length > 0) {
-        return Math.max(...poolKeys.map(k => poolsData[k].count));
+    if (poolKeys.length === 0) return maxPoolPlayerCount || 24;
+
+    const counts = poolKeys.map(k => poolsData[k].count);
+    const maxC = Math.max(...counts);
+    const minC = Math.min(...counts);
+
+    // 通常の大会フェーズ（プール間の人数差が4人以下：例 12〜13人、24〜25人など）は大きい方の設定に統一
+    if (maxC - minC <= 4) {
+        return maxC;
     }
-    return maxPoolPlayerCount || 24;
+
+    // 6〜40人検証用トーナメントのように幅広い人数が混在する場合は、各プールの人数に応じた推奨設定を適用
+    const targetKey = poolName || poolSelect.value;
+    if (targetKey && poolsData[targetKey]) {
+        return poolsData[targetKey].count;
+    }
+    return maxC;
 }
 
 function updateAdvanceCountConstraints() {
-    const n = getEffectiveMaxPlayerCount();
+    const n = getEffectivePlayerCountForPool();
 
     Array.from(winnersAdvanceCount.options).forEach(opt => {
         if (opt.value === '4') {
@@ -947,32 +1171,23 @@ document.querySelectorAll('.accordion-toggle').forEach(button => {
     });
 });
 
-// === 推奨印刷設定の自動計算＆適用（複数プール混在時は常に最大人数側に統一） ===
-function getRecommendedPrintSettings(maxPlayers, elimFormat) {
+// === 推奨印刷設定の厳密ルール（6〜12人：A4横向き / 13〜24人：A3横向き / 25〜40人：A3縦向き） ===
+function getRecommendedPrintSettings(playerCount, elimFormat) {
     const isSingle = elimFormat === 'single';
-    const n = maxPlayers || 24;
+    const formatLabel = isSingle ? 'シングルエリミ' : 'ダブルエリミ';
+    const n = playerCount || 24;
 
-    if (isSingle) {
-        if (n <= 16) {
-            return { size: 'A4', orientation: 'landscape', margin: 'standard', reason: `${n}人 シングルエリミの推奨設定` };
-        } else if (n <= 32) {
-            return { size: 'A3', orientation: 'landscape', margin: 'standard', reason: `${n}人 シングルエリミの推奨設定` };
-        } else {
-            return { size: 'A3', orientation: 'portrait', margin: 'standard', reason: `${n}人 シングルエリミの推奨設定` };
-        }
+    if (n <= 12) {
+        return { size: 'A4', orientation: 'landscape', margin: 'standard', reason: `${n}人 ${formatLabel}の推奨設定` };
+    } else if (n <= 24) {
+        return { size: 'A3', orientation: 'landscape', margin: 'standard', reason: `${n}人 ${formatLabel}の推奨設定` };
     } else {
-        if (n <= 16) {
-            return { size: 'A4', orientation: 'landscape', margin: 'standard', reason: `${n}人 ダブルエリミの推奨設定` };
-        } else if (n <= 24) {
-            return { size: 'A3', orientation: 'landscape', margin: 'standard', reason: `${n}人 ダブルエリミの推奨設定` };
-        } else {
-            return { size: 'A3', orientation: 'portrait', margin: 'standard', reason: `${n}人 ダブルエリミの推奨設定` };
-        }
+        return { size: 'A3', orientation: 'portrait', margin: 'standard', reason: `${n}人 ${formatLabel}の推奨設定` };
     }
 }
 
 function updateRecommendedPrintUI(autoApply = true) {
-    const targetCount = getEffectiveMaxPlayerCount();
+    const targetCount = getEffectivePlayerCountForPool();
     const format = elimFormatSelect.value || 'double';
     recommendedPrintConfig = getRecommendedPrintSettings(targetCount, format);
 
@@ -1109,7 +1324,9 @@ function applyPoolsDataToUI(sourceLabel = 'CSV', targetStatusEl = csvStatus) {
         }
     }
 
-    maxPoolPlayerCount = Math.max(...poolKeys.map(k => poolsData[k].count));
+    const counts = poolKeys.map(k => poolsData[k].count);
+    maxPoolPlayerCount = Math.max(...counts);
+    minPoolPlayerCount = Math.min(...counts);
 
     poolSelect.innerHTML = '';
     poolKeys.forEach(poolName => {
@@ -1579,7 +1796,7 @@ async function populatePoolsFromStartggPhase(phaseObj, targetGroupId = null) {
             poolSelect.value = matchedPoolKey;
             updateAdvanceCountConstraints();
             updateRoundChangeDropdowns();
-            updateRecommendedPrintUI(false);
+            updateRecommendedPrintUI(true);
         }
     }
 }
@@ -1597,7 +1814,7 @@ phaseSelect.addEventListener('change', async () => {
 poolSelect.addEventListener('change', () => {
     updateAdvanceCountConstraints();
     updateRoundChangeDropdowns();
-    updateRecommendedPrintUI(false);
+    updateRecommendedPrintUI(true);
     updateGenerateButtonState();
 });
 
@@ -2100,7 +2317,37 @@ function toggleOverlappingTextBoxZOrder(targetBox) {
     }
 }
 
-// === 描画オプション2: 高機能ドラッグ可能テキストボックス ===
+// === テキストボックス内の部分選択範囲のフォントサイズを変更するヘルパー ===
+function applyFontSizeToSelectionRange(contentEl, savedRange, pxSize) {
+    if (!savedRange || savedRange.collapsed || !contentEl.contains(savedRange.commonAncestorContainer)) {
+        return false;
+    }
+
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(savedRange);
+
+    const span = document.createElement('span');
+    span.style.fontSize = `${pxSize}px`;
+
+    const fragment = savedRange.extractContents();
+    // 選択範囲内部の既存fontSize指定を解除して新しいサイズに統一
+    fragment.querySelectorAll('*').forEach(el => {
+        if (el.style && el.style.fontSize) {
+            el.style.fontSize = '';
+        }
+    });
+    span.appendChild(fragment);
+    savedRange.insertNode(span);
+
+    const newRange = document.createRange();
+    newRange.selectNodeContents(span);
+    sel.removeAllRanges();
+    sel.addRange(newRange);
+    return newRange.cloneRange();
+}
+
+// === 描画オプション2: 高機能ドラッグ可能テキストボックス（ドラッグやShift+矢印での部分選択装飾・サイズ変更対応） ===
 function createDraggableTextBox(initialText = 'テキストを入力', x = 1240, y = 1480, initialFontSize = '18px', styleOptions = {}) {
     const box = document.createElement('div');
     box.className = 'draggable-text-box pointer-events-auto';
@@ -2128,19 +2375,19 @@ function createDraggableTextBox(initialText = 'テキストを入力', x = 1240,
     const boldBtn = document.createElement('button');
     boldBtn.type = 'button';
     boldBtn.textContent = 'B';
-    boldBtn.title = '太字';
+    boldBtn.title = '太字（部分選択時は選択文字のみ）';
     boldBtn.className = `text-tool-btn font-bold ${isBoldInit ? 'active' : ''}`;
 
     const italicBtn = document.createElement('button');
     italicBtn.type = 'button';
     italicBtn.textContent = 'I';
-    italicBtn.title = '斜体';
+    italicBtn.title = '斜体（部分選択時は選択文字のみ）';
     italicBtn.className = `text-tool-btn italic font-serif ${isItalicInit ? 'active' : ''}`;
 
     const underlineBtn = document.createElement('button');
     underlineBtn.type = 'button';
     underlineBtn.textContent = 'U';
-    underlineBtn.title = '下線';
+    underlineBtn.title = '下線（部分選択時は選択文字のみ）';
     underlineBtn.className = `text-tool-btn underline ${isUnderlineInit ? 'active' : ''}`;
 
     const sizeWrapper = document.createElement('div');
@@ -2151,7 +2398,7 @@ function createDraggableTextBox(initialText = 'テキストを入力', x = 1240,
     sizeInput.max = '120';
     sizeInput.step = '1';
     sizeInput.value = String(numericFontSize);
-    sizeInput.title = 'フォントサイズ (px)';
+    sizeInput.title = 'フォントサイズ (px) ※文字を選択して変更すると選択部分のみ変わります';
     sizeInput.className = 'text-size-input';
     const pxUnit = document.createElement('span');
     pxUnit.textContent = 'px';
@@ -2193,42 +2440,150 @@ function createDraggableTextBox(initialText = 'テキストを入力', x = 1240,
     content.style.fontStyle = isItalicInit ? 'italic' : 'normal';
     content.style.textDecoration = isUnderlineInit ? 'underline' : 'none';
     content.style.textAlign = alignInit;
-    content.textContent = initialText;
+
+    if (styleOptions.html) {
+        content.innerHTML = styleOptions.html;
+    } else {
+        content.textContent = initialText;
+    }
+
+    // テキストボックス内の選択範囲（ドラッグ選択 / Shift+矢印キー選択）を常に記憶
+    let savedSelectionRange = null;
+
+    const saveCurrentSelectionIfInside = () => {
+        const sel = window.getSelection();
+        if (!sel || sel.rangeCount === 0) return;
+        const r = sel.getRangeAt(0);
+        if (content.contains(r.commonAncestorContainer)) {
+            savedSelectionRange = r.cloneRange();
+            // 選択箇所のフォントサイズ・装飾状態をツールバーに同期
+            const anchorEl = r.startContainer.nodeType === Node.TEXT_NODE
+                ? r.startContainer.parentElement
+                : r.startContainer;
+            if (anchorEl && content.contains(anchorEl) && document.activeElement !== sizeInput) {
+                const comp = window.getComputedStyle(anchorEl);
+                const px = Math.round(parseFloat(comp.fontSize) || numericFontSize);
+                sizeInput.value = String(px);
+                const weightNum = parseInt(comp.fontWeight, 10) || 400;
+                boldBtn.classList.toggle('active', weightNum >= 600 || comp.fontWeight === 'bold');
+                italicBtn.classList.toggle('active', comp.fontStyle === 'italic');
+                underlineBtn.classList.toggle('active', (comp.textDecorationLine || comp.textDecoration || '').includes('underline'));
+            }
+        }
+    };
+
+    content.addEventListener('mouseup', saveCurrentSelectionIfInside);
+    content.addEventListener('keyup', saveCurrentSelectionIfInside);
+    content.addEventListener('focus', saveCurrentSelectionIfInside);
+
+    const hasActiveNonCollapsedRange = () => {
+        const sel = window.getSelection();
+        if (sel && sel.rangeCount > 0) {
+            const r = sel.getRangeAt(0);
+            if (!r.collapsed && content.contains(r.commonAncestorContainer)) {
+                savedSelectionRange = r.cloneRange();
+                return true;
+            }
+        }
+        return Boolean(savedSelectionRange && !savedSelectionRange.collapsed && content.contains(savedSelectionRange.commonAncestorContainer));
+    };
+
+    // ボタンを押した瞬間に選択範囲が消えないよう mousedown で preventDefault
+    [boldBtn, italicBtn, underlineBtn, alignLeftBtn, alignCenterBtn, alignRightBtn].forEach(btn => {
+        btn.addEventListener('mousedown', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+        });
+    });
 
     boldBtn.addEventListener('click', (e) => {
         e.stopPropagation();
-        const isCurrentlyBold = content.style.fontWeight === '700' || content.style.fontWeight === 'bold';
-        content.style.fontWeight = isCurrentlyBold ? '400' : '700';
-        boldBtn.classList.toggle('active', !isCurrentlyBold);
+        if (hasActiveNonCollapsedRange()) {
+            const sel = window.getSelection();
+            sel.removeAllRanges();
+            sel.addRange(savedSelectionRange);
+            // ボックス全体が太字設定の場合は一旦解除して部分切り替え可能にする
+            if (content.style.fontWeight === '700' || content.style.fontWeight === 'bold') {
+                const fullRange = document.createRange();
+                fullRange.selectNodeContents(content);
+                content.style.fontWeight = '400';
+                const bWrap = document.createElement('b');
+                bWrap.appendChild(fullRange.extractContents());
+                content.appendChild(bWrap);
+            }
+            document.execCommand('bold', false, null);
+            saveCurrentSelectionIfInside();
+        } else {
+            const isCurrentlyBold = content.style.fontWeight === '700' || content.style.fontWeight === 'bold';
+            content.style.fontWeight = isCurrentlyBold ? '400' : '700';
+            content.querySelectorAll('b, strong').forEach(el => {
+                el.style.fontWeight = isCurrentlyBold ? '400' : '700';
+            });
+            boldBtn.classList.toggle('active', !isCurrentlyBold);
+        }
     });
 
     italicBtn.addEventListener('click', (e) => {
         e.stopPropagation();
-        const isCurrentlyItalic = content.style.fontStyle === 'italic';
-        content.style.fontStyle = isCurrentlyItalic ? 'normal' : 'italic';
-        italicBtn.classList.toggle('active', !isCurrentlyItalic);
+        if (hasActiveNonCollapsedRange()) {
+            const sel = window.getSelection();
+            sel.removeAllRanges();
+            sel.addRange(savedSelectionRange);
+            document.execCommand('italic', false, null);
+            saveCurrentSelectionIfInside();
+        } else {
+            const isCurrentlyItalic = content.style.fontStyle === 'italic';
+            content.style.fontStyle = isCurrentlyItalic ? 'normal' : 'italic';
+            italicBtn.classList.toggle('active', !isCurrentlyItalic);
+        }
     });
 
     underlineBtn.addEventListener('click', (e) => {
         e.stopPropagation();
-        const isCurrentlyUnderline = content.style.textDecoration.includes('underline');
-        content.style.textDecoration = isCurrentlyUnderline ? 'none' : 'underline';
-        underlineBtn.classList.toggle('active', !isCurrentlyUnderline);
+        if (hasActiveNonCollapsedRange()) {
+            const sel = window.getSelection();
+            sel.removeAllRanges();
+            sel.addRange(savedSelectionRange);
+            document.execCommand('underline', false, null);
+            saveCurrentSelectionIfInside();
+        } else {
+            const isCurrentlyUnderline = (content.style.textDecoration || '').includes('underline');
+            content.style.textDecoration = isCurrentlyUnderline ? 'none' : 'underline';
+            underlineBtn.classList.toggle('active', !isCurrentlyUnderline);
+        }
+    });
+
+    // フォントサイズ入力（部分選択がある場合は選択文字のみ、未選択時はボックス全体に適用）
+    sizeInput.addEventListener('mousedown', (e) => {
+        e.stopPropagation();
+        saveCurrentSelectionIfInside();
     });
 
     const applyFontSize = () => {
         let val = parseInt(sizeInput.value, 10);
-        if (isNaN(val)) val = 18;
+        if (isNaN(val)) return;
         val = Math.max(8, Math.min(120, val));
-        content.style.fontSize = `${val}px`;
+
+        if (savedSelectionRange && !savedSelectionRange.collapsed && content.contains(savedSelectionRange.commonAncestorContainer)) {
+            const updatedRange = applyFontSizeToSelectionRange(content, savedSelectionRange, val);
+            if (updatedRange) {
+                savedSelectionRange = updatedRange;
+            }
+        } else {
+            content.style.fontSize = `${val}px`;
+            content.querySelectorAll('span').forEach(sp => {
+                if (sp.style && sp.style.fontSize) sp.style.fontSize = `${val}px`;
+            });
+        }
     };
+
     sizeInput.addEventListener('input', applyFontSize);
     sizeInput.addEventListener('change', () => {
         let val = parseInt(sizeInput.value, 10);
         if (isNaN(val)) val = 18;
         val = Math.max(8, Math.min(120, val));
         sizeInput.value = String(val);
-        content.style.fontSize = `${val}px`;
+        applyFontSize();
     });
 
     const updateAlignment = (newAlign) => {
@@ -2262,6 +2617,7 @@ function createDraggableTextBox(initialText = 'テキストを入力', x = 1240,
         origLeft = parseFloat(box.style.left) || 0;
         origTop = parseFloat(box.style.top) || 0;
         e.preventDefault();
+        e.stopPropagation();
     });
 
     window.addEventListener('mousemove', (e) => {
@@ -2286,6 +2642,11 @@ function createDraggableTextBox(initialText = 'テキストを入力', x = 1240,
             hasMovedDuringDrag = false;
             return;
         }
+        // 文字を範囲選択した直後のクリックでは前後入れ替えを発火させない
+        const sel = window.getSelection();
+        if (sel && sel.rangeCount > 0 && !sel.getRangeAt(0).collapsed) {
+            return;
+        }
         toggleOverlappingTextBoxZOrder(box);
     });
 
@@ -2303,6 +2664,45 @@ addTextBtn.addEventListener('click', () => {
         showInlineInfo(textBoxStatus, `テキストボックスを追加予約しました（現在 ${pendingTextBoxesCount} 個）。\n「ブラケットを描画する」を押すと配置されます。`);
     }
 });
+
+// === プレビュー画面のドラッグによる視点移動（パン操作） ===
+if (viewport) {
+    let isPanningViewport = false;
+    let panStartX = 0;
+    let panStartY = 0;
+    let panStartScrollLeft = 0;
+    let panStartScrollTop = 0;
+
+    viewport.addEventListener('mousedown', (e) => {
+        if (e.button !== 0) return;
+        // 対戦カードやテキストボックス、入力要素の上ではパン操作を開始しない
+        if (e.target.closest('.match-box') || e.target.closest('.draggable-text-box') || e.target.closest('button') || e.target.closest('input')) {
+            return;
+        }
+        isPanningViewport = true;
+        panStartX = e.clientX;
+        panStartY = e.clientY;
+        panStartScrollLeft = viewport.scrollLeft;
+        panStartScrollTop = viewport.scrollTop;
+        viewport.classList.add('is-panning');
+        e.preventDefault();
+    });
+
+    window.addEventListener('mousemove', (e) => {
+        if (!isPanningViewport) return;
+        const dx = e.clientX - panStartX;
+        const dy = e.clientY - panStartY;
+        viewport.scrollLeft = panStartScrollLeft - dx;
+        viewport.scrollTop = panStartScrollTop - dy;
+    });
+
+    window.addEventListener('mouseup', () => {
+        if (isPanningViewport) {
+            isPanningViewport = false;
+            viewport.classList.remove('is-panning');
+        }
+    });
+}
 
 // === 対戦カード個別編集モーダル（DQ書き込み ＆ 配信台チャンネル名設定） ===
 function openMatchEditModal(poolName, matchLabel, p1Name, p2Name, defaultStreamInfo, defaultDqInfo) {
@@ -2622,7 +3022,7 @@ function indexToMatchLabel(idx) {
 }
 
 // === 特定のPoolのブラケットDOM一式を構築するコア関数（6〜40名 ダブル＆シングル完全対応） ===
-function buildBracketSheetContent(poolName, bracketContainerEl, rosterContainerEl, targetSheetEl = previewArea) {
+function buildBracketSheetContent(poolName, bracketContainerEl, rosterContainerEl, targetSheetEl = previewArea, overrideOrientation = null) {
     const currentPool = poolsData[poolName];
     if (!currentPool) return { canvasWidth: 2362, canvasHeight: 1670, boxHeightPx: 48 };
 
@@ -4019,9 +4419,10 @@ function buildBracketSheetContent(poolName, bracketContainerEl, rosterContainerE
         });
     });
 
-    // === 用紙サイズ・スリム幅の計算 ===
-    const effectiveMaxCount = getEffectiveMaxPlayerCount();
-    const isPortraitLayout = (printOrientationSelect.value === 'portrait') || (effectiveMaxCount >= 25 && printOrientationSelect.value !== 'landscape');
+    // === 用紙サイズ・向きの計算（6〜12人：A4横 / 13〜24人：A3横 / 25〜40人：A3縦） ===
+    const effectiveCountForPool = getEffectivePlayerCountForPool(poolName);
+    const activeOrientation = overrideOrientation || printOrientationSelect.value || (effectiveCountForPool >= 25 ? 'portrait' : 'landscape');
+    const isPortraitLayout = (activeOrientation === 'portrait');
 
     let boxHeightPx = 48;
     let colWidthPx = 244;
@@ -4311,10 +4712,12 @@ async function downloadPoolsAsPdfDirect(targetPoolNames, triggerBtn, downloadFil
     isPrintingMode = true;
     applyPrintAndDrawOptions();
 
-    const size = printSizeSelect.value;
-    const orientation = printOrientationSelect.value;
-    const marginType = printMarginSelect.value;
+    const isUsingRecommendedSettings =
+        printSizeSelect.value === recommendedPrintConfig.size &&
+        printOrientationSelect.value === recommendedPrintConfig.orientation &&
+        printMarginSelect.value === recommendedPrintConfig.margin;
 
+    const marginType = printMarginSelect.value;
     const marginMapMm = { standard: 3.5, wide: 8, narrow: 1.5 };
     const marginMm = marginMapMm[marginType] ?? 3.5;
 
@@ -4327,12 +4730,6 @@ async function downloadPoolsAsPdfDirect(targetPoolNames, triggerBtn, downloadFil
         B5: { long: 257, short: 182 },
         A5: { long: 210, short: 148 }
     };
-    const dim = paperDimensionsMm[size] || paperDimensionsMm.A3;
-    const pageW_mm = orientation === 'landscape' ? dim.long : dim.short;
-    const pageH_mm = orientation === 'landscape' ? dim.short : dim.long;
-
-    const availW_mm = Math.max(20, pageW_mm - marginMm * 2);
-    const availH_mm = Math.max(20, pageH_mm - marginMm * 2);
 
     const isSingle = elimFormatSelect.value === 'single';
     const wCount = winnersAdvanceCount.value;
@@ -4351,12 +4748,7 @@ async function downloadPoolsAsPdfDirect(targetPoolNames, triggerBtn, downloadFil
 
     try {
         const { jsPDF } = window.jspdf;
-        const pdf = new jsPDF({
-            orientation: orientation === 'landscape' ? 'l' : 'p',
-            unit: 'mm',
-            format: [pageW_mm, pageH_mm],
-            compress: true
-        });
+        let pdf = null;
 
         for (let idx = 0; idx < targetPoolNames.length; idx++) {
             const pName = targetPoolNames[idx];
@@ -4369,8 +4761,31 @@ async function downloadPoolsAsPdfDirect(targetPoolNames, triggerBtn, downloadFil
                     : 'PDF生成中...';
             }
 
-            if (idx > 0) {
-                pdf.addPage([pageW_mm, pageH_mm], orientation === 'landscape' ? 'l' : 'p');
+            // 推奨設定モード時は各プールの有効人数（6〜12人:A4横 / 13〜24人:A3横 / 25〜40人:A3縦）を適用
+            let pageSize = printSizeSelect.value;
+            let pageOrientation = printOrientationSelect.value;
+            if (isUsingRecommendedSettings) {
+                const effCount = getEffectivePlayerCountForPool(pName);
+                const poolRec = getRecommendedPrintSettings(effCount, elimFormatSelect.value || 'double');
+                pageSize = poolRec.size;
+                pageOrientation = poolRec.orientation;
+            }
+
+            const dim = paperDimensionsMm[pageSize] || paperDimensionsMm.A3;
+            const pageW_mm = pageOrientation === 'landscape' ? dim.long : dim.short;
+            const pageH_mm = pageOrientation === 'landscape' ? dim.short : dim.long;
+            const availW_mm = Math.max(20, pageW_mm - marginMm * 2);
+            const availH_mm = Math.max(20, pageH_mm - marginMm * 2);
+
+            if (!pdf) {
+                pdf = new jsPDF({
+                    orientation: pageOrientation === 'landscape' ? 'l' : 'p',
+                    unit: 'mm',
+                    format: [pageW_mm, pageH_mm],
+                    compress: true
+                });
+            } else {
+                pdf.addPage([pageW_mm, pageH_mm], pageOrientation === 'landscape' ? 'l' : 'p');
             }
 
             batchPrintContainer.innerHTML = '';
@@ -4392,7 +4807,7 @@ async function downloadPoolsAsPdfDirect(targetPoolNames, triggerBtn, downloadFil
             const bContainer = createElement('div', 'flex flex-col justify-between w-full');
             const rContainer = createElement('div', 'absolute top-0 right-0 z-10');
 
-            const { canvasWidth, canvasHeight } = buildBracketSheetContent(pName, bContainer, rContainer, sheet);
+            const { canvasWidth, canvasHeight } = buildBracketSheetContent(pName, bContainer, rContainer, sheet, pageOrientation);
             body.append(bContainer, rContainer);
             sheet.append(header, body);
 
@@ -4440,7 +4855,9 @@ async function downloadPoolsAsPdfDirect(targetPoolNames, triggerBtn, downloadFil
             pdf.addImage(dataUrl, 'JPEG', offsetX_mm, offsetY_mm, drawW_mm, drawH_mm, undefined, 'FAST');
         }
 
-        pdf.save(downloadFileName);
+        if (pdf) {
+            pdf.save(downloadFileName);
+        }
     } catch (err) {
         console.error('PDF直接生成エラー:', err);
         showInlineError(exportErrorMsg, 'PDFファイルの生成に失敗しました。');
