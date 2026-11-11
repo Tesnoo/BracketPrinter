@@ -27,6 +27,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html-to-image/1.11.11/html-to-image.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
     <style>
         :root {
@@ -612,12 +613,20 @@
 <body class="bg-gray-200 h-screen flex overflow-hidden">
     <!-- 左側：操作パネル -->
     <div id="sidebar-panel" class="w-80 shrink-0 bg-white shadow-lg overflow-y-auto z-20 h-full">
-        <div class="p-5 flex flex-col gap-4">
+        <div class="p-5 flex flex-col gap-3.5">
+            <!-- タイトル＆サイトアイコン -->
             <div class="flex items-center gap-2.5 shrink-0">
                 <img src="image/BracketPrinter_logo.png" onerror="this.onerror=null;this.src='../image/BracketPrinter_logo.png';" alt="Bracket Printer Logo" class="w-8 h-8 object-contain">
                 <h1 class="text-2xl font-bold text-gray-800">Bracket Printer</h1>
             </div>
 
+            <!-- 使い方ガイドボタン（別タブで how-to-use.html を開く） -->
+            <a href="https://tesnoo.github.io/BracketPrinter/how-to-use.html" target="_blank" rel="noopener noreferrer" class="shrink-0 w-full bg-pink-50 hover:bg-pink-100 text-[#DB2777] border border-pink-200 font-bold text-xs py-2 px-3 rounded-lg shadow-sm transition flex items-center justify-center gap-1.5">
+                <span>📖 使い方を確認する</span>
+                <span class="text-[10px]">↗</span>
+            </a>
+
+            <!-- 大会プリセット＆大会名設定 -->
             <div class="flex flex-col gap-2 bg-gray-50 p-2.5 rounded border border-gray-200 text-xs shrink-0">
                 <div class="flex flex-col gap-1">
                     <label class="font-bold text-gray-700">大会プリセット（任意）</label>
@@ -994,7 +1003,7 @@
         </div>
     </div>
 
-    <!-- 対戦カード個別編集モーダル -->
+    <!-- 対戦カード個別編集モーダル（ストリームキュー番号欄を削除しチャンネル名のみに簡略化） -->
     <div id="match-edit-modal" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
         <div class="bg-white rounded-lg shadow-xl w-full max-w-md overflow-hidden border border-gray-200">
             <div class="bg-gray-800 text-white px-4 py-2.5 flex justify-between items-center">
@@ -1043,10 +1052,6 @@
                             <input type="text" id="modal-stream-channel" placeholder="例: EGS_Smash / EastGeekSmash" class="w-full border border-gray-300 rounded p-1.5 bg-white text-xs">
                             <div id="modal-stream-suggestions" class="flex flex-wrap gap-1 mt-0.5"></div>
                         </div>
-                        <div class="flex flex-col gap-1">
-                            <span class="text-[11px] font-semibold text-gray-700">ストリームキュー番号（任意・手動入力）</span>
-                            <input type="text" id="modal-stream-queue" inputmode="numeric" placeholder="例: 1（空欄の場合は番号なし）" class="w-full border border-gray-300 rounded p-1.5 bg-white text-xs">
-                        </div>
                     </div>
                 </div>
 
@@ -1062,7 +1067,7 @@
         </div>
     </div>
 
-    <!-- 複数プールPDF一括印刷用の非表示コンテナ -->
+    <!-- 複数プールPDF一括生成用の非表示コンテナ -->
     <div id="batch-print-container" class="hidden"></div>
 
     <script src="app.js"></script>
