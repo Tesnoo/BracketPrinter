@@ -201,6 +201,24 @@ const BUILTIN_BP_PROFILES = {
                 align: 'left'
             }
         ]
+    },
+    'テスト用': {
+        profileVersion: '1.0',
+        presetKey: 'テスト用',
+        profileFileUrl: 'presets/test.bp',
+        logoFile: 'image/BracketPrinter_logo_mono.png',
+        logoRawUrl: 'https://raw.githubusercontent.com/Tesnoo/BracketPrinter/main/image/BracketPrinter_logo_mono.png',
+        tournamentName: 'Bracket Printer Test Page',
+        urlDouble: 'https://www.start.gg/tournament/bracket-printer-test-page/event/6-48-double-elimination',
+        urlSingle: 'https://www.start.gg/tournament/bracket-printer-test-page/event/6-48-single-elimination',
+        defaultToken: 'e86015bd1bc825e08c1bf974b7d476ee',
+        winnersAdvance: '0',
+        losersAdvance: '0',
+        boConfig: {
+            baseBo: '5',
+            enableChange: false
+        },
+        notes: []
     }
 };
 
@@ -213,6 +231,8 @@ const createPresetBtn = document.getElementById('save-bp-btn');
 
 const kurobraGameWrapper = document.getElementById('kurobra-game-wrapper');
 const kurobraGameSelect = document.getElementById('kurobra-game-select');
+const testPresetFormatWrapper = document.getElementById('test-preset-format-wrapper');
+const testPresetFormatSelect = document.getElementById('test-preset-format-select');
 const presetNumberWrapper = document.getElementById('preset-number-wrapper');
 const presetNumberInput = document.getElementById('preset-number-input');
 const tournamentNameInput = document.getElementById('tournament-name-input');
@@ -314,6 +334,7 @@ function isTokenFormatValid(tokenStr) {
 
 if (startggTokenInput) {
     startggTokenInput.addEventListener('input', () => {
+        if (presetSelect && presetSelect.value === 'テスト用') return;
         const val = startggTokenInput.value.trim();
         if (val && !isTokenFormatValid(val)) {
             showInlineError(tokenErrorMsg, '無効な値です。');
@@ -322,6 +343,53 @@ if (startggTokenInput) {
             if (val) localStorage.setItem('bracket_printer_startgg_token', val);
         }
     });
+
+    // 「テスト用」プリセット選択時はトークン欄のコピー・切り取り・右クリック・全選択を完全に禁止
+    ['copy', 'cut', 'contextmenu', 'dragstart', 'selectstart'].forEach(evName => {
+        startggTokenInput.addEventListener(evName, (e) => {
+            if (presetSelect && presetSelect.value === 'テスト用') {
+                e.preventDefault();
+            }
+        });
+    });
+    startggTokenInput.addEventListener('keydown', (e) => {
+        if (presetSelect && presetSelect.value === 'テスト用') {
+            if (e.ctrlKey || e.metaKey || e.key !== 'Tab') {
+                e.preventDefault();
+            }
+        }
+    });
+}
+
+// === 「テスト用」プリセット選択時のロック制御ヘルパー ===
+function setTestPresetLockState(isTestPreset) {
+    if (startggTokenInput) {
+        if (isTestPreset) {
+            startggTokenInput.type = 'password';
+            startggTokenInput.value = BUILTIN_BP_PROFILES['テスト用'].defaultToken;
+            startggTokenInput.readOnly = true;
+            startggTokenInput.classList.add('bg-gray-100', 'text-gray-500', 'cursor-not-allowed', 'select-none');
+            hideInlineMessage(tokenErrorMsg);
+        } else {
+            startggTokenInput.readOnly = false;
+            startggTokenInput.classList.remove('bg-gray-100', 'text-gray-500', 'cursor-not-allowed', 'select-none');
+            startggTokenInput.value = localStorage.getItem('bracket_printer_startgg_token') || '';
+        }
+    }
+
+    if (tournamentNameInput) {
+        tournamentNameInput.readOnly = Boolean(isTestPreset);
+        tournamentNameInput.classList.toggle('bg-gray-100', Boolean(isTestPreset));
+        tournamentNameInput.classList.toggle('text-gray-500', Boolean(isTestPreset));
+        tournamentNameInput.classList.toggle('cursor-not-allowed', Boolean(isTestPreset));
+    }
+
+    if (elimFormatSelect) {
+        elimFormatSelect.disabled = Boolean(isTestPreset);
+        elimFormatSelect.classList.toggle('bg-gray-100', Boolean(isTestPreset));
+        elimFormatSelect.classList.toggle('text-gray-500', Boolean(isTestPreset));
+        elimFormatSelect.classList.toggle('cursor-not-allowed', Boolean(isTestPreset));
+    }
 }
 
 if (startggUrlInput) {
@@ -474,14 +542,49 @@ function loadPresetLogo(presetConfig, presetKey) {
 // === .bp プロファイルオブジェクトを現在のUI・設定に反映 ===
 function applyBpProfileObject(profile, applyBoAndNotes = true) {
     if (!profile) return;
+    const isTestPreset = (profile.presetKey === 'テスト用' || profile.presetId === 'テスト用');
     const numStr = presetNumberInput ? presetNumberInput.value.trim() : '';
     const kurobraGameMode = kurobraGameSelect ? kurobraGameSelect.value : 'sp';
+    const testFormatMode = testPresetFormatSelect ? testPresetFormatSelect.value : 'double';
 
     const replaceNumberToken = (tpl) => {
         if (!tpl) return '';
         if (!numStr) return tpl.replace(/#?\[N\]/g, '').replace(/-\[N\]/g, '').trim();
         return tpl.replace(/\[N\]/g, numStr);
     };
+
+    if (isTestPreset) {
+        setTestPresetLockState(true);
+        if (tournamentNameInput) {
+            tournamentNameInput.value = profile.tournamentName || 'Bracket Printer Test Page';
+        }
+        if (startggUrlInput) {
+            startggUrlInput.value = (testFormatMode === 'single')
+                ? (profile.urlSingle || BUILTIN_BP_PROFILES['テスト用'].urlSingle)
+                : (profile.urlDouble || BUILTIN_BP_PROFILES['テスト用'].urlDouble);
+            hideInlineMessage(urlErrorMsg);
+        }
+        if (elimFormatSelect) {
+            elimFormatSelect.value = testFormatMode;
+            const isSingle = testFormatMode === 'single';
+            losersAdvanceWrapper.classList.toggle('hidden', isSingle);
+            losersRoundChangeBlock.classList.toggle('hidden', isSingle);
+        }
+        if (applyBoAndNotes) {
+            if (winnersAdvanceCount) winnersAdvanceCount.value = '0';
+            if (losersAdvanceCount) losersAdvanceCount.value = '0';
+            if (targetPhaseInput) targetPhaseInput.value = '';
+            updateTargetPhaseInputState();
+            setBoConfiguration('5', false);
+            customTextsLayer.innerHTML = '';
+            updateRecommendedPrintUI(true);
+        }
+        refreshRenderedHeaderTitle();
+        updateGenerateButtonState();
+        return;
+    }
+
+    setTestPresetLockState(false);
 
     if (tournamentNameInput) {
         if (profile.tournamentName !== undefined && !profile.nameTemplate) {
@@ -612,21 +715,35 @@ if (presetSelect) {
         hideInlineMessage(presetLoadStatus);
         const selectedPreset = presetSelect.value;
         if (!selectedPreset) {
+            setTestPresetLockState(false);
             if (presetNumberWrapper) presetNumberWrapper.classList.add('hidden');
             if (kurobraGameWrapper) kurobraGameWrapper.classList.add('hidden');
+            if (testPresetFormatWrapper) testPresetFormatWrapper.classList.add('hidden');
             if (presetNumberInput) presetNumberInput.value = '';
             if (tournamentNameInput) tournamentNameInput.placeholder = '例: Vic-Seekers #1';
             return;
         }
 
-        if (presetNumberWrapper) presetNumberWrapper.classList.remove('hidden');
+        const isTestPreset = (selectedPreset === 'テスト用');
+        if (presetNumberWrapper) presetNumberWrapper.classList.toggle('hidden', isTestPreset);
         if (kurobraGameWrapper) {
             kurobraGameWrapper.classList.toggle('hidden', selectedPreset !== 'クロブラ');
         }
+        if (testPresetFormatWrapper) {
+            testPresetFormatWrapper.classList.toggle('hidden', !isTestPreset);
+        }
 
         await loadAndApplyPresetProfile(selectedPreset, true);
-        if (presetNumberInput) {
+        if (!isTestPreset && presetNumberInput) {
             presetNumberInput.focus();
+        }
+    });
+}
+
+if (testPresetFormatSelect) {
+    testPresetFormatSelect.addEventListener('change', () => {
+        if (presetSelect && presetSelect.value === 'テスト用') {
+            applyBpProfileObject(BUILTIN_BP_PROFILES['テスト用'], true);
         }
     });
 }
@@ -1967,7 +2084,12 @@ async function populatePoolsFromStartggPhase(phaseObj, targetGroupId = null) {
     });
 
     const autoMessages = [];
-    const bType = phaseObj.bracketType || groups[0]?.bracketType || '';
+    const isTestPresetActive = (presetSelect && presetSelect.value === 'テスト用');
+    const forcedTestFormat = (isTestPresetActive && testPresetFormatSelect) ? testPresetFormatSelect.value : null;
+    const bType = forcedTestFormat
+        ? (forcedTestFormat === 'single' ? 'SINGLE_ELIMINATION' : 'DOUBLE_ELIMINATION')
+        : (phaseObj.bracketType || groups[0]?.bracketType || '');
+
     if (bType === 'DOUBLE_ELIMINATION') {
         elimFormatSelect.value = 'double';
         losersAdvanceWrapper.classList.remove('hidden');
@@ -1980,6 +2102,10 @@ async function populatePoolsFromStartggPhase(phaseObj, targetGroupId = null) {
         losersAdvanceCount.value = '0';
         losersRoundSelect.value = 'none';
         autoMessages.push('形式: シングルエリミ');
+    }
+
+    if (isTestPresetActive) {
+        setTestPresetLockState(true);
     }
 
     const totalGroupsCount = groups.length;
@@ -2001,7 +2127,16 @@ async function populatePoolsFromStartggPhase(phaseObj, targetGroupId = null) {
         }
     }
 
-    if ((isFinalPhase && totalGroupsCount === 1) || (perPoolAdvance === 0 && isFinalPhase)) {
+    if (isTestPresetActive && perPoolAdvance === 0) {
+        if (winnersAdvanceCount.value === '') winnersAdvanceCount.value = '0';
+        if (elimFormatSelect.value !== 'single' && losersAdvanceCount.value === '') {
+            losersAdvanceCount.value = '0';
+        }
+        if (isGrandFinalModeSelected()) {
+            targetPhaseInput.value = '';
+        }
+        autoMessages.push('通過人数: W0 / L0 (デフォルト)');
+    } else if ((isFinalPhase && totalGroupsCount === 1) || (perPoolAdvance === 0 && isFinalPhase)) {
         winnersAdvanceCount.value = '0';
         if (elimFormatSelect.value !== 'single') {
             losersAdvanceCount.value = '0';
@@ -2118,7 +2253,9 @@ fetchStartggBtn.addEventListener('click', async () => {
         return;
     }
 
-    localStorage.setItem('bracket_printer_startgg_token', token);
+    if (!presetSelect || presetSelect.value !== 'テスト用') {
+        localStorage.setItem('bracket_printer_startgg_token', token);
+    }
 
     const originalBtnText = fetchStartggBtn.textContent;
     fetchStartggBtn.disabled = true;
