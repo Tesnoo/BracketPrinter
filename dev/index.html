@@ -50,7 +50,7 @@
             display: inline-block;
         }
 
-        /* プレビュー画面：横スクロールバーを非表示にしドラッグ視点移動に対応 */
+        /* プレビュー画面：横スクロールバーを非表示にし、ドラッグで視点移動可能にする */
         #preview-viewport {
             overflow-x: hidden;
             overflow-y: auto;
@@ -59,6 +59,10 @@
         }
         #preview-viewport.is-panning {
             cursor: grabbing !important;
+        }
+        #preview-viewport::-webkit-scrollbar:horizontal {
+            display: none;
+            height: 0;
         }
 
         @media print {
@@ -546,7 +550,7 @@
             line-height: 25px;
         }
 
-        /* === ドラッグ可能な高機能テキストボックス用スタイル === */
+        /* === ドラッグ可能な高機能テキストボックス用スタイル（部分選択リッチテキスト対応） === */
         .draggable-text-box {
             position: absolute;
             z-index: 30;
@@ -555,6 +559,7 @@
             border-radius: 4px;
             min-width: 240px;
             cursor: default;
+            user-select: text;
         }
         .draggable-text-box:hover {
             border-color: #DB2777;
@@ -596,7 +601,7 @@
             border-color: #DB2777;
         }
         .text-size-input {
-            width: 42px;
+            width: 44px;
             border: 1px solid #d1d5db;
             border-radius: 3px;
             padding: 1px 3px;
@@ -614,23 +619,22 @@
             outline: none;
             min-height: 32px;
             color: #000000;
-            line-height: 1.4;
+            line-height: 1.35;
             white-space: pre-wrap;
             word-break: break-word;
             cursor: text;
             user-select: text;
         }
-        /* 日本語フォントでも斜体(italic)が視覚的に傾くように補正 */
-        .draggable-text-content[style*="italic"],
+        .draggable-text-content b,
+        .draggable-text-content strong {
+            font-weight: 700;
+        }
         .draggable-text-content i,
-        .draggable-text-content em,
-        .draggable-text-content span[style*="italic"] {
-            display: inline-block;
-            transform: skewX(-11deg);
+        .draggable-text-content em {
             font-style: italic;
         }
-        .draggable-text-content[style*="italic"] {
-            display: block;
+        .draggable-text-content u {
+            text-decoration: underline;
         }
     </style>
 
@@ -639,18 +643,20 @@
 <body class="bg-gray-200 h-screen flex overflow-hidden">
     <!-- 左側：操作パネル -->
     <div id="sidebar-panel" class="w-80 shrink-0 bg-white shadow-lg overflow-y-auto z-20 h-full">
-        <div class="p-5 flex flex-col gap-4">
+        <div class="p-5 flex flex-col gap-3.5">
+            <!-- タイトル＆サイトアイコン -->
             <div class="flex items-center gap-2.5 shrink-0">
                 <img src="image/BracketPrinter_logo.png" onerror="this.onerror=null;this.src='../image/BracketPrinter_logo.png';" alt="Bracket Printer Logo" class="w-8 h-8 object-contain">
                 <h1 class="text-2xl font-bold text-gray-800">Bracket Printer</h1>
             </div>
 
-            <!-- 使い方ガイドを開くボタン -->
-            <a href="https://tesnoo.github.io/BracketPrinter/how-to-use.html" target="_blank" rel="noopener noreferrer" class="w-full bg-pink-50 hover:bg-pink-100 text-[#DB2777] border border-pink-200 font-bold py-2 px-3 rounded shadow-sm transition text-xs flex items-center justify-center gap-1.5 shrink-0">
+            <!-- 使い方ガイドボタン（別タブで how-to-use.html を開く） -->
+            <a href="https://tesnoo.github.io/BracketPrinter/how-to-use.html" target="_blank" rel="noopener noreferrer" class="shrink-0 w-full bg-pink-50 hover:bg-pink-100 text-[#DB2777] border border-pink-200 font-bold text-xs py-2 px-3 rounded-lg shadow-sm transition flex items-center justify-center gap-1.5">
                 <span>📖 使い方を確認する</span>
                 <span class="text-[10px]">↗</span>
             </a>
 
+            <!-- 大会プリセット＆大会名設定 -->
             <div class="flex flex-col gap-2 bg-gray-50 p-2.5 rounded border border-gray-200 text-xs shrink-0">
                 <div class="flex flex-col gap-1.5">
                     <label class="font-bold text-gray-700">大会プリセット（任意）</label>
@@ -870,90 +876,6 @@
             </div>
 
             <hr class="border-gray-200 shrink-0">
-
-            <!-- 印刷オプション -->
-            <div class="border border-gray-200 rounded-lg shrink-0">
-                <button type="button" class="accordion-toggle w-full flex justify-between items-center p-2.5 bg-gray-50 hover:bg-gray-100 font-bold text-xs text-gray-700 transition rounded-t-lg">
-                    <span class="flex items-center gap-1.5">
-                        <span>🖨️ 印刷オプション</span>
-                        <span id="print-rec-status-badge" class="bg-pink-100 text-[#DB2777] border border-pink-200 text-[10px] px-1.5 py-0.5 rounded font-bold">★推奨設定</span>
-                    </span>
-                    <i class="accordion-arrow not-italic transform transition-transform duration-200 inline-block">▼</i>
-                </button>
-                <div class="accordion-content bg-white px-3 py-2.5 flex flex-col gap-2.5 text-xs border-t border-gray-200 rounded-b-lg" style="display: none;">
-                    <div id="print-rec-reason-box" class="bg-pink-50 border border-pink-200 rounded p-1.5 text-[11px] text-pink-900 flex items-center justify-between">
-                        <span id="print-rec-reason-text">💡 13〜24人 トーナメントの推奨設定</span>
-                        <button id="reset-print-rec-btn" type="button" class="hidden text-[10px] bg-[#DB2777] text-white px-1.5 py-0.5 rounded font-bold hover:bg-pink-700 transition">推奨に戻す</button>
-                    </div>
-
-                    <div>
-                        <div class="flex justify-between items-center mb-0.5">
-                            <label class="block font-semibold text-gray-600">用紙サイズ</label>
-                            <span id="rec-size-badge" class="text-[10px] font-bold text-[#DB2777] bg-pink-50 px-1.5 py-0.2 rounded border border-pink-200">★推奨: A3</span>
-                        </div>
-                        <select id="print-size" class="w-full border border-gray-300 rounded p-1 bg-white">
-                            <option value="A3" selected>A3 ★推奨</option>
-                            <option value="B4">B4</option>
-                            <option value="A4">A4</option>
-                            <option value="B5">B5</option>
-                            <option value="A5">A5</option>
-                        </select>
-                    </div>
-                    <div>
-                        <div class="flex justify-between items-center mb-0.5">
-                            <label class="block font-semibold text-gray-600">印刷の向き</label>
-                            <span id="rec-orientation-badge" class="text-[10px] font-bold text-[#DB2777] bg-pink-50 px-1.5 py-0.2 rounded border border-pink-200">★推奨: 横</span>
-                        </div>
-                        <select id="print-orientation" class="w-full border border-gray-300 rounded p-1 bg-white">
-                            <option value="landscape" selected>横 (Landscape) ★推奨</option>
-                            <option value="portrait">縦 (Portrait)</option>
-                        </select>
-                    </div>
-                    <div>
-                        <div class="flex justify-between items-center mb-0.5">
-                            <label class="block font-semibold text-gray-600">余白設定</label>
-                            <span class="text-[10px] font-bold text-[#DB2777] bg-pink-50 px-1.5 py-0.2 rounded border border-pink-200">★推奨: 標準</span>
-                        </div>
-                        <select id="print-margin" class="w-full border border-gray-300 rounded p-1 bg-white">
-                            <option value="standard" selected>標準 ★推奨</option>
-                            <option value="wide">広い</option>
-                            <option value="narrow">狭い</option>
-                        </select>
-                    </div>
-
-                    <div class="pt-1.5 border-t border-gray-200">
-                        <label class="flex items-center gap-1.5 cursor-pointer font-semibold text-gray-700">
-                            <input type="checkbox" id="show-phase-name-checkbox" checked class="accent-[#DB2777]">
-                            <span>ヘッダーにフェーズ名を表示する</span>
-                        </label>
-                    </div>
-                </div>
-            </div>
-
-            <!-- 描画オプション -->
-            <div class="border border-gray-200 rounded-lg shrink-0">
-                <button type="button" class="accordion-toggle w-full flex justify-between items-center p-2.5 bg-gray-50 hover:bg-gray-100 font-bold text-xs text-gray-700 transition rounded-t-lg">
-                    <span>🎨 描画オプション（任意）</span>
-                    <i class="accordion-arrow not-italic transform transition-transform duration-200 inline-block">▼</i>
-                </button>
-                <div class="accordion-content bg-white px-3 py-2.5 flex flex-col gap-2.5 text-xs border-t border-gray-200 rounded-b-lg" style="display: none;">
-                    <div>
-                        <div class="flex justify-between items-center mb-0.5">
-                            <label class="block font-semibold text-gray-600">右下にロゴを追加</label>
-                            <button id="clear-logo-btn" type="button" class="hidden text-[10px] text-red-500 hover:underline">クリア</button>
-                        </div>
-                        <input type="file" id="logo-upload" accept="image/png" class="block w-full text-[10px] text-gray-500 file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200 cursor-pointer border border-gray-300 rounded">
-                        <p id="logo-status" class="text-[10px] text-green-600 font-bold mt-0.5 hidden whitespace-pre-line leading-relaxed"></p>
-                        <span class="text-[10px] text-gray-400 mt-0.5 block">※PNGファイルのみ対応（縦上限160px・超過時は自動縮小。カラー非対応）</span>
-                    </div>
-                    <div>
-                        <label class="block font-semibold text-gray-600 mb-0.5">テキストの追加</label>
-                        <button id="add-text-btn" type="button" class="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold py-1.5 px-2 rounded border border-gray-300 transition text-center">
-                            + テキストボックスを追加
-                        </button>
-                        <p id="text-box-status" class="text-[10px] text-blue-600 font-bold mt-0.5 hidden whitespace-pre-line leading-relaxed"></p>
-                        <span class="text-[10px] text-gray-400 mt-0.5 block">※文字の一部をドラッグまたはShift+矢印で選択してサイズ・装飾を個別変更できます</span>
-                    </div>
                     <div class="pt-2 border-t border-gray-200 flex flex-col gap-1.5">
                         <label class="font-semibold text-gray-600">対戦カード個別設定（DQ / 配信台）</label>
                         <div class="grid grid-cols-2 gap-1.5">
@@ -979,24 +901,6 @@
                             </div>
                         </div>
                     </div>
-                </div>
-            </div>
-
-            <hr class="border-gray-200 shrink-0">
-
-            <div class="flex flex-col gap-1.5 shrink-0">
-                <div class="flex justify-between items-center">
-                    <label class="text-xs font-bold text-gray-700">プレビュー表示倍率</label>
-                    <span id="zoom-value" class="text-xs font-mono font-bold text-gray-600">100%</span>
-                </div>
-                <input type="range" id="zoom-slider" min="20" max="120" value="100" step="1" class="w-full accent-[#DB2777] cursor-pointer">
-                <div class="flex gap-2 mt-0.5">
-                    <button id="zoom-fit-btn" type="button" class="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-bold py-1 px-2 rounded border border-gray-300 transition">
-                        画面に合わせる
-                    </button>
-                    <button id="zoom-reset-btn" type="button" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-bold py-1 px-2 rounded border border-gray-300 transition">
-                        100%
-                    </button>
                 </div>
             </div>
 
@@ -1116,7 +1020,7 @@
         </div>
     </div>
 
-    <!-- 複数プールPDF一括出力用の非表示コンテナ -->
+    <!-- 複数プールPDF一括生成用の非表示コンテナ -->
     <div id="batch-print-container" class="hidden"></div>
 
     <script src="app.js"></script>
