@@ -5557,3 +5557,294 @@ document.getElementById('export-all-pdf-btn').addEventListener('click', () => {
 
     downloadPoolsAsPdfDirect(poolKeys, document.getElementById('export-all-pdf-btn'));
 });
+
+// =========================================================================
+// 🛠️ メンテナンスモード制御 ＆ 所有者専用リモート切替システム（GitHub API連携）
+// =========================================================================
+const MAINT_GH_TOKEN_KEY = 'bracket_printer_maint_gh_token';
+const MAINT_GH_REPO_KEY = 'bracket_printer_maint_gh_repo';
+
+const maintenanceOverlay = document.getElementById('maintenance-overlay');
+const maintenanceTitleDisplay = document.getElementById('maintenance-title-display');
+const maintenanceMsgDisplay = document.getElementById('maintenance-msg-display');
+const maintenanceEtaBox = document.getElementById('maintenance-eta-box');
+const maintenanceEtaDisplay = document.getElementById('maintenance-eta-display');
+const maintenanceSecretTrigger = document.getElementById('maintenance-secret-trigger');
+
+const devMaintenanceBanner = document.getElementById('dev-maintenance-banner');
+const devBannerOpenAdminBtn = document.getElementById('dev-banner-open-admin-btn');
+const appBrandHeader = document.getElementById('app-brand-header');
+
+const maintenanceAdminModal = document.getElementById('maintenance-admin-modal');
+const maintAdminCloseBtn = document.getElementById('maint-admin-close-btn');
+const maintAdminCancelBtn = document.getElementById('maint-admin-cancel-btn');
+const maintAdminSaveBtn = document.getElementById('maint-admin-save-btn');
+const maintGithubTokenInput = document.getElementById('maint-github-token');
+const maintGithubRepoInput = document.getElementById('maint-github-repo');
+const maintEnableCheckbox = document.getElementById('maint-enable-checkbox');
+const maintTitleInput = document.getElementById('maint-title-input');
+const maintMessageInput = document.getElementById('maint-message-input');
+const maintEtaInput = document.getElementById('maint-eta-input');
+const maintAdminStatus = document.getElementById('maint-admin-status');
+
+let currentMaintenanceConfig = {
+    enabled: false,
+    title: 'ただいまメンテナンス中です',
+    message: '現在、システムの調整および不具合の修正作業を行っております。\nご不便をおかけいたしますが、復旧まで今しばらくお待ちください。',
+    eta: ''
+};
+
+// 現在のURLが開発環境（/dev/ フォルダや -dev リポジトリ、ローカル環境）かどうかを判定
+function isDevEnvironment() {
+    const path = window.location.pathname.toLowerCase();
+    const host = window.location.hostname.toLowerCase();
+    return (
+        path.includes('/dev/') ||
+        path.endsWith('/dev') ||
+        path.includes('bracketprinter-dev') ||
+        host.includes('-dev') ||
+        host === 'localhost' ||
+        host === '127.0.0.1'
+    );
+}
+
+// 取得したメンテナンス設定を画面に適用
+function applyMaintenanceStateToUI(config) {
+    if (!config) return;
+    currentMaintenanceConfig = {
+        enabled: Boolean(config.enabled),
+        title: config.title || 'ただいまメンテナンス中です',
+        message: config.message || '現在、システムの調整および不具合の修正作業を行っております。\nご不便をおかけいたしますが、復旧まで今しばらくお待ちください。',
+        eta: config.eta || ''
+    };
+
+    if (maintenanceTitleDisplay) {
+        maintenanceTitleDisplay.textContent = currentMaintenanceConfig.title;
+    }
+    if (maintenanceMsgDisplay) {
+        maintenanceMsgDisplay.textContent = currentMaintenanceConfig.message;
+    }
+    if (maintenanceEtaBox && maintenanceEtaDisplay) {
+        if (currentMaintenanceConfig.eta.trim() !== '') {
+            maintenanceEtaDisplay.textContent = currentMaintenanceConfig.eta.trim();
+            maintenanceEtaBox.classList.remove('hidden');
+        } else {
+            maintenanceEtaBox.classList.add('hidden');
+        }
+    }
+
+    if (currentMaintenanceConfig.enabled) {
+        if (isDevEnvironment()) {
+            // dev環境では画面ロックせず、上部に通知バーのみ表示して作業を継続可能にする
+            if (maintenanceOverlay) maintenanceOverlay.classList.add('hidden');
+            if (devMaintenanceBanner) devMaintenanceBanner.classList.remove('hidden');
+        } else {
+            // 一般公開環境では全面オーバーレイを表示して全操作をロック
+            if (maintenanceOverlay) maintenanceOverlay.classList.remove('hidden');
+            if (devMaintenanceBanner) devMaintenanceBanner.classList.add('hidden');
+        }
+    } else {
+        if (maintenanceOverlay) maintenanceOverlay.classList.add('hidden');
+        if (devMaintenanceBanner) devMaintenanceBanner.classList.add('hidden');
+    }
+}
+
+// maintenance.json をキャッシュなしで取得して状態を反映
+async function fetchAndCheckMaintenanceStatus() {
+    const stamp = Date.now();
+    const candidates = [
+        `maintenance.json?t=${stamp}`,
+        `../maintenance.json?t=${stamp}`
+    ];
+
+    for (const url of candidates) {
+        try {
+            const res = await fetch(url, { cache: 'no-store' });
+            if (res.ok) {
+                const data = await res.json();
+                if (data && typeof data.enabled === 'boolean') {
+                    applyMaintenanceStateToUI(data);
+                    return data;
+                }
+            }
+        } catch (_) {
+            // 次の候補パスを試行
+        }
+    }
+    return currentMaintenanceConfig;
+}
+
+// 管理者モーダルを開く
+async function openMaintenanceAdminModal() {
+    if (!maintenanceAdminModal) return;
+    hideInlineMessage(maintAdminStatus);
+
+    const savedGhToken = localStorage.getItem(MAINT_GH_TOKEN_KEY) || '';
+    const savedGhRepo = localStorage.getItem(MAINT_GH_REPO_KEY) || 'Tesnoo/BracketPrinter';
+
+    if (maintGithubTokenInput) maintGithubTokenInput.value = savedGhToken;
+    if (maintGithubRepoInput) maintGithubRepoInput.value = savedGhRepo;
+
+    await fetchAndCheckMaintenanceStatus();
+
+    if (maintEnableCheckbox) maintEnableCheckbox.checked = Boolean(currentMaintenanceConfig.enabled);
+    if (maintTitleInput) maintTitleInput.value = currentMaintenanceConfig.title;
+    if (maintMessageInput) maintMessageInput.value = currentMaintenanceConfig.message;
+    if (maintEtaInput) maintEtaInput.value = currentMaintenanceConfig.eta;
+
+    maintenanceAdminModal.classList.remove('hidden');
+}
+
+function closeMaintenanceAdminModal() {
+    if (!maintenanceAdminModal) return;
+    maintenanceAdminModal.classList.add('hidden');
+}
+
+// 5回連続クリック（2.5秒以内）で管理モーダルを起動するシークレットトリガー登録
+function registerSecretTapTrigger(el) {
+    if (!el) return;
+    let tapCount = 0;
+    let tapTimer = null;
+
+    el.addEventListener('click', () => {
+        tapCount++;
+        if (tapTimer) clearTimeout(tapTimer);
+        if (tapCount >= 5) {
+            tapCount = 0;
+            openMaintenanceAdminModal();
+        } else {
+            tapTimer = setTimeout(() => {
+                tapCount = 0;
+            }, 2500);
+        }
+    });
+}
+
+registerSecretTapTrigger(appBrandHeader);
+registerSecretTapTrigger(maintenanceSecretTrigger);
+
+if (devBannerOpenAdminBtn) {
+    devBannerOpenAdminBtn.addEventListener('click', openMaintenanceAdminModal);
+}
+if (maintAdminCloseBtn) {
+    maintAdminCloseBtn.addEventListener('click', closeMaintenanceAdminModal);
+}
+if (maintAdminCancelBtn) {
+    maintAdminCancelBtn.addEventListener('click', closeMaintenanceAdminModal);
+}
+if (maintenanceAdminModal) {
+    maintenanceAdminModal.addEventListener('click', (e) => {
+        if (e.target === maintenanceAdminModal) closeMaintenanceAdminModal();
+    });
+}
+
+// UTF-8文字列をBase64へエンコード（日本語メッセージ対応）
+function encodeUtf8ToBase64(str) {
+    const bytes = new TextEncoder().encode(str);
+    let binary = '';
+    bytes.forEach(b => {
+        binary += String.fromCharCode(b);
+    });
+    return btoa(binary);
+}
+
+// GitHub API を使ってリポジトリ上の maintenance.json を直接更新する
+if (maintAdminSaveBtn) {
+    maintAdminSaveBtn.addEventListener('click', async () => {
+        hideInlineMessage(maintAdminStatus);
+
+        const ghToken = maintGithubTokenInput ? maintGithubTokenInput.value.trim() : '';
+        const ghRepo = maintGithubRepoInput ? maintGithubRepoInput.value.trim() : 'Tesnoo/BracketPrinter';
+
+        if (!ghToken) {
+            showInlineError(maintAdminStatus, 'GitHub Personal Access Token を入力してください。');
+            return;
+        }
+        if (!/^[^/]+\/[^/]+$/.test(ghRepo)) {
+            showInlineError(maintAdminStatus, '対象リポジトリは「所有者名/リポジトリ名」の形式で入力してください。');
+            return;
+        }
+
+        localStorage.setItem(MAINT_GH_TOKEN_KEY, ghToken);
+        localStorage.setItem(MAINT_GH_REPO_KEY, ghRepo);
+
+        const newConfig = {
+            enabled: Boolean(maintEnableCheckbox?.checked),
+            title: (maintTitleInput?.value || '').trim() || 'ただいまメンテナンス中です',
+            message: (maintMessageInput?.value || '').trim() || '現在、システムの調整および不具合の修正作業を行っております。\nご不便をおかけいたしますが、復旧まで今しばらくお待ちください。',
+            eta: (maintEtaInput?.value || '').trim(),
+            updatedAt: new Date().toISOString()
+        };
+
+        const originalBtnText = maintAdminSaveBtn.textContent;
+        maintAdminSaveBtn.disabled = true;
+        maintAdminSaveBtn.textContent = 'GitHubへ反映中...';
+        showInlineInfo(maintAdminStatus, '⏳ GitHubリポジトリの maintenance.json を更新しています...');
+
+        const apiUrl = `https://api.github.com/repos/${ghRepo}/contents/maintenance.json`;
+        const headers = {
+            'Accept': 'application/vnd.github+json',
+            'Authorization': `Bearer ${ghToken}`,
+            'X-GitHub-Api-Version': '2022-11-28'
+        };
+
+        try {
+            // 1. 既存の maintenance.json の sha を取得
+            let existingSha = null;
+            const getRes = await fetch(apiUrl, {
+                method: 'GET',
+                headers: headers,
+                cache: 'no-store'
+            });
+
+            if (getRes.ok) {
+                const fileInfo = await getRes.json();
+                existingSha = fileInfo.sha || null;
+            } else if (getRes.status !== 404) {
+                const errJson = await getRes.json().catch(() => ({}));
+                throw new Error(errJson.message || `HTTP ${getRes.status}`);
+            }
+
+            // 2. 新しい内容で PUT リクエストを送信（リポジトリ書き込み権限を持つ本人のみ成功する）
+            const jsonContent = JSON.stringify(newConfig, null, 2) + '\n';
+            const putBody = {
+                message: `chore: toggle maintenance mode to ${newConfig.enabled ? 'ON' : 'OFF'}`,
+                content: encodeUtf8ToBase64(jsonContent)
+            };
+            if (existingSha) {
+                putBody.sha = existingSha;
+            }
+
+            const putRes = await fetch(apiUrl, {
+                method: 'PUT',
+                headers: {
+                    ...headers,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(putBody)
+            });
+
+            if (!putRes.ok) {
+                const errJson = await putRes.json().catch(() => ({}));
+                throw new Error(errJson.message || `HTTP ${putRes.status} (トークンの権限を確認してください)`);
+            }
+
+            applyMaintenanceStateToUI(newConfig);
+            const stateLabel = newConfig.enabled ? '【メンテナンス中 (ON)】' : '【通常公開 (OFF)】';
+            showInlineSuccess(
+                maintAdminStatus,
+                `${stateLabel} へ更新しました！\n（GitHub Pagesへの反映には数十秒ほどかかる場合があります）`
+            );
+        } catch (err) {
+            console.error('Maintenance Update Error:', err);
+            showInlineError(maintAdminStatus, `更新失敗: ${err.message}`);
+        } finally {
+            maintAdminSaveBtn.disabled = false;
+            maintAdminSaveBtn.textContent = originalBtnText;
+        }
+    });
+}
+
+// 初回起動時および60秒おきにメンテナンス状態を自動チェック
+fetchAndCheckMaintenanceStatus();
+setInterval(fetchAndCheckMaintenanceStatus, 60000);
