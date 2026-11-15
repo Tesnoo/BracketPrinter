@@ -643,11 +643,109 @@
     <style id="dynamic-print-style"></style>
 </head>
 <body class="bg-gray-200 h-screen flex overflow-hidden">
+    <!-- 一般公開用：全面メンテナンスロック画面（enabled: true の時に表示） -->
+    <div id="maintenance-overlay" class="hidden fixed inset-0 bg-gray-900/95 z-[100] flex flex-col items-center justify-center p-6 text-center select-none">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-8 border-t-8 border-[#DB2777] flex flex-col items-center gap-4">
+            <div class="w-16 h-16 rounded-full bg-pink-50 border border-pink-200 flex items-center justify-center text-3xl">
+                🛠️
+            </div>
+            <h2 id="maintenance-title-display" class="text-2xl font-black text-gray-900">ただいまメンテナンス中です</h2>
+            <p id="maintenance-msg-display" class="text-sm text-gray-600 leading-relaxed whitespace-pre-line">
+                現在、システムの調整および不具合の修正作業を行っております。
+                ご不便をおかけいたしますが、復旧まで今しばらくお待ちください。
+            </p>
+            <div id="maintenance-eta-box" class="hidden w-full bg-amber-50 border border-amber-200 rounded-lg py-2.5 px-4 text-xs font-bold text-amber-900">
+                ⏰ 復旧見込み：<span id="maintenance-eta-display"></span>
+            </div>
+            <div class="w-full pt-4 mt-2 border-t border-gray-200 flex flex-col gap-1.5 text-xs text-gray-500">
+                <p>最新情報・お問い合わせ先</p>
+                <a href="https://x.com/Tesnoo_ssb" target="_blank" rel="noopener noreferrer" class="text-[#DB2777] font-bold hover:underline text-sm">
+                    X (Twitter): @Tesnoo_ssb ↗
+                </a>
+            </div>
+            <!-- メンテナンス画面上からも5回タップで管理モーダルを開ける隠しトリガー -->
+            <button id="maintenance-secret-trigger" type="button" class="mt-2 text-[10px] text-gray-300 hover:text-gray-400 cursor-default">
+                Bracket Printer System
+            </button>
+        </div>
+    </div>
+
+    <!-- dev環境用：メンテナンスON時の上部通知バー -->
+    <div id="dev-maintenance-banner" class="hidden fixed top-2 right-4 z-[90] bg-amber-500 text-white text-xs font-bold px-3.5 py-1.5 rounded-full shadow-lg flex items-center gap-2">
+        <span>🛠️ 現在、一般公開サイトはメンテナンスモード中です（dev環境のため操作可能）</span>
+        <button id="dev-banner-open-admin-btn" type="button" class="bg-white text-amber-700 px-2 py-0.5 rounded-full text-[10px] font-black hover:bg-gray-100">
+            設定変更
+        </button>
+    </div>
+
+    <!-- 管理者専用：リモートメンテナンス切替モーダル（左上ロゴ5回連続クリックで起動） -->
+    <div id="maintenance-admin-modal" class="hidden fixed inset-0 bg-black/60 z-[110] flex items-center justify-center p-4">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden border border-gray-200">
+            <div class="bg-gray-900 text-white px-4 py-3 flex justify-between items-center">
+                <h3 class="font-bold text-sm flex items-center gap-1.5">
+                    <span>🔐 メンテナンスモード管理（所有者専用）</span>
+                </h3>
+                <button id="maint-admin-close-btn" type="button" class="text-gray-400 hover:text-white text-lg font-bold leading-none">&times;</button>
+            </div>
+            <div class="p-4 flex flex-col gap-3.5 text-xs">
+                <p class="text-[11px] text-gray-600 leading-relaxed bg-gray-50 p-2.5 rounded border border-gray-200">
+                    GitHub APIを通じてリポジトリの <code class="font-mono font-bold text-[#DB2777]">maintenance.json</code> を直接更新します。リポジトリの書き込み権限を持つトークンのみが有効なため、第三者は一切操作できません。
+                </p>
+
+                <div class="flex flex-col gap-1">
+                    <label class="font-bold text-gray-700">GitHub Personal Access Token (repo権限)</label>
+                    <input type="password" id="maint-github-token" placeholder="ghp_... または github_pat_..." class="w-full border border-gray-300 rounded p-1.5 bg-white text-xs font-mono">
+                    <span class="text-[10px] text-gray-400">※入力したトークンはこの端末のブラウザ内にのみ保存されます</span>
+                </div>
+
+                <div class="flex flex-col gap-1">
+                    <label class="font-bold text-gray-700">対象リポジトリ (owner/repo)</label>
+                    <input type="text" id="maint-github-repo" value="Tesnoo/BracketPrinter" class="w-full border border-gray-300 rounded p-1.5 bg-white text-xs font-mono">
+                </div>
+
+                <div class="pt-2 border-t border-gray-200 flex items-center justify-between bg-pink-50/60 p-2.5 rounded border border-pink-200">
+                    <div>
+                        <span class="font-bold text-gray-900 block text-sm">メンテナンスモードを有効にする</span>
+                        <span class="text-[10.5px] text-gray-500">ONにすると一般公開サイトの全操作をロックします</span>
+                    </div>
+                    <input type="checkbox" id="maint-enable-checkbox" class="w-5 h-5 accent-[#DB2777] cursor-pointer">
+                </div>
+
+                <div class="flex flex-col gap-1">
+                    <label class="font-bold text-gray-700">タイトル</label>
+                    <input type="text" id="maint-title-input" value="ただいまメンテナンス中です" class="w-full border border-gray-300 rounded p-1.5 bg-white text-xs">
+                </div>
+
+                <div class="flex flex-col gap-1">
+                    <label class="font-bold text-gray-700">表示メッセージ</label>
+                    <textarea id="maint-message-input" rows="3" class="w-full border border-gray-300 rounded p-1.5 bg-white text-xs leading-relaxed">現在、システムの調整および不具合の修正作業を行っております。
+ご不便をおかけいたしますが、復旧まで今しばらくお待ちください。</textarea>
+                </div>
+
+                <div class="flex flex-col gap-1">
+                    <label class="font-bold text-gray-700">復旧見込み（任意・空欄で非表示）</label>
+                    <input type="text" id="maint-eta-input" placeholder="例: 本日 21:00頃 / 未定" class="w-full border border-gray-300 rounded p-1.5 bg-white text-xs">
+                </div>
+
+                <p id="maint-admin-status" class="text-[11px] font-bold hidden whitespace-pre-line leading-relaxed"></p>
+
+                <div class="flex justify-end gap-2 pt-2 border-t border-gray-200">
+                    <button id="maint-admin-cancel-btn" type="button" class="px-3 py-1.5 rounded border border-gray-300 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold">
+                        閉じる
+                    </button>
+                    <button id="maint-admin-save-btn" type="button" class="px-4 py-1.5 rounded bg-[#DB2777] hover:bg-pink-700 text-white font-bold shadow-sm">
+                        GitHubへ即時反映する
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- 左側：操作パネル -->
     <div id="sidebar-panel" class="w-80 shrink-0 bg-white shadow-lg overflow-y-auto z-20 h-full">
         <div class="p-5 flex flex-col gap-4">
-            <div class="flex items-center gap-2.5 shrink-0">
-                <img src="image/BracketPrinter_logo.png" onerror="this.onerror=null;this.src='../image/BracketPrinter_logo.png';" alt="Bracket Printer Logo" class="w-8 h-8 object-contain">
+            <div id="app-brand-header" class="flex items-center gap-2.5 shrink-0 select-none" title="Bracket Printer">
+                <img src="image/BracketPrinter_logo.png" onerror="this.onerror=null;this.src='../image/BracketPrinter_logo.png';" alt="Bracket Printer Logo" class="w-8 h-8 object-contain cursor-pointer">
                 <h1 class="text-2xl font-bold text-gray-800">Bracket Printer</h1>
             </div>
 
