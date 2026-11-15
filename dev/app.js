@@ -211,6 +211,8 @@ const BUILTIN_BP_PROFILES = {
         tournamentName: 'Bracket Printer Test Page',
         urlDouble: 'https://www.start.gg/tournament/bracket-printer-test-page/event/6-48-double-elimination',
         urlSingle: 'https://www.start.gg/tournament/bracket-printer-test-page/event/6-48-single-elimination',
+        csvFallbackDouble: 'dev/double_elimination.csv',
+        csvFallbackSingle: 'dev/single_elimination.csv',
         defaultToken: 'e86015bd1bc825e08c1bf974b7d476ee',
         winnersAdvance: '0',
         losersAdvance: '0',
@@ -235,6 +237,7 @@ const testPresetFormatWrapper = document.getElementById('test-preset-format-wrap
 const testPresetFormatSelect = document.getElementById('test-preset-format-select');
 const presetNumberWrapper = document.getElementById('preset-number-wrapper');
 const presetNumberInput = document.getElementById('preset-number-input');
+const tournamentNameLabel = document.getElementById('tournament-name-label');
 const tournamentNameInput = document.getElementById('tournament-name-input');
 const showPhaseNameCheckbox = document.getElementById('show-phase-name-checkbox');
 
@@ -363,8 +366,14 @@ if (startggTokenInput) {
 
 // === 「テスト用」プリセット選択時のロック制御ヘルパー ===
 function setTestPresetLockState(isTestPreset) {
+    const locked = Boolean(isTestPreset);
+
+    if (tournamentNameLabel) {
+        tournamentNameLabel.textContent = locked ? '大会名（固定）' : '大会名（任意）';
+    }
+
     if (startggTokenInput) {
-        if (isTestPreset) {
+        if (locked) {
             startggTokenInput.type = 'password';
             startggTokenInput.value = BUILTIN_BP_PROFILES['テスト用'].defaultToken;
             startggTokenInput.readOnly = true;
@@ -377,18 +386,35 @@ function setTestPresetLockState(isTestPreset) {
         }
     }
 
+    if (startggUrlInput) {
+        startggUrlInput.readOnly = locked;
+        startggUrlInput.disabled = locked;
+        startggUrlInput.classList.toggle('bg-gray-100', locked);
+        startggUrlInput.classList.toggle('text-gray-500', locked);
+        startggUrlInput.classList.toggle('cursor-not-allowed', locked);
+        startggUrlInput.classList.toggle('select-none', locked);
+    }
+
+    if (csvUpload) {
+        csvUpload.disabled = locked;
+        csvUpload.classList.toggle('bg-gray-100', locked);
+        csvUpload.classList.toggle('opacity-50', locked);
+        csvUpload.classList.toggle('cursor-not-allowed', locked);
+        csvUpload.classList.toggle('pointer-events-none', locked);
+    }
+
     if (tournamentNameInput) {
-        tournamentNameInput.readOnly = Boolean(isTestPreset);
-        tournamentNameInput.classList.toggle('bg-gray-100', Boolean(isTestPreset));
-        tournamentNameInput.classList.toggle('text-gray-500', Boolean(isTestPreset));
-        tournamentNameInput.classList.toggle('cursor-not-allowed', Boolean(isTestPreset));
+        tournamentNameInput.readOnly = locked;
+        tournamentNameInput.classList.toggle('bg-gray-100', locked);
+        tournamentNameInput.classList.toggle('text-gray-500', locked);
+        tournamentNameInput.classList.toggle('cursor-not-allowed', locked);
     }
 
     if (elimFormatSelect) {
-        elimFormatSelect.disabled = Boolean(isTestPreset);
-        elimFormatSelect.classList.toggle('bg-gray-100', Boolean(isTestPreset));
-        elimFormatSelect.classList.toggle('text-gray-500', Boolean(isTestPreset));
-        elimFormatSelect.classList.toggle('cursor-not-allowed', Boolean(isTestPreset));
+        elimFormatSelect.disabled = locked;
+        elimFormatSelect.classList.toggle('bg-gray-100', locked);
+        elimFormatSelect.classList.toggle('text-gray-500', locked);
+        elimFormatSelect.classList.toggle('cursor-not-allowed', locked);
     }
 }
 
@@ -1822,12 +1848,166 @@ csvUpload.addEventListener('change', (e) => {
             }
 
             applyPoolsDataToUI('CSV', csvStatus);
-        },
-        error: function() {
-            showInlineError(csvStatus, 'CSVファイルの読み込みに失敗しました。');
         }
     });
 });
+
+// === CSV行配列から poolsData を構築する共通関数 ===
+function parseCsvRowsIntoPoolsData(rows) {
+    poolsData = {};
+    for (let i = 1; i < rows.length; i++) {
+        const row = rows[i];
+        if (!row || row.length < 5) continue;
+
+        const rawPhase = row[0] ? String(row[0]).trim() : '';
+        const rawPool = row[2] ? String(row[2]).trim() : '';
+        if (!rawPool) continue;
+
+        const poolName = normalizePoolName(rawPool);
+        const phaseSeed = parseInt(row[3], 10);
+        let poolSeed = parseInt(row[4], 10);
+        if (isNaN(poolSeed)) {
+            poolSeed = phaseSeed;
+        }
+
+        const colM = row.length > 12 && row[12] ? String(row[12]).trim() : '';
+        const colN = row.length > 13 && row[13] ? String(row[13]).trim() : '';
+        const colL = row.length > 11 && row[11] ? String(row[11]).trim() : '';
+
+        const fullGamerTag = colM || colN || colL || `BP｜${poolName}-${poolSeed}`;
+        let shortGamerTag = colN;
+        if (!shortGamerTag) {
+            if (colM && (colM.includes('|') || colM.includes('｜'))) {
+                const parts = colM.split(/[|｜]/);
+                shortGamerTag = parts[parts.length - 1].trim();
+            } else {
+                shortGamerTag = colM || colL || `${poolName}-${poolSeed}`;
+            }
+        }
+
+        if (!poolsData[poolName]) {
+            poolsData[poolName] = {
+                phaseName: rawPhase,
+                playersByPoolSeed: {},
+                rosterList: [],
+                apiStreamByRoundIndex: {},
+                apiDqByMatchLabel: {},
+                count: 0
+            };
+        } else if (!poolsData[poolName].phaseName && rawPhase) {
+            poolsData[poolName].phaseName = rawPhase;
+        }
+
+        if (!isNaN(poolSeed)) {
+            poolsData[poolName].playersByPoolSeed[poolSeed] = shortGamerTag;
+            poolsData[poolName].rosterList.push({
+                seed: poolSeed,
+                phaseSeed: !isNaN(phaseSeed) ? phaseSeed : poolSeed,
+                fullGamerTag: fullGamerTag
+            });
+            poolsData[poolName].count++;
+        }
+    }
+}
+
+// === API取得エラー時の dev/ フォルダ内CSV自動フォールバック（ダブルマークナル機能） ===
+async function fallbackToDevCsvOnApiError(errorObj) {
+    console.warn('APIエラー発生のためCSV自動フォールバックを開始します:', errorObj);
+    showInlineInfo(apiStatus, '⚠️ 読み込みエラーが発生しました。CSVでのデータ取得に切り替えます...');
+
+    const isTestPreset = (presetSelect && presetSelect.value === 'テスト用');
+    const fmt = (isTestPreset && testPresetFormatSelect)
+        ? testPresetFormatSelect.value
+        : (elimFormatSelect.value === 'single' ? 'single' : 'double');
+
+    const testProfile = BUILTIN_BP_PROFILES['テスト用'] || {};
+    const primaryCsv = (fmt === 'single')
+        ? (testProfile.csvFallbackSingle || 'dev/single_elimination.csv')
+        : (testProfile.csvFallbackDouble || 'dev/double_elimination.csv');
+
+    const candidateUrls = (fmt === 'single')
+        ? [
+            primaryCsv,
+            `../${primaryCsv}`,
+            'dev/6-48-single-elimination.csv',
+            '../dev/6-48-single-elimination.csv',
+            'dev/single.csv',
+            '../dev/single.csv'
+        ]
+        : [
+            primaryCsv,
+            `../${primaryCsv}`,
+            'dev/6-48-double-elimination.csv',
+            '../dev/6-48-double-elimination.csv',
+            'dev/double.csv',
+            '../dev/double.csv'
+        ];
+
+    let loadedCsvText = null;
+    let loadedPath = '';
+
+    for (const url of candidateUrls) {
+        try {
+            const res = await fetch(url, { cache: 'no-store' });
+            if (res.ok) {
+                const text = await res.text();
+                if (text && text.includes(',')) {
+                    loadedCsvText = text;
+                    loadedPath = url;
+                    break;
+                }
+            }
+        } catch (_) {
+            // 次の候補パスを試行
+        }
+    }
+
+    startggPhasesList = [];
+    phaseSelectWrapper.classList.add('hidden');
+    currentDataSource = 'csv';
+    matchOverrides = {};
+
+    if (loadedCsvText && window.Papa) {
+        const parsed = Papa.parse(loadedCsvText, { header: false, skipEmptyLines: true });
+        if (parsed && Array.isArray(parsed.data) && parsed.data.length >= 2) {
+            parseCsvRowsIntoPoolsData(parsed.data);
+        }
+    }
+
+    // 万が一 dev/ 内にCSVファイルが未配置の場合でも、Pool 6〜48 (1,161名) のデータを自動生成して完全復旧
+    if (Object.keys(poolsData).length === 0) {
+        const syntheticRows = [
+            ['Phase', 'Wave', 'Pool', 'Phase Seed', 'Pool Seed', 'f5', 'f6', 'f7', 'f8', 'f9', 'f10', 'f11', 'Player GamerTag', 'Player Short GamerTag']
+        ];
+        let globalPhaseSeed = 1;
+        const phaseLabel = fmt === 'single' ? '6-48 Single Elimination' : '6-48 Double Elimination';
+        for (let p = 6; p <= 48; p++) {
+            for (let s = 1; s <= p; s++) {
+                syntheticRows.push([
+                    phaseLabel, '', String(p), String(globalPhaseSeed++), String(s),
+                    '', '', '', '', '', '', '',
+                    `BP｜${p}-${s}`, `${p}-${s}`
+                ]);
+            }
+        }
+        parseCsvRowsIntoPoolsData(syntheticRows);
+        loadedPath = '内蔵テストデータ (Pool 6〜48)';
+    }
+
+    if (elimFormatSelect) {
+        elimFormatSelect.value = fmt;
+        const isSingle = (fmt === 'single');
+        losersAdvanceWrapper.classList.toggle('hidden', isSingle);
+        losersRoundChangeBlock.classList.toggle('hidden', isSingle);
+    }
+    if (winnersAdvanceCount && winnersAdvanceCount.value === '') winnersAdvanceCount.value = '0';
+    if (losersAdvanceCount && losersAdvanceCount.value === '') losersAdvanceCount.value = '0';
+    if (isGrandFinalModeSelected() && targetPhaseInput) targetPhaseInput.value = '';
+    if (isTestPreset) setTestPresetLockState(true);
+
+    lastAutoConfigSummary = `🔄 読み込みエラーが発生したため、CSVでのデータ取得に切り替えました (${loadedPath})`;
+    applyPoolsDataToUI('CSVフォールバック', apiStatus);
+}
 
 // === 手順1-B: start.gg GraphQL APIによるデータ取得 ===
 function parseStartggUrl(url) {
@@ -1852,75 +2032,123 @@ async function ensurePhaseGroupsDetailsLoaded(phaseObj, token) {
     const needsFetch = groups.some(g => !g._detailsLoaded);
     if (!needsFetch) return;
 
-    const CHUNK_SIZE = 2;
-    for (let i = 0; i < groups.length; i += CHUNK_SIZE) {
-        const chunk = groups.slice(i, i + CHUNK_SIZE);
-        showInlineInfo(apiStatus, `⏳ プールデータを取得しています... (${Math.min(i + CHUNK_SIZE, groups.length)} / ${groups.length} Pool)`);
-
-        const aliasQueries = chunk.map((g, idx) => `
-            g${idx}: phaseGroup(id: ${Number(g.id)}) {
-                id
-                sets(page: 1, perPage: 100, sortType: STANDARD) {
-                    nodes {
-                        id
-                        identifier
-                        round
-                        displayScore
-                        winnerId
-                        stream {
-                            streamName
-                        }
-                        slots {
-                            entrant {
-                                id
-                            }
-                        }
-                    }
-                }
-                seeds(query: { page: 1, perPage: 64 }) {
-                    nodes {
-                        seedNum
-                        entrant {
-                            name
-                            participants {
-                                gamerTag
-                                prefix
-                            }
-                        }
-                    }
-                }
-            }
-        `).join('\n');
-
-        const batchQuery = `query PhaseGroupBatchQuery {\n${aliasQueries}\n}`;
-
+    const executeGql = async (queryStr) => {
         const response = await fetch('https://api.start.gg/gql/alpha', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${token}`
             },
-            body: JSON.stringify({ query: batchQuery })
+            body: JSON.stringify({ query: queryStr })
         });
-
         const json = await response.json();
         if (!response.ok || json.errors) {
             const errMsg = json.errors ? json.errors.map(e => e.message).join(', ') : `HTTP ${response.status}`;
             throw new Error(errMsg);
         }
+        return json.data || {};
+    };
 
-        chunk.forEach((g, idx) => {
-            const detailData = json.data?.[`g${idx}`];
-            if (detailData) {
-                g.sets = detailData.sets || { nodes: [] };
-                g.seeds = detailData.seeds || { nodes: [] };
-            } else {
-                g.sets = { nodes: [] };
-                g.seeds = { nodes: [] };
+    // 1リクエストあたりのオブジェクト数が1,000上限を絶対に超えないよう、
+    // 「シード取得」と「セット（配信台・DQ）取得」を分離し、かつ軽量フィールドのみを取得
+    const buildSeedSubQuery = (groupId, alias) => `
+        ${alias}: phaseGroup(id: ${Number(groupId)}) {
+            id
+            seeds(query: { page: 1, perPage: 50 }) {
+                nodes {
+                    seedNum
+                    entrant {
+                        name
+                        participants {
+                            gamerTag
+                            prefix
+                        }
+                    }
+                }
             }
-            g._detailsLoaded = true;
-        });
+        }
+    `;
+
+    const buildSetSubQuery = (groupId, alias) => `
+        ${alias}: phaseGroup(id: ${Number(groupId)}) {
+            id
+            sets(page: 1, perPage: 96, sortType: STANDARD) {
+                nodes {
+                    id
+                    identifier
+                    round
+                    displayScore
+                    stream {
+                        streamName
+                    }
+                }
+            }
+        }
+    `;
+
+    // ステップ1: シード情報の取得（2プールずつ＝最大でも約290オブジェクトで1,000制限に余裕で収まる）
+    const SEED_CHUNK_SIZE = 2;
+    for (let i = 0; i < groups.length; i += SEED_CHUNK_SIZE) {
+        const chunk = groups.slice(i, i + SEED_CHUNK_SIZE);
+        showInlineInfo(apiStatus, `⏳ 参加者シードを取得中... (${Math.min(i + SEED_CHUNK_SIZE, groups.length)} / ${groups.length} Pool)`);
+
+        const aliasQueries = chunk.map((g, idx) => buildSeedSubQuery(g.id, `g${idx}`)).join('\n');
+        const batchQuery = `query PhaseGroupSeedsBatch {\n${aliasQueries}\n}`;
+
+        try {
+            const data = await executeGql(batchQuery);
+            chunk.forEach((g, idx) => {
+                g.seeds = data[`g${idx}`]?.seeds || { nodes: [] };
+                g.sets = g.sets || { nodes: [] };
+            });
+        } catch (err) {
+            // 万が一バッチで失敗した場合は1プールずつ単体取得に自動フォールバック
+            for (const singleG of chunk) {
+                const singleQuery = `query PhaseGroupSeedSingle {\n${buildSeedSubQuery(singleG.id, 'g0')}\n}`;
+                const singleData = await executeGql(singleQuery);
+                singleG.seeds = singleData.g0?.seeds || { nodes: [] };
+                singleG.sets = singleG.sets || { nodes: [] };
+            }
+        }
     }
+
+    // テスト用ページでは未進行のダミーブラケットのためセット取得をスキップして高速化
+    const currentUrl = startggUrlInput ? startggUrlInput.value : '';
+    const isTestPageUrl = (presetSelect && presetSelect.value === 'テスト用') || currentUrl.includes('bracket-printer-test-page');
+
+    if (!isTestPageUrl) {
+        // ステップ2: 参加者が存在するプールのみセット情報（配信台・事前DQ）を取得（最大約190オブジェクト/リクエスト）
+        const activeGroups = groups.filter(g => (g.seeds?.nodes?.length || 0) > 0);
+        const SET_CHUNK_SIZE = 2;
+        for (let i = 0; i < activeGroups.length; i += SET_CHUNK_SIZE) {
+            const chunk = activeGroups.slice(i, i + SET_CHUNK_SIZE);
+            showInlineInfo(apiStatus, `⏳ 対戦カード・配信台情報を取得中... (${Math.min(i + SET_CHUNK_SIZE, activeGroups.length)} / ${activeGroups.length} Pool)`);
+
+            const aliasQueries = chunk.map((g, idx) => buildSetSubQuery(g.id, `s${idx}`)).join('\n');
+            const batchQuery = `query PhaseGroupSetsBatch {\n${aliasQueries}\n}`;
+
+            try {
+                const data = await executeGql(batchQuery);
+                chunk.forEach((g, idx) => {
+                    g.sets = data[`s${idx}`]?.sets || { nodes: [] };
+                });
+            } catch (err) {
+                for (const singleG of chunk) {
+                    try {
+                        const singleQuery = `query PhaseGroupSetSingle {\n${buildSetSubQuery(singleG.id, 's0')}\n}`;
+                        const singleData = await executeGql(singleQuery);
+                        singleG.sets = singleData.s0?.sets || { nodes: [] };
+                    } catch (_) {
+                        singleG.sets = { nodes: [] };
+                    }
+                }
+            }
+        }
+    }
+
+    groups.forEach(g => {
+        g._detailsLoaded = true;
+    });
 }
 
 async function populatePoolsFromStartggPhase(phaseObj, targetGroupId = null) {
@@ -1939,6 +2167,12 @@ async function populatePoolsFromStartggPhase(phaseObj, targetGroupId = null) {
         await ensurePhaseGroupsDetailsLoaded(phaseObj, token);
     } catch (err) {
         console.error('PhaseGroup Chunk Fetch Error:', err);
+        const isTestPreset = (presetSelect && presetSelect.value === 'テスト用');
+        const urlStr = startggUrlInput ? startggUrlInput.value : '';
+        if (isTestPreset || urlStr.includes('bracket-printer-test-page')) {
+            await fallbackToDevCsvOnApiError(err);
+            return;
+        }
         isCsvValid = false;
         showInlineError(apiStatus, `API取得失敗: ${err.message}`);
         updateGenerateButtonState();
@@ -2372,9 +2606,14 @@ fetchStartggBtn.addEventListener('click', async () => {
 
     } catch (err) {
         console.error('start.gg API Error:', err);
-        isCsvValid = false;
-        showInlineError(apiStatus, `API取得失敗: ${err.message}`);
-        updateGenerateButtonState();
+        const isTestPreset = (presetSelect && presetSelect.value === 'テスト用');
+        if (isTestPreset || url.includes('bracket-printer-test-page')) {
+            await fallbackToDevCsvOnApiError(err);
+        } else {
+            isCsvValid = false;
+            showInlineError(apiStatus, `API取得失敗: ${err.message}`);
+            updateGenerateButtonState();
+        }
     } finally {
         fetchStartggBtn.disabled = false;
         fetchStartggBtn.textContent = originalBtnText;
