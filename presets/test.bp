@@ -1,0 +1,25 @@
+{
+"formatVersion": "1.0",
+"profileVersion": "1.0",
+"presetId": "テスト用",
+"presetKey": "テスト用",
+"logoFile": "image/BracketPrinter_logo_mono.png",
+"logoRawUrl": "https://raw.githubusercontent.com/Tesnoo/BracketPrinter/main/image/BracketPrinter_logo_mono.png",
+"tournamentName": "Bracket Printer Test Page",
+"urlDouble": "https://www.start.gg/tournament/bracket-printer-test-page/event/6-48-double-elimination",
+"urlSingle": "https://www.start.gg/tournament/bracket-printer-test-page/event/6-48-single-elimination",
+"defaultToken": "e86015bd1bc825e08c1bf974b7d476ee",
+"winnersAdvance": "0",
+"losersAdvance": "0",
+"boConfig": {
+"baseBo": "5",
+"enableChange": false
+},
+"boRule": {
+"default": {
+"baseBo": "5",
+"enableChange": false
+}
+},
+"notes": []
+}
