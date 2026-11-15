@@ -665,6 +665,7 @@
                         <option value="Vic-Seekers">Vic-Seekers</option>
                         <option value="クロブラ">クロブラ</option>
                         <option value="IMPACT MAJOR">IMPACT MAJOR</option>
+                        <option value="テスト用">テスト用</option>
                     </select>
                     <input type="file" id="load-bp-input" accept=".bp,application/json" class="hidden">
                     <button id="load-bp-btn" type="button" class="w-full bg-white hover:bg-pink-50 text-[#DB2777] border border-pink-300 font-bold py-1.5 px-2 rounded transition text-[11px] flex items-center justify-center gap-1 shadow-sm">
@@ -678,6 +679,15 @@
                     <select id="kurobra-game-select" class="w-full border border-gray-300 rounded p-1 bg-white text-xs">
                         <option value="sp" selected>スマブラSP（WSF / LQF以降Bo5）</option>
                         <option value="dx">スマブラDX（全試合Bo5）</option>
+                    </select>
+                </div>
+
+                <!-- テスト用プリセット専用：トーナメント形式選択プルダウン -->
+                <div id="test-preset-format-wrapper" class="hidden flex flex-col gap-1 pt-1 border-t border-gray-200">
+                    <label class="text-[11px] font-semibold text-gray-700">トーナメント形式の選択</label>
+                    <select id="test-preset-format-select" class="w-full border border-gray-300 rounded p-1 bg-white text-xs">
+                        <option value="double" selected>ダブルエリミネーション</option>
+                        <option value="single">シングルエリミネーション</option>
                     </select>
                 </div>
 
@@ -1156,6 +1166,8 @@
                 const numInput = document.getElementById('preset-number-input');
                 const kuroWrap = document.getElementById('kurobra-game-wrapper');
                 const kuroSel = document.getElementById('kurobra-game-select');
+                const testFormatWrap = document.getElementById('test-preset-format-wrapper');
+                const testFormatSel = document.getElementById('test-preset-format-select');
                 const tNameInput = document.getElementById('tournament-name-input');
                 const urlInput = document.getElementById('startgg-url-input');
                 if (!presetSel || !numWrap) return;
@@ -1165,8 +1177,24 @@
                     if (!val) {
                         numWrap.classList.add('hidden');
                         if (kuroWrap) kuroWrap.classList.add('hidden');
+                        if (testFormatWrap) testFormatWrap.classList.add('hidden');
                         return;
                     }
+                    if (val === 'テスト用') {
+                        numWrap.classList.add('hidden');
+                        if (kuroWrap) kuroWrap.classList.add('hidden');
+                        if (testFormatWrap) testFormatWrap.classList.remove('hidden');
+                        if (tNameInput) tNameInput.value = 'Bracket Printer Test Page';
+                        const tFmt = testFormatSel ? testFormatSel.value : 'double';
+                        if (urlInput) {
+                            urlInput.value = (tFmt === 'single')
+                                ? 'https://www.start.gg/tournament/bracket-printer-test-page/event/6-48-single-elimination'
+                                : 'https://www.start.gg/tournament/bracket-printer-test-page/event/6-48-double-elimination';
+                        }
+                        return;
+                    }
+
+                    if (testFormatWrap) testFormatWrap.classList.add('hidden');
                     numWrap.classList.remove('hidden');
                     if (kuroWrap) {
                         kuroWrap.classList.toggle('hidden', val !== 'クロブラ');
@@ -1193,10 +1221,11 @@
 
                 presetSel.addEventListener('change', function () {
                     syncPresetFields();
-                    if (presetSel.value && numInput) numInput.focus();
+                    if (presetSel.value && presetSel.value !== 'テスト用' && numInput) numInput.focus();
                 });
                 if (numInput) numInput.addEventListener('input', syncPresetFields);
                 if (kuroSel) kuroSel.addEventListener('change', syncPresetFields);
+                if (testFormatSel) testFormatSel.addEventListener('change', syncPresetFields);
             }
 
             fitPreviewImmediate();
