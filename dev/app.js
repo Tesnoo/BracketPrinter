@@ -1113,6 +1113,7 @@ resetPrintRecBtn.addEventListener('click', () => {
 
 function updateTargetPhaseInputState() {
     const isGf = isGrandFinalModeSelected();
+    const isTestPreset = Boolean(presetSelect && presetSelect.value === 'テスト用');
     if (isGf) {
         targetPhaseInput.disabled = true;
         targetPhaseInput.placeholder = '※Final完結のため入力不要';
@@ -1123,6 +1124,9 @@ function updateTargetPhaseInputState() {
         targetPhaseInput.placeholder = '例: Day2 / TOP192';
         targetPhaseInput.classList.remove('bg-gray-100', 'text-gray-400', 'cursor-not-allowed');
         targetPhaseInput.classList.add('bg-white');
+        if (isTestPreset && targetPhaseInput.value.trim() === '') {
+            targetPhaseInput.value = 'Day2 / TOP192';
+        }
     }
 }
 
@@ -1134,7 +1138,8 @@ function updateGenerateButtonState() {
     const isBaseBoReady = (baseBoSelect.value === '5' || baseBoSelect.value === '3') ||
                           (baseBoSelect.value === 'custom' && isCustomBoConfirmed && baseBoValue !== '');
     const isGf = isGrandFinalModeSelected();
-    const isTargetPhaseFilled = isGf ? true : (targetPhaseInput.value.trim() !== '');
+    const isTestPreset = Boolean(presetSelect && presetSelect.value === 'テスト用');
+    const isTargetPhaseFilled = (isGf || isTestPreset) ? true : (targetPhaseInput.value.trim() !== '');
 
     let isRoundChangeReady = true;
     const isChangeMode = document.querySelector('input[name="change-mode"]:checked').value === 'yes';
@@ -1831,8 +1836,6 @@ async function ensurePhaseGroupsDetailsLoaded(phaseObj, token) {
         return json.data || {};
     };
 
-    // 1リクエストあたりのオブジェクト数が1,000上限を絶対に超えないよう、
-    // 「シード取得」と「セット（配信台・DQ）取得」を分離し、かつ軽量フィールドのみを取得
     const buildSeedSubQuery = (groupId, alias) => `
         ${alias}: phaseGroup(id: ${Number(groupId)}) {
             id
@@ -1868,7 +1871,6 @@ async function ensurePhaseGroupsDetailsLoaded(phaseObj, token) {
         }
     `;
 
-    // ステップ1: シード情報の取得（2プールずつ＝最大でも約290オブジェクトで1,000制限に余裕で収まる）
     const SEED_CHUNK_SIZE = 2;
     for (let i = 0; i < groups.length; i += SEED_CHUNK_SIZE) {
         const chunk = groups.slice(i, i + SEED_CHUNK_SIZE);
@@ -1884,7 +1886,6 @@ async function ensurePhaseGroupsDetailsLoaded(phaseObj, token) {
                 g.sets = g.sets || { nodes: [] };
             });
         } catch (err) {
-            // 万が一バッチで失敗した場合は1プールずつ単体取得に自動フォールバック
             for (const singleG of chunk) {
                 const singleQuery = `query PhaseGroupSeedSingle {\n${buildSeedSubQuery(singleG.id, 'g0')}\n}`;
                 const singleData = await executeGql(singleQuery);
@@ -1894,12 +1895,10 @@ async function ensurePhaseGroupsDetailsLoaded(phaseObj, token) {
         }
     }
 
-    // テスト用ページでは未進行のダミーブラケットのためセット取得をスキップして高速化
     const currentUrl = startggUrlInput ? startggUrlInput.value : '';
     const isTestPageUrl = (presetSelect && presetSelect.value === 'テスト用') || currentUrl.includes('bracket-printer-test-page');
 
     if (!isTestPageUrl) {
-        // ステップ2: 参加者が存在するプールのみセット情報（配信台・事前DQ）を取得（最大約190オブジェクト/リクエスト）
         const activeGroups = groups.filter(g => (g.seeds?.nodes?.length || 0) > 0);
         const SET_CHUNK_SIZE = 2;
         for (let i = 0; i < activeGroups.length; i += SET_CHUNK_SIZE) {
@@ -3268,6 +3267,10 @@ generateBtn.addEventListener('click', () => {
         return;
     }
 
+    if (!isGrandFinalModeSelected() && targetPhaseInput && targetPhaseInput.value.trim() === '') {
+        targetPhaseInput.value = 'Day2 / TOP192';
+    }
+
     document.getElementById('preview-placeholder').classList.add('hidden');
     document.getElementById('preview-header').classList.remove('hidden');
     document.getElementById('main-sheet-body').classList.remove('hidden');
@@ -3567,7 +3570,7 @@ async function downloadPoolsAsPdfDirect(targetPoolNames, triggerBtn) {
             if (imgAspect > pageAspect) {
                 drawH_mm = availW_mm / imgAspect;
             } else {
-                drawW_mm = availH_mm * imgAspect;
+                drawH_mm = availH_mm * imgAspect;
             }
 
             const offsetX_mm = marginMm + (availW_mm - drawW_mm) / 2;
@@ -3664,7 +3667,6 @@ let currentMaintenanceConfig = {
     eta: ''
 };
 
-// 現在のURLが開発環境（/dev/ フォルダや -dev リポジトリ、ローカル環境）かどうかを判定
 function isDevEnvironment() {
     const path = window.location.pathname.toLowerCase();
     const host = window.location.hostname.toLowerCase();
@@ -3678,7 +3680,6 @@ function isDevEnvironment() {
     );
 }
 
-// 取得したメンテナンス設定を画面に適用
 function applyMaintenanceStateToUI(config) {
     if (!config) return;
     currentMaintenanceConfig = {
@@ -3705,11 +3706,9 @@ function applyMaintenanceStateToUI(config) {
 
     if (currentMaintenanceConfig.enabled) {
         if (isDevEnvironment()) {
-            // dev環境では画面ロックせず、上部に通知バーのみ表示して作業を継続可能にする
             if (maintenanceOverlay) maintenanceOverlay.classList.add('hidden');
             if (devMaintenanceBanner) devMaintenanceBanner.classList.remove('hidden');
         } else {
-            // 一般公開環境では全面オーバーレイを表示して全操作をロック
             if (maintenanceOverlay) maintenanceOverlay.classList.remove('hidden');
             if (devMaintenanceBanner) devMaintenanceBanner.classList.add('hidden');
         }
@@ -3719,7 +3718,6 @@ function applyMaintenanceStateToUI(config) {
     }
 }
 
-// maintenance.json をキャッシュなしで取得して状態を反映
 async function fetchAndCheckMaintenanceStatus() {
     const stamp = Date.now();
     const candidates = [
@@ -3744,7 +3742,6 @@ async function fetchAndCheckMaintenanceStatus() {
     return currentMaintenanceConfig;
 }
 
-// 管理者モーダルを開く
 async function openMaintenanceAdminModal() {
     if (!maintenanceAdminModal) return;
     hideInlineMessage(maintAdminStatus);
@@ -3770,7 +3767,6 @@ function closeMaintenanceAdminModal() {
     maintenanceAdminModal.classList.add('hidden');
 }
 
-// 5回連続クリック（2.5秒以内）で管理モーダルを起動するシークレットトリガー登録
 function registerSecretTapTrigger(el) {
     if (!el) return;
     let tapCount = 0;
@@ -3808,7 +3804,6 @@ if (maintenanceAdminModal) {
     });
 }
 
-// UTF-8文字列をBase64へエンコード（日本語メッセージ対応）
 function encodeUtf8ToBase64(str) {
     const bytes = new TextEncoder().encode(str);
     let binary = '';
@@ -3818,7 +3813,6 @@ function encodeUtf8ToBase64(str) {
     return btoa(binary);
 }
 
-// GitHub API を使ってリポジトリ上の maintenance.json を直接更新する
 if (maintAdminSaveBtn) {
     maintAdminSaveBtn.addEventListener('click', async () => {
         hideInlineMessage(maintAdminStatus);
@@ -3859,7 +3853,6 @@ if (maintAdminSaveBtn) {
         };
 
         try {
-            // 1. 既存の maintenance.json の sha を取得
             let existingSha = null;
             const getRes = await fetch(apiUrl, {
                 method: 'GET',
@@ -3875,7 +3868,6 @@ if (maintAdminSaveBtn) {
                 throw new Error(errJson.message || `HTTP ${getRes.status}`);
             }
 
-            // 2. 新しい内容で PUT リクエストを送信（リポジトリ書き込み権限を持つ本人のみ成功する）
             const jsonContent = JSON.stringify(newConfig, null, 2) + '\n';
             const putBody = {
                 message: `chore: toggle maintenance mode to ${newConfig.enabled ? 'ON' : 'OFF'}`,
@@ -3915,6 +3907,5 @@ if (maintAdminSaveBtn) {
     });
 }
 
-// 初回起動時および60秒おきにメンテナンス状態を自動チェック
 fetchAndCheckMaintenanceStatus();
 setInterval(fetchAndCheckMaintenanceStatus, 60000);
