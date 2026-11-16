@@ -42,6 +42,13 @@
             --drop-label-offset: -13px;
             --seed-label-font: 10.5px;
             --seed-label-offset: -11px;
+            --qual-branch-gap: 60px;
+            --qual-branch-half: 47px;
+            --qual-slot-h: 24px;
+            --qual-top-font: 11px;
+            --qual-bot-font: 11.5px;
+            --qual-top-offset: -14px;
+            --qual-bot-offset: -15px;
         }
 
         body, #preview-area, .batch-print-sheet {
@@ -54,23 +61,45 @@
             display: inline-block;
         }
 
-        /* サイドバーリサイズハンドル＆開閉制御 */
+        /* スクロールバー非表示（サイドバー・プレビュー共通） */
+        #sidebar-panel,
+        #preview-viewport,
+        #match-overrides-summary-list {
+            scrollbar-width: none;
+            -ms-overflow-style: none;
+        }
+        #sidebar-panel::-webkit-scrollbar,
+        #preview-viewport::-webkit-scrollbar,
+        #match-overrides-summary-list::-webkit-scrollbar {
+            display: none;
+            width: 0;
+            height: 0;
+        }
+
+        /* サイドバー外枠・リサイズハンドル・外側開閉ボタン */
+        #sidebar-wrapper {
+            position: relative;
+            display: flex;
+            height: 100%;
+            flex-shrink: 0;
+            z-index: 30;
+        }
         #sidebar-panel {
             width: 320px;
             min-width: 240px;
             max-width: 640px;
-            position: relative;
-            transition: margin-left 0.2s ease;
+            height: 100%;
         }
-        #sidebar-panel.is-collapsed {
+        #sidebar-wrapper.is-collapsed #sidebar-panel,
+        #sidebar-wrapper.is-collapsed #sidebar-resizer {
             display: none !important;
         }
         #sidebar-resizer {
             position: absolute;
             top: 0;
-            right: 0;
+            right: -3px;
             bottom: 0;
-            width: 6px;
+            width: 7px;
             cursor: col-resize;
             z-index: 40;
             background-color: transparent;
@@ -78,14 +107,40 @@
         }
         #sidebar-resizer:hover,
         #sidebar-resizer.is-resizing {
-            background-color: rgba(219, 39, 119, 0.45);
+            background-color: rgba(219, 39, 119, 0.5);
+        }
+        #sidebar-toggle-btn {
+            position: absolute;
+            top: 14px;
+            right: -28px;
+            width: 28px;
+            height: 44px;
+            background-color: #ffffff;
+            color: #374151;
+            border: 1px solid #d1d5db;
+            border-left: none;
+            border-radius: 0 8px 8px 0;
+            box-shadow: 2px 2px 6px rgba(0, 0, 0, 0.12);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 900;
+            font-size: 13px;
+            cursor: pointer;
+            z-index: 45;
+            transition: background-color 0.15s, color 0.15s;
+            user-select: none;
+        }
+        #sidebar-toggle-btn:hover {
+            background-color: #fdf2f8;
+            color: #DB2777;
         }
         body.resizing-sidebar {
             cursor: col-resize !important;
             user-select: none !important;
         }
 
-        /* プレビュー画面：横スクロールバーを非表示にしドラッグ視点移動に対応 */
+        /* プレビュー画面：ドラッグ視点移動に対応 */
         #preview-viewport {
             overflow-x: hidden;
             overflow-y: auto;
@@ -94,10 +149,6 @@
         }
         #preview-viewport.is-panning {
             cursor: grabbing !important;
-        }
-        #preview-viewport::-webkit-scrollbar:horizontal {
-            display: none;
-            height: 0;
         }
 
         @media print {
@@ -116,7 +167,7 @@
                 overflow: visible !important;
                 font-family: Arial, Helvetica, "Hiragino Kaku Gothic ProN", "Hiragino Sans", Meiryo, sans-serif !important;
             }
-            #sidebar-panel, #sidebar-expand-btn, #match-edit-modal {
+            #sidebar-wrapper, #sidebar-panel, #sidebar-toggle-btn, #match-edit-modal {
                 display: none !important;
             }
             #preview-viewport {
@@ -270,7 +321,7 @@
         /* フェーズ通過枠（勝敗で2枠に分かれる二股 -[ コネクタ） */
         .match-wrapper.qualifier-branch-group {
             justify-content: center;
-            gap: 60px;
+            gap: var(--qual-branch-gap, 60px);
         }
         .match-wrapper.qualifier-branch-group::before {
             content: '';
@@ -285,8 +336,8 @@
             content: '';
             position: absolute;
             left: calc(var(--col-gap, 22px) / -2);
-            top: calc(50% - 47px);
-            bottom: calc(50% - 47px);
+            top: calc(50% - var(--qual-branch-half, 47px));
+            bottom: calc(50% - var(--qual-branch-half, 47px));
             width: calc(var(--col-gap, 22px) / 2);
             border-top: 2.5px dashed #000;
             border-bottom: 2.5px dashed #000;
@@ -384,21 +435,21 @@
 
         .qual-drop-label-top {
             position: absolute;
-            top: -14px;
+            top: var(--qual-top-offset, -14px);
             left: 2px;
-            font-size: 11px;
+            font-size: var(--qual-top-font, 11px);
             font-weight: 500;
-            line-height: 11px;
+            line-height: 1;
             color: #000;
             white-space: nowrap;
         }
         .qual-drop-label-bottom {
             position: absolute;
-            bottom: -15px;
+            bottom: var(--qual-bot-offset, -15px);
             left: 2px;
-            font-size: 11.5px;
+            font-size: var(--qual-bot-font, 11.5px);
             font-weight: 700;
-            line-height: 12px;
+            line-height: 1;
             color: #000;
             white-space: nowrap;
         }
@@ -526,8 +577,8 @@
             justify-content: center;
             font-size: 13px;
             font-weight: 700;
-            height: 24px;
-            min-height: 24px;
+            height: var(--qual-slot-h, 24px);
+            min-height: var(--qual-slot-h, 24px);
             white-space: nowrap;
             line-height: 1;
             box-sizing: border-box;
@@ -776,17 +827,17 @@
         </div>
     </div>
 
-    <!-- サイドバー閉じた状態での展開ボタン（「≫」） -->
-    <button id="sidebar-expand-btn" type="button" title="設定画面を開く" class="hidden fixed top-3 left-3 z-40 bg-white hover:bg-pink-50 text-gray-800 hover:text-[#DB2777] border border-gray-300 hover:border-pink-300 shadow-lg rounded-lg px-2.5 py-2 font-black text-sm transition flex items-center gap-1.5">
-        <span>≫</span>
-        <span class="text-xs font-bold">設定</span>
-    </button>
+    <!-- 左側：操作パネル＆外側開閉ボタン・幅変更ハンドル -->
+    <div id="sidebar-wrapper">
+        <div id="sidebar-panel" class="shrink-0 bg-white shadow-lg overflow-y-auto z-20 h-full">
+            <div class="p-5 flex flex-col gap-4">
+                <div id="app-brand-header" class="flex items-center gap-2.5 shrink-0 select-none" title="Bracket Printer">
+                    <img src="image/BracketPrinter_logo.png" onerror="this.onerror=null;this.src='../image/BracketPrinter_logo.png';" alt="Bracket Printer Logo" class="w-8 h-8 object-contain cursor-pointer shrink-0">
+                    <h1 class="text-2xl font-bold text-gray-800 truncate">Bracket Printer</h1>
+                </div>
 
-    <!-- 左側：操作パネル -->
-    <div id="sidebar-panel" class="shrink-0 bg-white shadow-lg overflow-y-auto z-20 h-full">
-        <div class="p-5 flex flex-col gap-4">
-            <div class="flex items-center justify-between gap-2 shrink-0">
-                <div id="app-brand-header" class="flex items-center gap-2.5 select-none min-w-0" title="Bracket Printer">
+                <!-- 使い方ガイドを開くボタン -->
+                <a href="https://tesnoo.github.io/BracketPrinter/how-to-use.html" target="_blank" rel="noopener noreferrer" class="w-full bg-pink-50 hover:bg-pink-100 text-[#DB2777] border border-pink-200 font-bold py-2 px-3 rounded shadow-sm transition text-xs flex items-center justify-center gap-1.5 shrink-0">
                     <img src="image/BracketPrinter_logo.png" onerror="this.onerror=null;this.src='../image/BracketPrinter_logo.png';" alt="Bracket Printer Logo" class="w-8 h-8 object-contain cursor-pointer shrink-0">
                     <h1 class="text-2xl font-bold text-gray-800 truncate">Bracket Printer</h1>
                 </div>
@@ -1182,7 +1233,9 @@
             </div>
         </div>
         <!-- ドラッグで横幅を変更するリサイズバー -->
-        <div id="sidebar-resizer" title="ドラッグして設定画面の横幅を変更"></div>
+        <div id="sidebar-resizer" title="左右にドラッグして設定画面の横幅を変更"></div>
+        <!-- サイドバー外側に配置された開閉ボタン -->
+        <button id="sidebar-toggle-btn" type="button" title="設定画面を閉じる / 開く">≪</button>
     </div>
 
     <!-- 右側：プレビュー＆描画領域 -->
