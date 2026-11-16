@@ -323,10 +323,10 @@ const sidebarResizer = document.getElementById('sidebar-resizer');
 const sidebarToggleBtn = document.getElementById('sidebar-toggle-btn');
 
 // === サイドバーの開閉（「≪ / ≫」ボタン）およびドラッグによる横幅変更 ===
-// デフォルト横幅は常に100%（標準幅320px / 内部パネルwidth: 100%）で起動
+// デフォルト横幅は画像2枚目のワイドサイズ（640px）で起動
 localStorage.removeItem('bracket_printer_sidebar_width');
 if (sidebarWrapper) {
-    sidebarWrapper.style.width = '320px';
+    sidebarWrapper.style.width = '640px';
 }
 if (sidebarPanel) {
     sidebarPanel.style.width = '100%';
@@ -346,7 +346,7 @@ if (sidebarToggleBtn && sidebarWrapper) {
 if (sidebarResizer && sidebarWrapper) {
     let isResizingSidebar = false;
     let resizeStartX = 0;
-    let resizeStartWidth = 320;
+    let resizeStartWidth = 640;
 
     sidebarResizer.addEventListener('mousedown', (e) => {
         if (e.button !== 0) return;
@@ -362,7 +362,7 @@ if (sidebarResizer && sidebarWrapper) {
     window.addEventListener('mousemove', (e) => {
         if (!isResizingSidebar) return;
         const deltaX = e.clientX - resizeStartX;
-        const newWidth = Math.max(240, Math.min(640, Math.round(resizeStartWidth + deltaX)));
+        const newWidth = Math.max(280, Math.min(840, Math.round(resizeStartWidth + deltaX)));
         sidebarWrapper.style.width = `${newWidth}px`;
         if (typeof fitToViewport === 'function') fitToViewport();
     });
