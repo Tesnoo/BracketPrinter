@@ -33,13 +33,13 @@ function createSingleQualifierBox(topLabelText, bottomPhaseText) {
     const slot = createElement('div', 'qualifier-slot', '');
     box.appendChild(slot);
 
-    const len = bottomPhaseText.length;
-    let fontSizePx = 11.5;
-    if (len > 26) fontSizePx = 9.5;
-    else if (len > 20) fontSizePx = 10.5;
-
     const bottomLbl = createElement('span', 'qual-drop-label-bottom', bottomPhaseText);
-    bottomLbl.style.fontSize = `${fontSizePx}px`;
+    const len = bottomPhaseText.length;
+    if (len > 26) {
+        bottomLbl.style.fontSize = '9px';
+    } else if (len > 20) {
+        bottomLbl.style.fontSize = '10px';
+    }
     box.appendChild(bottomLbl);
     return box;
 }
@@ -1953,33 +1953,66 @@ function buildBracketSheetContent(poolName, bracketContainerEl, rosterContainerE
     const wColsCount = wContainer.children.length;
     const lColsCount = (!isSingle && (isGfMode || lCountNum > 0)) ? lContainer.children.length : 0;
 
+    // 進出先フェーズ枠（二股・単一）の寸法パラメータ（W8L16等の高密度時の文字衝突防止）
+    let qualBranchGapPx = 56;
+    let qualSlotHeightPx = 24;
+    let qualTopFontPx = 11;
+    let qualBotFontPx = 11.5;
+    let qualTopOffsetPx = -14;
+    let qualBotOffsetPx = -15;
+
+    if (effW >= 8 && isFinalWLoserDirectQual) {
+        // W8 / L16 等で勝者側最終ラウンドから8組（計16枠）の二股通過枠が並ぶ場合
+        qualBranchGapPx = 22;
+        qualSlotHeightPx = 17;
+        qualTopFontPx = 9.5;
+        qualBotFontPx = 9.5;
+        qualTopOffsetPx = -10.5;
+        qualBotOffsetPx = -11;
+    } else if (effW >= 4 && isFinalWLoserDirectQual) {
+        qualBranchGapPx = 38;
+        qualSlotHeightPx = 21;
+        qualTopFontPx = 10.5;
+        qualBotFontPx = 10.5;
+        qualTopOffsetPx = -12.5;
+        qualBotOffsetPx = -13;
+    } else if (targetLosersBracketQuals >= 8) {
+        qualSlotHeightPx = 20;
+        qualTopFontPx = 10;
+        qualBotFontPx = 10;
+        qualTopOffsetPx = -12;
+        qualBotOffsetPx = -12.5;
+    }
+
     if (isPortraitMode) {
         if (playerCount >= 41 && lColsCount > 0) {
-            boxHeightPx = 39;
+            boxHeightPx = 35;
             colWidthPx = 188;
             colGapPx = 14;
             labelWidthPx = 20;
             checkboxWidthPx = 20;
-            playerFontPx = 11.5;
+            playerFontPx = 11;
             playerPadXPx = 4;
-            dropLabelFontPx = 9.5;
-            dropLabelOffsetPx = -11;
-            seedLabelFontPx = 9.5;
-            seedLabelOffsetPx = -10;
-            wSlotUnit = 64;
-            lSlotUnit = 64;
+            dropLabelFontPx = 9;
+            dropLabelOffsetPx = -10;
+            seedLabelFontPx = 9;
+            seedLabelOffsetPx = -9.5;
+            wSlotUnit = 68;
+            lSlotUnit = 68;
         } else if (playerCount >= 33) {
-            boxHeightPx = 46;
+            boxHeightPx = 44;
             colWidthPx = 188;
             colGapPx = 14;
             labelWidthPx = 20;
             checkboxWidthPx = 20;
             playerFontPx = 12;
             playerPadXPx = 4;
+            dropLabelFontPx = 10;
+            dropLabelOffsetPx = -11.5;
             wSlotUnit = 86;
             lSlotUnit = 88;
         } else if (playerCount >= 25) {
-            boxHeightPx = 54;
+            boxHeightPx = 52;
             colWidthPx = 224;
             colGapPx = 16;
             labelWidthPx = 22;
@@ -2030,20 +2063,20 @@ function buildBracketSheetContent(poolName, bracketContainerEl, rosterContainerE
 
         if (availableBodyH > currentTotalBracketH + 20) {
             if (lColsCount > 0) {
-                bracketGapPx = playerCount >= 41 ? 38 : 54;
+                bracketGapPx = playerCount >= 41 ? 36 : 54;
                 const usableH = availableBodyH - bracketGapPx - (ROUND_HEADER_TOTAL_HEIGHT * 2);
                 const totalUnits = winnersSlots + losersSlots;
                 const expandedUnit = Math.floor(usableH / totalUnits);
                 wSlotUnit = Math.max(wSlotUnit, expandedUnit);
                 lSlotUnit = Math.max(lSlotUnit, expandedUnit);
-                const maxBoxH = playerCount >= 41 ? 42 : 62;
-                boxHeightPx = Math.min(maxBoxH, Math.max(boxHeightPx, Math.floor(expandedUnit * 0.56)));
+                const maxBoxH = playerCount >= 41 ? 38 : 60;
+                boxHeightPx = Math.min(maxBoxH, Math.max(boxHeightPx, Math.floor(expandedUnit * 0.50)));
                 winnersHeightPx = ROUND_HEADER_TOTAL_HEIGHT + (winnersSlots * wSlotUnit);
                 losersHeightPx = ROUND_HEADER_TOTAL_HEIGHT + (losersSlots * lSlotUnit);
             } else {
                 const usableH = availableBodyH - ROUND_HEADER_TOTAL_HEIGHT;
                 wSlotUnit = Math.max(wSlotUnit, Math.floor(usableH / winnersSlots));
-                boxHeightPx = Math.min(66, Math.max(boxHeightPx, Math.floor(wSlotUnit * 0.52)));
+                boxHeightPx = Math.min(64, Math.max(boxHeightPx, Math.floor(wSlotUnit * 0.52)));
                 winnersHeightPx = ROUND_HEADER_TOTAL_HEIGHT + (winnersSlots * wSlotUnit);
             }
         }
@@ -2058,6 +2091,9 @@ function buildBracketSheetContent(poolName, bracketContainerEl, rosterContainerE
         totalCanvasHeight = Math.round(totalCanvasWidth / Math.SQRT2);
     }
 
+    const qualBoxTotalH = qualSlotHeightPx + 8; // 上下4px二重線ボーダー分
+    const qualBranchHalfPx = Math.round((qualBranchGapPx + qualBoxTotalH) / 2);
+
     targetSheetEl.style.setProperty('--match-box-h', `${boxHeightPx}px`);
     targetSheetEl.style.setProperty('--col-w', `${colWidthPx}px`);
     targetSheetEl.style.setProperty('--col-gap', `${colGapPx}px`);
@@ -2069,6 +2105,13 @@ function buildBracketSheetContent(poolName, bracketContainerEl, rosterContainerE
     targetSheetEl.style.setProperty('--drop-label-offset', `${dropLabelOffsetPx}px`);
     targetSheetEl.style.setProperty('--seed-label-font', `${seedLabelFontPx}px`);
     targetSheetEl.style.setProperty('--seed-label-offset', `${seedLabelOffsetPx}px`);
+    targetSheetEl.style.setProperty('--qual-branch-gap', `${qualBranchGapPx}px`);
+    targetSheetEl.style.setProperty('--qual-branch-half', `${qualBranchHalfPx}px`);
+    targetSheetEl.style.setProperty('--qual-slot-h', `${qualSlotHeightPx}px`);
+    targetSheetEl.style.setProperty('--qual-top-font', `${qualTopFontPx}px`);
+    targetSheetEl.style.setProperty('--qual-bot-font', `${qualBotFontPx}px`);
+    targetSheetEl.style.setProperty('--qual-top-offset', `${qualTopOffsetPx}px`);
+    targetSheetEl.style.setProperty('--qual-bot-offset', `${qualBotOffsetPx}px`);
 
     wContainer.style.height = `${winnersHeightPx}px`;
     bracketContainerEl.innerHTML = '';
