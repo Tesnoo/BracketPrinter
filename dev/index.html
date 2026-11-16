@@ -90,6 +90,9 @@
             max-width: 640px;
             height: 100%;
         }
+        #sidebar-wrapper.is-collapsed {
+            width: 0 !important;
+        }
         #sidebar-wrapper.is-collapsed #sidebar-panel,
         #sidebar-wrapper.is-collapsed #sidebar-resizer {
             display: none !important;
@@ -838,398 +841,389 @@
 
                 <!-- 使い方ガイドを開くボタン -->
                 <a href="https://tesnoo.github.io/BracketPrinter/how-to-use.html" target="_blank" rel="noopener noreferrer" class="w-full bg-pink-50 hover:bg-pink-100 text-[#DB2777] border border-pink-200 font-bold py-2 px-3 rounded shadow-sm transition text-xs flex items-center justify-center gap-1.5 shrink-0">
-                    <img src="image/BracketPrinter_logo.png" onerror="this.onerror=null;this.src='../image/BracketPrinter_logo.png';" alt="Bracket Printer Logo" class="w-8 h-8 object-contain cursor-pointer shrink-0">
-                    <h1 class="text-2xl font-bold text-gray-800 truncate">Bracket Printer</h1>
-                </div>
-                <button id="sidebar-collapse-btn" type="button" title="設定画面を閉じる" class="bg-gray-100 hover:bg-pink-50 text-gray-600 hover:text-[#DB2777] border border-gray-300 hover:border-pink-300 rounded px-2 py-1 text-xs font-black transition shrink-0">
-                    ≪
-                </button>
-            </div>
+                    <span>📖 使い方を確認する</span>
+                    <span class="text-[10px]">↗</span>
+                </a>
 
-            <!-- 使い方ガイドを開くボタン -->
-            <a href="https://tesnoo.github.io/BracketPrinter/how-to-use.html" target="_blank" rel="noopener noreferrer" class="w-full bg-pink-50 hover:bg-pink-100 text-[#DB2777] border border-pink-200 font-bold py-2 px-3 rounded shadow-sm transition text-xs flex items-center justify-center gap-1.5 shrink-0">
-                <span>📖 使い方を確認する</span>
-                <span class="text-[10px]">↗</span>
-            </a>
-
-            <div class="flex flex-col gap-2 bg-gray-50 p-2.5 rounded border border-gray-200 text-xs shrink-0">
-                <div class="flex flex-col gap-1.5">
-                    <label class="font-bold text-gray-700">大会プリセット（任意）</label>
-                    <select id="preset-select" class="w-full border border-gray-300 rounded p-1.5 bg-white text-xs">
-                        <option value="" selected>プリセットを使用しない</option>
-                        <option value="Vic-Seekers">Vic-Seekers</option>
-                        <option value="クロブラ">クロブラ</option>
-                        <option value="IMPACT MAJOR">IMPACT MAJOR</option>
-                        <option value="テスト用">テスト用</option>
-                    </select>
-                    <input type="file" id="load-bp-input" accept=".bp,application/json" class="hidden">
-                    <button id="load-bp-btn" type="button" class="w-full bg-white hover:bg-pink-50 text-[#DB2777] border border-pink-300 font-bold py-1.5 px-2 rounded transition text-[11px] flex items-center justify-center gap-1 shadow-sm">
-                        <span>📂 作成したプリセットを読み込む (.bp)</span>
-                    </button>
-                    <p id="preset-bp-status" class="text-[10.5px] font-bold hidden whitespace-pre-line leading-relaxed"></p>
-                </div>
-
-                <div id="kurobra-game-wrapper" class="hidden flex flex-col gap-1 pt-1 border-t border-gray-200">
-                    <label class="text-[11px] font-semibold text-gray-700">競技タイトルの選択</label>
-                    <select id="kurobra-game-select" class="w-full border border-gray-300 rounded p-1 bg-white text-xs">
-                        <option value="sp" selected>スマブラSP（WSF / LQF以降Bo5）</option>
-                        <option value="dx">スマブラDX（全試合Bo5）</option>
-                    </select>
-                </div>
-
-                <!-- テスト用プリセット専用：トーナメント形式選択プルダウン -->
-                <div id="test-preset-format-wrapper" class="hidden flex flex-col gap-1 pt-1 border-t border-gray-200">
-                    <label class="text-[11px] font-semibold text-gray-700">トーナメント形式の選択</label>
-                    <select id="test-preset-format-select" class="w-full border border-gray-300 rounded p-1 bg-white text-xs">
-                        <option value="double" selected>ダブルエリミネーション</option>
-                        <option value="single">シングルエリミネーション</option>
-                    </select>
-                </div>
-
-                <div id="preset-number-wrapper" class="hidden flex flex-col gap-1 pt-1 border-t border-gray-200">
-                    <label class="text-[11px] font-semibold text-gray-700">大会ナンバリング（半角数字）</label>
-                    <input type="text" id="preset-number-input" inputmode="numeric" placeholder="例: 1" class="w-full border border-gray-300 rounded p-1.5 bg-white text-xs">
-                </div>
-
-                <div class="flex flex-col gap-1 pt-1 border-t border-gray-200">
-                    <label id="tournament-name-label" class="font-bold text-gray-700">大会名（任意）</label>
-                    <input type="text" id="tournament-name-input" placeholder="例: Vic-Seekers #1" class="w-full border border-gray-300 rounded p-1.5 bg-white text-xs">
-                </div>
-            </div>
-
-            <!-- 初期設定枠 -->
-            <div id="initial-settings-box" class="border-2 border-gray-300 rounded-lg p-3.5 bg-gray-50/50 flex flex-col gap-3.5 shrink-0">
-                <div class="flex items-center gap-1.5 border-b border-gray-300 pb-1.5">
-                    <span class="text-sm font-bold text-gray-800">⚙️ 初期設定</span>
-                </div>
-
-                <div class="flex flex-col gap-2 shrink-0">
-                    <label class="block text-xs font-bold text-gray-700">1. 参加者データの取得（6〜48名対応）</label>
-
-                    <span class="text-xs font-semibold text-gray-600">start.gg APIから取得</span>
+                <div class="flex flex-col gap-2 bg-gray-50 p-2.5 rounded border border-gray-200 text-xs shrink-0">
                     <div class="flex flex-col gap-1.5">
-                        <div class="flex items-stretch border border-gray-300 rounded overflow-hidden bg-white">
-                            <span class="bg-gray-100 text-gray-700 text-[11px] font-semibold px-2 py-1.5 border-r border-gray-300 whitespace-nowrap flex items-center">
-                                start.gg API token
-                            </span>
-                            <input type="password" id="startgg-token-input" placeholder="未入力" class="flex-1 px-2 py-1 text-xs outline-none min-w-0">
-                        </div>
-                        <p id="token-error-msg" class="text-[11px] text-red-600 font-bold hidden whitespace-pre-line leading-relaxed"></p>
-
-                        <div class="flex items-stretch border border-gray-300 rounded overflow-hidden bg-white">
-                            <span class="bg-gray-100 text-gray-700 text-[11px] font-semibold px-2 py-1.5 border-r border-gray-300 whitespace-nowrap flex items-center">
-                                Bracket URL
-                            </span>
-                            <input type="text" id="startgg-url-input" placeholder="例: https://www.start.gg/tournament/..." class="flex-1 px-2 py-1 text-xs outline-none min-w-0">
-                        </div>
-                        <p id="url-error-msg" class="text-[11px] text-red-600 font-bold hidden whitespace-pre-line leading-relaxed"></p>
-
-                        <button id="fetch-startgg-btn" type="button" class="bg-[#DB2777] hover:bg-pink-700 text-white text-xs font-bold py-1.5 px-3 rounded shadow-sm transition">
-                            start.ggからデータを取得
+                        <label class="font-bold text-gray-700">大会プリセット（任意）</label>
+                        <select id="preset-select" class="w-full border border-gray-300 rounded p-1.5 bg-white text-xs">
+                            <option value="" selected>プリセットを使用しない</option>
+                            <option value="Vic-Seekers">Vic-Seekers</option>
+                            <option value="クロブラ">クロブラ</option>
+                            <option value="IMPACT MAJOR">IMPACT MAJOR</option>
+                            <option value="テスト用">テスト用</option>
+                        </select>
+                        <input type="file" id="load-bp-input" accept=".bp,application/json" class="hidden">
+                        <button id="load-bp-btn" type="button" class="w-full bg-white hover:bg-pink-50 text-[#DB2777] border border-pink-300 font-bold py-1.5 px-2 rounded transition text-[11px] flex items-center justify-center gap-1 shadow-sm">
+                            <span>📂 作成したプリセットを読み込む (.bp)</span>
                         </button>
+                        <p id="preset-bp-status" class="text-[10.5px] font-bold hidden whitespace-pre-line leading-relaxed"></p>
                     </div>
 
-                    <p id="api-status" class="text-[11px] text-gray-500 hidden whitespace-pre-line leading-relaxed"></p>
-
-                    <div class="flex items-center gap-2 my-0.5">
-                        <hr class="flex-1 border-gray-300">
-                        <span class="text-[11px] text-gray-400 font-bold">または</span>
-                        <hr class="flex-1 border-gray-300">
+                    <div id="kurobra-game-wrapper" class="hidden flex flex-col gap-1 pt-1 border-t border-gray-200">
+                        <label class="text-[11px] font-semibold text-gray-700">競技タイトルの選択</label>
+                        <select id="kurobra-game-select" class="w-full border border-gray-300 rounded p-1 bg-white text-xs">
+                            <option value="sp" selected>スマブラSP（WSF / LQF以降Bo5）</option>
+                            <option value="dx">スマブラDX（全試合Bo5）</option>
+                        </select>
                     </div>
 
-                    <span class="text-xs font-semibold text-gray-600">シードCSVのアップロード</span>
-                    <input type="file" id="csv-upload" accept=".csv" class="block w-full text-xs text-gray-500 file:mr-2 file:py-1.5 file:px-2.5 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-pink-50 file:text-[#DB2777] hover:file:bg-pink-100 cursor-pointer border border-gray-300 rounded bg-white">
-                    
-                    <p id="csv-status" class="text-[11px] text-gray-500 hidden whitespace-pre-line leading-relaxed"></p>
-
-                    <div id="phase-select-wrapper" class="hidden flex flex-col gap-1 mt-0.5 bg-white p-2 rounded border border-gray-200 text-xs">
-                        <label class="text-[11px] font-semibold text-gray-700">対象フェーズの選択</label>
-                        <select id="phase-select" class="w-full border border-gray-300 rounded p-1 bg-white text-xs"></select>
+                    <!-- テスト用プリセット専用：トーナメント形式選択プルダウン -->
+                    <div id="test-preset-format-wrapper" class="hidden flex flex-col gap-1 pt-1 border-t border-gray-200">
+                        <label class="text-[11px] font-semibold text-gray-700">トーナメント形式の選択</label>
+                        <select id="test-preset-format-select" class="w-full border border-gray-300 rounded p-1 bg-white text-xs">
+                            <option value="double" selected>ダブルエリミネーション</option>
+                            <option value="single">シングルエリミネーション</option>
+                        </select>
                     </div>
 
-                    <div id="pool-select-wrapper" class="hidden flex flex-col gap-1 mt-0.5 bg-white p-2 rounded border border-gray-200 text-xs">
-                        <label class="text-[11px] font-semibold text-gray-700">描画対象プールの選択</label>
-                        <select id="pool-select" class="w-full border border-gray-300 rounded p-1 bg-white text-xs"></select>
+                    <div id="preset-number-wrapper" class="hidden flex flex-col gap-1 pt-1 border-t border-gray-200">
+                        <label class="text-[11px] font-semibold text-gray-700">大会ナンバリング（半角数字）</label>
+                        <input type="text" id="preset-number-input" inputmode="numeric" placeholder="例: 1" class="w-full border border-gray-300 rounded p-1.5 bg-white text-xs">
+                    </div>
+
+                    <div class="flex flex-col gap-1 pt-1 border-t border-gray-200">
+                        <label id="tournament-name-label" class="font-bold text-gray-700">大会名（任意）</label>
+                        <input type="text" id="tournament-name-input" placeholder="例: Vic-Seekers #1" class="w-full border border-gray-300 rounded p-1.5 bg-white text-xs">
+                    </div>
+                </div>
+
+                <!-- 初期設定枠 -->
+                <div id="initial-settings-box" class="border-2 border-gray-300 rounded-lg p-3.5 bg-gray-50/50 flex flex-col gap-3.5 shrink-0">
+                    <div class="flex items-center gap-1.5 border-b border-gray-300 pb-1.5">
+                        <span class="text-sm font-bold text-gray-800">⚙️ 初期設定</span>
+                    </div>
+
+                    <div class="flex flex-col gap-2 shrink-0">
+                        <label class="block text-xs font-bold text-gray-700">1. 参加者データの取得（6〜48名対応）</label>
+
+                        <span class="text-xs font-semibold text-gray-600">start.gg APIから取得</span>
+                        <div class="flex flex-col gap-1.5">
+                            <div class="flex items-stretch border border-gray-300 rounded overflow-hidden bg-white">
+                                <span class="bg-gray-100 text-gray-700 text-[11px] font-semibold px-2 py-1.5 border-r border-gray-300 whitespace-nowrap flex items-center">
+                                    start.gg API token
+                                </span>
+                                <input type="password" id="startgg-token-input" placeholder="未入力" class="flex-1 px-2 py-1 text-xs outline-none min-w-0">
+                            </div>
+                            <p id="token-error-msg" class="text-[11px] text-red-600 font-bold hidden whitespace-pre-line leading-relaxed"></p>
+
+                            <div class="flex items-stretch border border-gray-300 rounded overflow-hidden bg-white">
+                                <span class="bg-gray-100 text-gray-700 text-[11px] font-semibold px-2 py-1.5 border-r border-gray-300 whitespace-nowrap flex items-center">
+                                    Bracket URL
+                                </span>
+                                <input type="text" id="startgg-url-input" placeholder="例: https://www.start.gg/tournament/..." class="flex-1 px-2 py-1 text-xs outline-none min-w-0">
+                            </div>
+                            <p id="url-error-msg" class="text-[11px] text-red-600 font-bold hidden whitespace-pre-line leading-relaxed"></p>
+
+                            <button id="fetch-startgg-btn" type="button" class="bg-[#DB2777] hover:bg-pink-700 text-white text-xs font-bold py-1.5 px-3 rounded shadow-sm transition">
+                                start.ggからデータを取得
+                            </button>
+                        </div>
+
+                        <p id="api-status" class="text-[11px] text-gray-500 hidden whitespace-pre-line leading-relaxed"></p>
+
+                        <div class="flex items-center gap-2 my-0.5">
+                            <hr class="flex-1 border-gray-300">
+                            <span class="text-[11px] text-gray-400 font-bold">または</span>
+                            <hr class="flex-1 border-gray-300">
+                        </div>
+
+                        <span class="text-xs font-semibold text-gray-600">シードCSVのアップロード</span>
+                        <input type="file" id="csv-upload" accept=".csv" class="block w-full text-xs text-gray-500 file:mr-2 file:py-1.5 file:px-2.5 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-pink-50 file:text-[#DB2777] hover:file:bg-pink-100 cursor-pointer border border-gray-300 rounded bg-white">
+                        
+                        <p id="csv-status" class="text-[11px] text-gray-500 hidden whitespace-pre-line leading-relaxed"></p>
+
+                        <div id="phase-select-wrapper" class="hidden flex flex-col gap-1 mt-0.5 bg-white p-2 rounded border border-gray-200 text-xs">
+                            <label class="text-[11px] font-semibold text-gray-700">対象フェーズの選択</label>
+                            <select id="phase-select" class="w-full border border-gray-300 rounded p-1 bg-white text-xs"></select>
+                        </div>
+
+                        <div id="pool-select-wrapper" class="hidden flex flex-col gap-1 mt-0.5 bg-white p-2 rounded border border-gray-200 text-xs">
+                            <label class="text-[11px] font-semibold text-gray-700">描画対象プールの選択</label>
+                            <select id="pool-select" class="w-full border border-gray-300 rounded p-1 bg-white text-xs"></select>
+                        </div>
+                    </div>
+
+                    <hr class="border-gray-200 shrink-0">
+
+                    <div class="flex flex-col gap-1.5 text-xs shrink-0">
+                        <label class="font-bold text-gray-700">2. トーナメント形式の選択</label>
+                        <select id="elim-format-select" class="w-full border border-gray-300 rounded p-1.5 bg-white">
+                            <option value="" disabled selected>選択してください</option>
+                            <option value="double">ダブルエリミネーション</option>
+                            <option value="single">シングルエリミネーション</option>
+                        </select>
+                    </div>
+
+                    <div class="flex flex-col gap-1.5 text-xs shrink-0">
+                        <label class="font-bold text-gray-700">3. フェーズ通過人数の指定</label>
+                        <p class="text-[10.5px] text-gray-500 leading-snug">Grand Final（シングルはFinal）まで進行する場合は、0人を選択してください。</p>
+                        <div class="grid grid-cols-2 gap-2 mt-0.5">
+                            <div>
+                                <span class="text-[11px] text-gray-500 block mb-0.5">勝者側 (Winners)</span>
+                                <select id="winners-advance-count" class="w-full border border-gray-300 rounded p-1 bg-white">
+                                    <option value="" disabled selected>選択してください</option>
+                                    <option value="0">0人</option>
+                                    <option value="1">1人</option>
+                                    <option value="2">2人</option>
+                                    <option value="4">4人</option>
+                                    <option value="8">8人</option>
+                                </select>
+                            </div>
+                            <div id="losers-advance-wrapper">
+                                <span class="text-[11px] text-gray-500 block mb-0.5">敗者側 (Losers)</span>
+                                <select id="losers-advance-count" class="w-full border border-gray-300 rounded p-1 bg-white">
+                                    <option value="" disabled selected>選択してください</option>
+                                    <option value="0">0人</option>
+                                    <option value="1">1人</option>
+                                    <option value="2">2人</option>
+                                    <option value="4">4人</option>
+                                    <option value="8">8人</option>
+                                    <option value="16">16人</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="flex flex-col gap-2 text-xs shrink-0">
+                        <label class="font-bold text-gray-700">4. 基本最大セット数の指定</label>
+                        <select id="base-bo-select" class="w-full border border-gray-300 rounded p-1.5 bg-white">
+                            <option value="" disabled selected>選択してください</option>
+                            <option value="5">Bo5 / 3本先取</option>
+                            <option value="3">Bo3 / 2本先取</option>
+                            <option value="custom">その他（カスタム）</option>
+                        </select>
+
+                        <div id="custom-bo-container" class="hidden flex flex-col gap-2 bg-white p-2 rounded border border-gray-200">
+                            <label class="text-[11px] font-semibold text-gray-600">最大セット数を入力（奇数の半角数字）</label>
+                            <div class="flex gap-1">
+                                <input type="text" id="custom-bo-input" placeholder="例: 9" class="flex-1 border border-gray-300 rounded p-1 text-xs">
+                                <button id="custom-bo-apply-btn" type="button" class="bg-[#DB2777] hover:bg-pink-700 text-white px-2 py-1 rounded font-bold">確認</button>
+                            </div>
+                            <p id="custom-bo-error" class="text-[11px] text-red-600 font-bold hidden whitespace-pre-line leading-relaxed"></p>
+                            <div id="custom-bo-confirm-area" class="hidden flex flex-col gap-1.5 mt-1 pt-1.5 border-t border-gray-200">
+                                <span id="custom-bo-confirm-text" class="text-[11px] font-bold text-[#DB2777]"></span>
+                                <div class="flex gap-1">
+                                    <button id="custom-bo-confirm-yes" type="button" class="flex-1 bg-green-600 hover:bg-green-700 text-white py-0.5 rounded font-bold">確定</button>
+                                    <button id="custom-bo-confirm-no" type="button" class="flex-1 bg-gray-400 hover:bg-gray-500 text-white py-0.5 rounded font-bold">再入力</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="flex flex-col gap-2 text-xs shrink-0">
+                        <label class="font-bold text-gray-700">5. ラウンド途中の最大セット数変更</label>
+                        <div class="flex gap-4">
+                            <label class="flex items-center gap-1 cursor-pointer">
+                                <input type="radio" name="change-mode" value="no" checked class="accent-[#DB2777]"> 変更しない
+                            </label>
+                            <label class="flex items-center gap-1 cursor-pointer">
+                                <input type="radio" name="change-mode" value="yes" class="accent-[#DB2777]"> 変更する
+                            </label>
+                        </div>
+
+                        <div id="round-change-container" class="hidden flex flex-col gap-2.5 bg-white p-2.5 rounded border border-gray-200">
+                            <div class="flex flex-col gap-1">
+                                <span class="text-[11px] font-semibold text-gray-700">変更開始ラウンド（勝者側）</span>
+                                <select id="winners-round-select" class="w-full border border-gray-300 rounded p-1 bg-white text-[11px]">
+                                    <option value="none" selected>勝者側は変更しない</option>
+                                </select>
+                                <div class="flex items-center gap-1 mt-1">
+                                    <select id="winners-bo-select" class="flex-1 border border-gray-300 rounded p-1 bg-white text-[11px]">
+                                        <option value="5" selected>Bo5 / 3本先取</option>
+                                        <option value="3">Bo3 / 2本先取</option>
+                                        <option value="custom">その他（カスタム）</option>
+                                    </select>
+                                    <input type="text" id="winners-custom-input" placeholder="奇数" class="hidden w-12 border border-gray-300 rounded p-1 text-xs text-center">
+                                </div>
+                                <p id="winners-custom-error" class="text-[11px] text-red-600 font-bold hidden whitespace-pre-line leading-relaxed"></p>
+                            </div>
+
+                            <div id="losers-round-change-block" class="flex flex-col gap-1 pt-1 border-t border-gray-200">
+                                <span class="text-[11px] font-semibold text-gray-700">変更開始ラウンド（敗者側）</span>
+                                <select id="losers-round-select" class="w-full border border-gray-300 rounded p-1 bg-white text-[11px]">
+                                    <option value="none" selected>敗者側は変更しない</option>
+                                </select>
+                                <div class="flex items-center gap-1 mt-1">
+                                    <select id="losers-bo-select" class="flex-1 border border-gray-300 rounded p-1 bg-white text-[11px]">
+                                        <option value="5" selected>Bo5 / 3本先取</option>
+                                        <option value="3">Bo3 / 2本先取</option>
+                                        <option value="custom">その他（カスタム）</option>
+                                    </select>
+                                    <input type="text" id="losers-custom-input" placeholder="奇数" class="hidden w-12 border border-gray-300 rounded p-1 text-xs text-center">
+                                </div>
+                                <p id="losers-custom-error" class="text-[11px] text-red-600 font-bold hidden whitespace-pre-line leading-relaxed"></p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="target-phase-wrapper" class="flex flex-col gap-1 text-xs shrink-0">
+                        <label class="font-bold text-gray-700">6. 通過先フェーズ名の入力</label>
+                        <input type="text" id="target-phase-input" value="" placeholder="例: Day2 / TOP192" class="border border-gray-300 rounded p-1.5 text-xs bg-white">
+                    </div>
+                </div>
+
+                <div class="flex flex-col gap-1.5 shrink-0">
+                    <button id="generate-btn" disabled class="w-full bg-gray-300 text-gray-500 px-4 py-2 rounded shadow transition font-bold text-sm cursor-not-allowed">
+                        ブラケットを描画する
+                    </button>
+                    <button id="restore-session-btn" type="button" disabled class="w-full bg-gray-200 text-gray-400 border border-gray-300 px-3 py-1.5 rounded transition font-bold text-xs cursor-not-allowed">
+                        🔄 直前の作業状態を復元する
+                    </button>
+                    <p id="restore-session-status" class="text-[10.5px] font-bold hidden whitespace-pre-line leading-relaxed"></p>
+                    <p id="generate-error-msg" class="text-[11px] text-red-600 font-bold hidden whitespace-pre-line leading-relaxed"></p>
+                </div>
+
+                <hr class="border-gray-200 shrink-0">
+
+                <!-- 印刷オプション -->
+                <div class="border border-gray-200 rounded-lg shrink-0">
+                    <button type="button" class="accordion-toggle w-full flex justify-between items-center p-2.5 bg-gray-50 hover:bg-gray-100 font-bold text-xs text-gray-700 transition rounded-t-lg">
+                        <span class="flex items-center gap-1.5">
+                            <span>🖨️ 印刷オプション</span>
+                            <span id="print-rec-status-badge" class="bg-pink-100 text-[#DB2777] border border-pink-200 text-[10px] px-1.5 py-0.5 rounded font-bold">★推奨設定</span>
+                        </span>
+                        <i class="accordion-arrow not-italic transform transition-transform duration-200 inline-block">▼</i>
+                    </button>
+                    <div class="accordion-content bg-white px-3 py-2.5 flex flex-col gap-2.5 text-xs border-t border-gray-200 rounded-b-lg" style="display: none;">
+                        <div id="print-rec-reason-box" class="bg-pink-50 border border-pink-200 rounded p-1.5 text-[11px] text-pink-900 flex items-center justify-between">
+                            <span id="print-rec-reason-text">💡 13〜24人 トーナメントの推奨設定</span>
+                            <button id="reset-print-rec-btn" type="button" class="hidden text-[10px] bg-[#DB2777] text-white px-1.5 py-0.5 rounded font-bold hover:bg-pink-700 transition">推奨に戻す</button>
+                        </div>
+
+                        <div>
+                            <div class="flex justify-between items-center mb-0.5">
+                                <label class="block font-semibold text-gray-600">用紙サイズ</label>
+                                <span id="rec-size-badge" class="text-[10px] font-bold text-[#DB2777] bg-pink-50 px-1.5 py-0.2 rounded border border-pink-200">★推奨: A3</span>
+                            </div>
+                            <select id="print-size" class="w-full border border-gray-300 rounded p-1 bg-white">
+                                <option value="A3" selected>A3 ★推奨</option>
+                                <option value="B4">B4</option>
+                                <option value="A4">A4</option>
+                                <option value="B5">B5</option>
+                                <option value="A5">A5</option>
+                            </select>
+                        </div>
+                        <div>
+                            <div class="flex justify-between items-center mb-0.5">
+                                <label class="block font-semibold text-gray-600">印刷の向き</label>
+                                <span id="rec-orientation-badge" class="text-[10px] font-bold text-[#DB2777] bg-pink-50 px-1.5 py-0.2 rounded border border-pink-200">★推奨: 横</span>
+                            </div>
+                            <select id="print-orientation" class="w-full border border-gray-300 rounded p-1 bg-white">
+                                <option value="landscape" selected>横 (Landscape) ★推奨</option>
+                                <option value="portrait">縦 (Portrait)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <div class="flex justify-between items-center mb-0.5">
+                                <label class="block font-semibold text-gray-600">余白設定</label>
+                                <span class="text-[10px] font-bold text-[#DB2777] bg-pink-50 px-1.5 py-0.2 rounded border border-pink-200">★推奨: 標準</span>
+                            </div>
+                            <select id="print-margin" class="w-full border border-gray-300 rounded p-1 bg-white">
+                                <option value="standard" selected>標準 ★推奨</option>
+                                <option value="wide">広い</option>
+                                <option value="narrow">狭い</option>
+                            </select>
+                        </div>
+
+                        <div class="pt-1.5 border-t border-gray-200">
+                            <label class="flex items-center gap-1.5 cursor-pointer font-semibold text-gray-700">
+                                <input type="checkbox" id="show-phase-name-checkbox" checked class="accent-[#DB2777]">
+                                <span>ヘッダーにフェーズ名を表示する</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 描画オプション -->
+                <div class="border border-gray-200 rounded-lg shrink-0">
+                    <button type="button" class="accordion-toggle w-full flex justify-between items-center p-2.5 bg-gray-50 hover:bg-gray-100 font-bold text-xs text-gray-700 transition rounded-t-lg">
+                        <span>🎨 描画オプション（任意）</span>
+                        <i class="accordion-arrow not-italic transform transition-transform duration-200 inline-block">▼</i>
+                    </button>
+                    <div class="accordion-content bg-white px-3 py-2.5 flex flex-col gap-2.5 text-xs border-t border-gray-200 rounded-b-lg" style="display: none;">
+                        <div>
+                            <div class="flex justify-between items-center mb-0.5">
+                                <label class="block font-semibold text-gray-600">右下にロゴを追加</label>
+                                <button id="clear-logo-btn" type="button" class="hidden text-[10px] text-red-500 hover:underline">クリア</button>
+                            </div>
+                            <input type="file" id="logo-upload" accept="image/png" class="block w-full text-[10px] text-gray-500 file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200 cursor-pointer border border-gray-300 rounded">
+                            <p id="logo-status" class="text-[10px] text-green-600 font-bold mt-0.5 hidden whitespace-pre-line leading-relaxed"></p>
+                            <span class="text-[10px] text-gray-400 mt-0.5 block">※PNGファイルのみ対応（縦上限160px・超過時は自動縮小。カラー非対応）</span>
+                        </div>
+                        <div>
+                            <label class="block font-semibold text-gray-600 mb-0.5">テキストの追加</label>
+                            <button id="add-text-btn" type="button" class="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold py-1.5 px-2 rounded border border-gray-300 transition text-center">
+                                + テキストボックスを追加
+                            </button>
+                            <p id="text-box-status" class="text-[10px] text-blue-600 font-bold mt-0.5 hidden whitespace-pre-line leading-relaxed"></p>
+                            <span class="text-[10px] text-gray-400 mt-0.5 block">※文字の一部をドラッグまたはShift+矢印で選択してサイズ・装飾を個別変更できます</span>
+                        </div>
+                        <div class="pt-2 border-t border-gray-200 flex flex-col gap-1.5">
+                            <label class="font-semibold text-gray-600">対戦カード個別設定（DQ / 配信台）</label>
+                            <div class="grid grid-cols-2 gap-1.5">
+                                <button id="clear-dq-overrides-btn" type="button" class="bg-gray-100 hover:bg-red-50 text-gray-700 hover:text-red-600 border border-gray-300 hover:border-red-300 rounded py-1 px-2 text-[10.5px] font-bold transition text-center">
+                                    DQリセット
+                                </button>
+                                <button id="clear-stream-overrides-btn" type="button" class="bg-gray-100 hover:bg-red-50 text-gray-700 hover:text-red-600 border border-gray-300 hover:border-red-300 rounded py-1 px-2 text-[10.5px] font-bold transition text-center">
+                                    配信台リセット
+                                </button>
+                            </div>
+                            <p class="text-[10px] text-gray-500 leading-relaxed">
+                                💡 ブラケット描画後、プレビュー上の<strong>対戦カードをクリック</strong>すると「事前DQの記入」および「配信台ラベルの設定」を行えます。
+                            </p>
+
+                            <!-- 配信台・DQ設定の一覧確認パネル -->
+                            <div class="mt-1 bg-gray-50 border border-gray-200 rounded p-2 flex flex-col gap-1">
+                                <div class="flex items-center justify-between">
+                                    <span class="text-[10.5px] font-bold text-gray-700">📋 設定中のDQ・配信台一覧</span>
+                                    <span id="match-overrides-count-badge" class="text-[10px] bg-gray-200 text-gray-700 px-1.5 py-0.2 rounded font-bold">0件</span>
+                                </div>
+                                <div id="match-overrides-summary-list" class="max-h-36 overflow-y-auto flex flex-col gap-1 text-[10.5px] text-gray-500 pt-0.5">
+                                    <p class="text-[10px] text-gray-400">現在設定されているDQ・配信台はありません</p>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
                 <hr class="border-gray-200 shrink-0">
 
-                <div class="flex flex-col gap-1.5 text-xs shrink-0">
-                    <label class="font-bold text-gray-700">2. トーナメント形式の選択</label>
-                    <select id="elim-format-select" class="w-full border border-gray-300 rounded p-1.5 bg-white">
-                        <option value="" disabled selected>選択してください</option>
-                        <option value="double">ダブルエリミネーション</option>
-                        <option value="single">シングルエリミネーション</option>
-                    </select>
-                </div>
-
-                <div class="flex flex-col gap-1.5 text-xs shrink-0">
-                    <label class="font-bold text-gray-700">3. フェーズ通過人数の指定</label>
-                    <p class="text-[10.5px] text-gray-500 leading-snug">Grand Final（シングルはFinal）まで進行する場合は、0人を選択してください。</p>
-                    <div class="grid grid-cols-2 gap-2 mt-0.5">
-                        <div>
-                            <span class="text-[11px] text-gray-500 block mb-0.5">勝者側 (Winners)</span>
-                            <select id="winners-advance-count" class="w-full border border-gray-300 rounded p-1 bg-white">
-                                <option value="" disabled selected>選択してください</option>
-                                <option value="0">0人</option>
-                                <option value="1">1人</option>
-                                <option value="2">2人</option>
-                                <option value="4">4人</option>
-                                <option value="8">8人</option>
-                            </select>
-                        </div>
-                        <div id="losers-advance-wrapper">
-                            <span class="text-[11px] text-gray-500 block mb-0.5">敗者側 (Losers)</span>
-                            <select id="losers-advance-count" class="w-full border border-gray-300 rounded p-1 bg-white">
-                                <option value="" disabled selected>選択してください</option>
-                                <option value="0">0人</option>
-                                <option value="1">1人</option>
-                                <option value="2">2人</option>
-                                <option value="4">4人</option>
-                                <option value="8">8人</option>
-                                <option value="16">16人</option>
-                            </select>
-                        </div>
+                <div class="flex flex-col gap-1.5 shrink-0">
+                    <div class="flex justify-between items-center">
+                        <label class="text-xs font-bold text-gray-700">プレビュー表示倍率</label>
+                        <span id="zoom-value" class="text-xs font-mono font-bold text-gray-600">45%</span>
                     </div>
-                </div>
-
-                <div class="flex flex-col gap-2 text-xs shrink-0">
-                    <label class="font-bold text-gray-700">4. 基本最大セット数の指定</label>
-                    <select id="base-bo-select" class="w-full border border-gray-300 rounded p-1.5 bg-white">
-                        <option value="" disabled selected>選択してください</option>
-                        <option value="5">Bo5 / 3本先取</option>
-                        <option value="3">Bo3 / 2本先取</option>
-                        <option value="custom">その他（カスタム）</option>
-                    </select>
-
-                    <div id="custom-bo-container" class="hidden flex flex-col gap-2 bg-white p-2 rounded border border-gray-200">
-                        <label class="text-[11px] font-semibold text-gray-600">最大セット数を入力（奇数の半角数字）</label>
-                        <div class="flex gap-1">
-                            <input type="text" id="custom-bo-input" placeholder="例: 9" class="flex-1 border border-gray-300 rounded p-1 text-xs">
-                            <button id="custom-bo-apply-btn" type="button" class="bg-[#DB2777] hover:bg-pink-700 text-white px-2 py-1 rounded font-bold">確認</button>
-                        </div>
-                        <p id="custom-bo-error" class="text-[11px] text-red-600 font-bold hidden whitespace-pre-line leading-relaxed"></p>
-                        <div id="custom-bo-confirm-area" class="hidden flex flex-col gap-1.5 mt-1 pt-1.5 border-t border-gray-200">
-                            <span id="custom-bo-confirm-text" class="text-[11px] font-bold text-[#DB2777]"></span>
-                            <div class="flex gap-1">
-                                <button id="custom-bo-confirm-yes" type="button" class="flex-1 bg-green-600 hover:bg-green-700 text-white py-0.5 rounded font-bold">確定</button>
-                                <button id="custom-bo-confirm-no" type="button" class="flex-1 bg-gray-400 hover:bg-gray-500 text-white py-0.5 rounded font-bold">再入力</button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="flex flex-col gap-2 text-xs shrink-0">
-                    <label class="font-bold text-gray-700">5. ラウンド途中の最大セット数変更</label>
-                    <div class="flex gap-4">
-                        <label class="flex items-center gap-1 cursor-pointer">
-                            <input type="radio" name="change-mode" value="no" checked class="accent-[#DB2777]"> 変更しない
-                        </label>
-                        <label class="flex items-center gap-1 cursor-pointer">
-                            <input type="radio" name="change-mode" value="yes" class="accent-[#DB2777]"> 変更する
-                        </label>
-                    </div>
-
-                    <div id="round-change-container" class="hidden flex flex-col gap-2.5 bg-white p-2.5 rounded border border-gray-200">
-                        <div class="flex flex-col gap-1">
-                            <span class="text-[11px] font-semibold text-gray-700">変更開始ラウンド（勝者側）</span>
-                            <select id="winners-round-select" class="w-full border border-gray-300 rounded p-1 bg-white text-[11px]">
-                                <option value="none" selected>勝者側は変更しない</option>
-                            </select>
-                            <div class="flex items-center gap-1 mt-1">
-                                <select id="winners-bo-select" class="flex-1 border border-gray-300 rounded p-1 bg-white text-[11px]">
-                                    <option value="5" selected>Bo5 / 3本先取</option>
-                                    <option value="3">Bo3 / 2本先取</option>
-                                    <option value="custom">その他（カスタム）</option>
-                                </select>
-                                <input type="text" id="winners-custom-input" placeholder="奇数" class="hidden w-12 border border-gray-300 rounded p-1 text-xs text-center">
-                            </div>
-                            <p id="winners-custom-error" class="text-[11px] text-red-600 font-bold hidden whitespace-pre-line leading-relaxed"></p>
-                        </div>
-
-                        <div id="losers-round-change-block" class="flex flex-col gap-1 pt-1 border-t border-gray-200">
-                            <span class="text-[11px] font-semibold text-gray-700">変更開始ラウンド（敗者側）</span>
-                            <select id="losers-round-select" class="w-full border border-gray-300 rounded p-1 bg-white text-[11px]">
-                                <option value="none" selected>敗者側は変更しない</option>
-                            </select>
-                            <div class="flex items-center gap-1 mt-1">
-                                <select id="losers-bo-select" class="flex-1 border border-gray-300 rounded p-1 bg-white text-[11px]">
-                                    <option value="5" selected>Bo5 / 3本先取</option>
-                                    <option value="3">Bo3 / 2本先取</option>
-                                    <option value="custom">その他（カスタム）</option>
-                                </select>
-                                <input type="text" id="losers-custom-input" placeholder="奇数" class="hidden w-12 border border-gray-300 rounded p-1 text-xs text-center">
-                            </div>
-                            <p id="losers-custom-error" class="text-[11px] text-red-600 font-bold hidden whitespace-pre-line leading-relaxed"></p>
-                        </div>
-                    </div>
-                </div>
-
-                <div id="target-phase-wrapper" class="flex flex-col gap-1 text-xs shrink-0">
-                    <label class="font-bold text-gray-700">6. 通過先フェーズ名の入力</label>
-                    <input type="text" id="target-phase-input" value="" placeholder="例: Day2 / TOP192" class="border border-gray-300 rounded p-1.5 text-xs bg-white">
-                </div>
-            </div>
-
-            <div class="flex flex-col gap-1.5 shrink-0">
-                <button id="generate-btn" disabled class="w-full bg-gray-300 text-gray-500 px-4 py-2 rounded shadow transition font-bold text-sm cursor-not-allowed">
-                    ブラケットを描画する
-                </button>
-                <button id="restore-session-btn" type="button" disabled class="w-full bg-gray-200 text-gray-400 border border-gray-300 px-3 py-1.5 rounded transition font-bold text-xs cursor-not-allowed">
-                    🔄 直前の作業状態を復元する
-                </button>
-                <p id="restore-session-status" class="text-[10.5px] font-bold hidden whitespace-pre-line leading-relaxed"></p>
-                <p id="generate-error-msg" class="text-[11px] text-red-600 font-bold hidden whitespace-pre-line leading-relaxed"></p>
-            </div>
-
-            <hr class="border-gray-200 shrink-0">
-
-            <!-- 印刷オプション -->
-            <div class="border border-gray-200 rounded-lg shrink-0">
-                <button type="button" class="accordion-toggle w-full flex justify-between items-center p-2.5 bg-gray-50 hover:bg-gray-100 font-bold text-xs text-gray-700 transition rounded-t-lg">
-                    <span class="flex items-center gap-1.5">
-                        <span>🖨️ 印刷オプション</span>
-                        <span id="print-rec-status-badge" class="bg-pink-100 text-[#DB2777] border border-pink-200 text-[10px] px-1.5 py-0.5 rounded font-bold">★推奨設定</span>
-                    </span>
-                    <i class="accordion-arrow not-italic transform transition-transform duration-200 inline-block">▼</i>
-                </button>
-                <div class="accordion-content bg-white px-3 py-2.5 flex flex-col gap-2.5 text-xs border-t border-gray-200 rounded-b-lg" style="display: none;">
-                    <div id="print-rec-reason-box" class="bg-pink-50 border border-pink-200 rounded p-1.5 text-[11px] text-pink-900 flex items-center justify-between">
-                        <span id="print-rec-reason-text">💡 13〜24人 トーナメントの推奨設定</span>
-                        <button id="reset-print-rec-btn" type="button" class="hidden text-[10px] bg-[#DB2777] text-white px-1.5 py-0.5 rounded font-bold hover:bg-pink-700 transition">推奨に戻す</button>
-                    </div>
-
-                    <div>
-                        <div class="flex justify-between items-center mb-0.5">
-                            <label class="block font-semibold text-gray-600">用紙サイズ</label>
-                            <span id="rec-size-badge" class="text-[10px] font-bold text-[#DB2777] bg-pink-50 px-1.5 py-0.2 rounded border border-pink-200">★推奨: A3</span>
-                        </div>
-                        <select id="print-size" class="w-full border border-gray-300 rounded p-1 bg-white">
-                            <option value="A3" selected>A3 ★推奨</option>
-                            <option value="B4">B4</option>
-                            <option value="A4">A4</option>
-                            <option value="B5">B5</option>
-                            <option value="A5">A5</option>
-                        </select>
-                    </div>
-                    <div>
-                        <div class="flex justify-between items-center mb-0.5">
-                            <label class="block font-semibold text-gray-600">印刷の向き</label>
-                            <span id="rec-orientation-badge" class="text-[10px] font-bold text-[#DB2777] bg-pink-50 px-1.5 py-0.2 rounded border border-pink-200">★推奨: 横</span>
-                        </div>
-                        <select id="print-orientation" class="w-full border border-gray-300 rounded p-1 bg-white">
-                            <option value="landscape" selected>横 (Landscape) ★推奨</option>
-                            <option value="portrait">縦 (Portrait)</option>
-                        </select>
-                    </div>
-                    <div>
-                        <div class="flex justify-between items-center mb-0.5">
-                            <label class="block font-semibold text-gray-600">余白設定</label>
-                            <span class="text-[10px] font-bold text-[#DB2777] bg-pink-50 px-1.5 py-0.2 rounded border border-pink-200">★推奨: 標準</span>
-                        </div>
-                        <select id="print-margin" class="w-full border border-gray-300 rounded p-1 bg-white">
-                            <option value="standard" selected>標準 ★推奨</option>
-                            <option value="wide">広い</option>
-                            <option value="narrow">狭い</option>
-                        </select>
-                    </div>
-
-                    <div class="pt-1.5 border-t border-gray-200">
-                        <label class="flex items-center gap-1.5 cursor-pointer font-semibold text-gray-700">
-                            <input type="checkbox" id="show-phase-name-checkbox" checked class="accent-[#DB2777]">
-                            <span>ヘッダーにフェーズ名を表示する</span>
-                        </label>
-                    </div>
-                </div>
-            </div>
-
-            <!-- 描画オプション -->
-            <div class="border border-gray-200 rounded-lg shrink-0">
-                <button type="button" class="accordion-toggle w-full flex justify-between items-center p-2.5 bg-gray-50 hover:bg-gray-100 font-bold text-xs text-gray-700 transition rounded-t-lg">
-                    <span>🎨 描画オプション（任意）</span>
-                    <i class="accordion-arrow not-italic transform transition-transform duration-200 inline-block">▼</i>
-                </button>
-                <div class="accordion-content bg-white px-3 py-2.5 flex flex-col gap-2.5 text-xs border-t border-gray-200 rounded-b-lg" style="display: none;">
-                    <div>
-                        <div class="flex justify-between items-center mb-0.5">
-                            <label class="block font-semibold text-gray-600">右下にロゴを追加</label>
-                            <button id="clear-logo-btn" type="button" class="hidden text-[10px] text-red-500 hover:underline">クリア</button>
-                        </div>
-                        <input type="file" id="logo-upload" accept="image/png" class="block w-full text-[10px] text-gray-500 file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200 cursor-pointer border border-gray-300 rounded">
-                        <p id="logo-status" class="text-[10px] text-green-600 font-bold mt-0.5 hidden whitespace-pre-line leading-relaxed"></p>
-                        <span class="text-[10px] text-gray-400 mt-0.5 block">※PNGファイルのみ対応（縦上限160px・超過時は自動縮小。カラー非対応）</span>
-                    </div>
-                    <div>
-                        <label class="block font-semibold text-gray-600 mb-0.5">テキストの追加</label>
-                        <button id="add-text-btn" type="button" class="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold py-1.5 px-2 rounded border border-gray-300 transition text-center">
-                            + テキストボックスを追加
+                    <input type="range" id="zoom-slider" min="20" max="120" value="45" step="1" class="w-full accent-[#DB2777] cursor-pointer">
+                    <div class="flex gap-2 mt-0.5">
+                        <button id="zoom-fit-btn" type="button" class="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-bold py-1 px-2 rounded border border-gray-300 transition">
+                            画面に合わせる
                         </button>
-                        <p id="text-box-status" class="text-[10px] text-blue-600 font-bold mt-0.5 hidden whitespace-pre-line leading-relaxed"></p>
-                        <span class="text-[10px] text-gray-400 mt-0.5 block">※文字の一部をドラッグまたはShift+矢印で選択してサイズ・装飾を個別変更できます</span>
-                    </div>
-                    <div class="pt-2 border-t border-gray-200 flex flex-col gap-1.5">
-                        <label class="font-semibold text-gray-600">対戦カード個別設定（DQ / 配信台）</label>
-                        <div class="grid grid-cols-2 gap-1.5">
-                            <button id="clear-dq-overrides-btn" type="button" class="bg-gray-100 hover:bg-red-50 text-gray-700 hover:text-red-600 border border-gray-300 hover:border-red-300 rounded py-1 px-2 text-[10.5px] font-bold transition text-center">
-                                DQリセット
-                            </button>
-                            <button id="clear-stream-overrides-btn" type="button" class="bg-gray-100 hover:bg-red-50 text-gray-700 hover:text-red-600 border border-gray-300 hover:border-red-300 rounded py-1 px-2 text-[10.5px] font-bold transition text-center">
-                                配信台リセット
-                            </button>
-                        </div>
-                        <p class="text-[10px] text-gray-500 leading-relaxed">
-                            💡 ブラケット描画後、プレビュー上の<strong>対戦カードをクリック</strong>すると「事前DQの記入」および「配信台ラベルの設定」を行えます。
-                        </p>
-
-                        <!-- 配信台・DQ設定の一覧確認パネル -->
-                        <div class="mt-1 bg-gray-50 border border-gray-200 rounded p-2 flex flex-col gap-1">
-                            <div class="flex items-center justify-between">
-                                <span class="text-[10.5px] font-bold text-gray-700">📋 設定中のDQ・配信台一覧</span>
-                                <span id="match-overrides-count-badge" class="text-[10px] bg-gray-200 text-gray-700 px-1.5 py-0.2 rounded font-bold">0件</span>
-                            </div>
-                            <div id="match-overrides-summary-list" class="max-h-36 overflow-y-auto flex flex-col gap-1 text-[10.5px] text-gray-500 pt-0.5">
-                                <p class="text-[10px] text-gray-400">現在設定されているDQ・配信台はありません</p>
-                            </div>
-                        </div>
+                        <button id="zoom-reset-btn" type="button" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-bold py-1 px-2 rounded border border-gray-300 transition">
+                            100%
+                        </button>
                     </div>
                 </div>
-            </div>
 
-            <hr class="border-gray-200 shrink-0">
+                <hr class="border-gray-200 shrink-0">
 
-            <div class="flex flex-col gap-1.5 shrink-0">
-                <div class="flex justify-between items-center">
-                    <label class="text-xs font-bold text-gray-700">プレビュー表示倍率</label>
-                    <span id="zoom-value" class="text-xs font-mono font-bold text-gray-600">45%</span>
-                </div>
-                <input type="range" id="zoom-slider" min="20" max="120" value="45" step="1" class="w-full accent-[#DB2777] cursor-pointer">
-                <div class="flex gap-2 mt-0.5">
-                    <button id="zoom-fit-btn" type="button" class="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-bold py-1 px-2 rounded border border-gray-300 transition">
-                        画面に合わせる
+                <div class="flex flex-col gap-2 pb-2 shrink-0">
+                    <button id="export-btn" type="button" class="bg-green-600 text-white px-4 py-2 rounded shadow hover:bg-green-700 transition font-bold text-sm">
+                        画像として保存(.jpg)
                     </button>
-                    <button id="zoom-reset-btn" type="button" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-bold py-1 px-2 rounded border border-gray-300 transition">
-                        100%
+                    <button id="export-pdf-btn" type="button" class="bg-[#FA8534] text-white px-4 py-2 rounded shadow hover:bg-orange-600 transition font-bold text-sm">
+                        現在のプールをPDF出力
                     </button>
+                    <button id="export-all-pdf-btn" type="button" class="bg-[#DB2777] text-white px-4 py-2 rounded shadow hover:bg-pink-700 transition font-bold text-sm">
+                        全プールをPDF一括出力
+                    </button>
+                    <button id="save-bp-btn" type="button" class="bg-gray-800 text-white px-4 py-2 rounded shadow hover:bg-gray-900 transition font-bold text-xs mt-1 flex items-center justify-center gap-1.5">
+                        <span>💾 オリジナルのプリセットを作成する</span>
+                    </button>
+                    <p id="export-error-msg" class="text-[11px] text-red-600 font-bold hidden whitespace-pre-line leading-relaxed"></p>
                 </div>
-            </div>
-
-            <hr class="border-gray-200 shrink-0">
-
-            <div class="flex flex-col gap-2 pb-2 shrink-0">
-                <button id="export-btn" type="button" class="bg-green-600 text-white px-4 py-2 rounded shadow hover:bg-green-700 transition font-bold text-sm">
-                    画像として保存(.jpg)
-                </button>
-                <button id="export-pdf-btn" type="button" class="bg-[#FA8534] text-white px-4 py-2 rounded shadow hover:bg-orange-600 transition font-bold text-sm">
-                    現在のプールをPDF出力
-                </button>
-                <button id="export-all-pdf-btn" type="button" class="bg-[#DB2777] text-white px-4 py-2 rounded shadow hover:bg-pink-700 transition font-bold text-sm">
-                    全プールをPDF一括出力
-                </button>
-                <button id="save-bp-btn" type="button" class="bg-gray-800 text-white px-4 py-2 rounded shadow hover:bg-gray-900 transition font-bold text-xs mt-1 flex items-center justify-center gap-1.5">
-                    <span>💾 オリジナルのプリセットを作成する</span>
-                </button>
-                <p id="export-error-msg" class="text-[11px] text-red-600 font-bold hidden whitespace-pre-line leading-relaxed"></p>
             </div>
         </div>
         <!-- ドラッグで横幅を変更するリサイズバー -->
