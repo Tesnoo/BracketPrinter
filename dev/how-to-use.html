@@ -85,13 +85,13 @@
                     <span class="text-[#DB2777]">見やすく・使いやすく</span>PDF出力
                 </h2>
                 <p class="text-sm text-gray-600 leading-relaxed">
-                    Bracket Printerは、start.ggの標準印刷機能では見切れてしまいがちなプレイヤー名を解消し、点呼時に役立つ名簿・試合開始時のチェックボックス・事前DQの書き込み・配信台マーキング・注意事項の書き込みを備えた実用的なトーナメント進行用紙をワンクリックでPDF/JPG出力できるWebアプリです。
+                    Bracket Printerは、start.ggの標準印刷機能では見切れてしまいがちなプレイヤー名を解消し、点呼時に役立つチェックイン名簿・試合開始時の進行チェックボックス・事前DQの自動進行＆落下反映・配信台マーキング・注意事項の書き込みを備えた実用的なトーナメント進行用紙をワンクリックでPDF/JPG出力できるWebアプリです。
                 </p>
                 <div class="flex flex-wrap gap-2 pt-1 text-xs font-bold">
-                    <span class="bg-white border border-gray-200 px-3 py-1.5 rounded-lg shadow-sm">✅ 1プールあたり6人〜40人に対応</span>
+                    <span class="bg-white border border-gray-200 px-3 py-1.5 rounded-lg shadow-sm">✅ 1プールあたり6人〜48人に対応</span>
                     <span class="bg-white border border-gray-200 px-3 py-1.5 rounded-lg shadow-sm">✅ 全プール一括PDF直接ダウンロード</span>
-                    <span class="bg-white border border-gray-200 px-3 py-1.5 rounded-lg shadow-sm">✅ シングルエリミネーション/ダブルエリミネーション両対応</span>
-                    <span class="bg-white border border-gray-200 px-3 py-1.5 rounded-lg shadow-sm">✅ ファイルサイズ軽量化</span>
+                    <span class="bg-white border border-gray-200 px-3 py-1.5 rounded-lg shadow-sm">✅ ダブル / シングルエリミネーション両対応</span>
+                    <span class="bg-white border border-gray-200 px-3 py-1.5 rounded-lg shadow-sm">✅ 独自プリセット(.bp)作成＆作業状態の自動復元</span>
                 </div>
             </div>
 
@@ -135,7 +135,7 @@
                     <li><strong class="text-gray-900">➀ 進行チェック欄</strong>：試合開始時に手書きチェック</li>
                     <li><strong class="text-gray-900">➁ プレイヤー名</strong>：Prefix(チーム名など)を除いた見やすい名前</li>
                     <li><strong class="text-gray-900">➂ スコア記入欄</strong>：手書き記入・事前DQ自動反映</li>
-                    <li><strong class="text-gray-900">➃ 配信先情報</strong>：どの配信台に行けばいいのかが明示されている</li>
+                    <li><strong class="text-gray-900">➃ 配信先情報</strong>：どの配信台で試合を行うかを明示</li>
                 </ul>
             </div>
         </div>
@@ -146,12 +146,12 @@
         <div class="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
             <h3 class="text-xs font-black text-gray-500 uppercase tracking-wider mb-3">目次（クリックで移動）</h3>
             <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 text-xs font-bold">
-                <a href="#sec-preset" class="p-2 rounded bg-gray-50 hover:bg-pink-50 hover:text-[#DB2777] border border-gray-200 transition">1. 大会プリセット・大会名の設定</a>
-                <a href="#sec-data" class="p-2 rounded bg-gray-50 hover:bg-pink-50 hover:text-[#DB2777] border border-gray-200 transition">2. 参加者データの取得（CSV / API）</a>
-                <a href="#sec-settings" class="p-2 rounded bg-gray-50 hover:bg-pink-50 hover:text-[#DB2777] border border-gray-200 transition">3. 初期設定（形式・通過人数・Bo数）</a>
-                <a href="#sec-interactive" class="p-2 rounded bg-gray-50 hover:bg-pink-50 hover:text-[#DB2777] border border-gray-200 transition">4. 事前DQの記入・配信台ラベル設定</a>
-                <a href="#sec-options" class="p-2 rounded bg-gray-50 hover:bg-pink-50 hover:text-[#DB2777] border border-gray-200 transition">5. ロゴ画像・高機能テキストボックス</a>
-                <a href="#sec-export" class="p-2 rounded bg-gray-50 hover:bg-pink-50 hover:text-[#DB2777] border border-gray-200 transition">6. 画像(.jpg)保存・PDF直接ダウンロード</a>
+                <a href="#sec-preset" class="p-2 rounded bg-gray-50 hover:bg-pink-50 hover:text-[#DB2777] border border-gray-200 transition">1. 大会プリセット・独自プリセット(.bp)</a>
+                <a href="#sec-data" class="p-2 rounded bg-gray-50 hover:bg-pink-50 hover:text-[#DB2777] border border-gray-200 transition">2. 参加者データの取得（API / CSV）</a>
+                <a href="#sec-settings" class="p-2 rounded bg-gray-50 hover:bg-pink-50 hover:text-[#DB2777] border border-gray-200 transition">3. 初期設定・描画・作業状態の復元</a>
+                <a href="#sec-interactive" class="p-2 rounded bg-gray-50 hover:bg-pink-50 hover:text-[#DB2777] border border-gray-200 transition">4. 事前DQの記入・配信台ラベル・一覧確認</a>
+                <a href="#sec-options" class="p-2 rounded bg-gray-50 hover:bg-pink-50 hover:text-[#DB2777] border border-gray-200 transition">5. 印刷設定・ロゴ・部分装飾テキスト</a>
+                <a href="#sec-export" class="p-2 rounded bg-gray-50 hover:bg-pink-50 hover:text-[#DB2777] border border-gray-200 transition">6. 画面操作・JPG保存・PDF直接出力</a>
             </div>
         </div>
     </div>
@@ -159,11 +159,11 @@
     <!-- メインコンテンツ -->
     <main class="max-w-5xl mx-auto px-4 sm:px-6 pb-16 space-y-10 w-full">
 
-        <!-- セクション1: 大会プリセット -->
+        <!-- セクション1: 大会プリセット & .bpファイル -->
         <section id="sec-preset" class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
             <div class="bg-gray-800 text-white px-6 py-3.5 flex items-center gap-3">
                 <span class="step-badge">STEP 0</span>
-                <h3 class="font-bold text-base">大会プリセット・大会名の設定（任意）</h3>
+                <h3 class="font-bold text-base">大会プリセット・オリジナルプリセット（.bp）の活用（任意）</h3>
             </div>
             <div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
                 <div class="space-y-3 text-sm text-gray-700 leading-relaxed">
@@ -171,15 +171,18 @@
                         登録済みの大会プリセットを選択し、<strong>大会ナンバリング（半角数字）</strong>を入力すると、以下の項目がすべて自動でセットされます。
                     </p>
                     <ul class="list-disc list-inside space-y-1 text-xs bg-pink-50/70 border border-pink-200 p-3.5 rounded-lg text-gray-800 font-medium">
-                        <li><strong>大会名</strong>（例：`Vic-Seekers #1`）</li>
-                        <li><strong>start.ggのBracket URL</strong>（選択したナンバリングから自動取得）</li>
+                        <li><strong>大会名</strong>（例：`Vic-Seekers #1` / `第1回クロブラ`）</li>
+                        <li><strong>start.ggのBracket URL</strong>（ナンバリングや競技タイトルから自動生成）</li>
                         <li><strong>大会ロゴ画像</strong>（用紙右下に自動配置）</li>
                         <li><strong>基本最大セット数・ラウンド途中変更設定</strong></li>
                         <li><strong>その他追加オプション</strong>（大会進行上の注意事項テキストなど）</li>
                     </ul>
-                    <p class="text-xs text-gray-500">
-                        ※プリセットにない大会でも、「大会名（任意）」欄に自由に入力するか、start.gg API取得時に大会名を自動取得できます。
-                    </p>
+                    <div class="bg-gray-50 border border-gray-200 rounded-lg p-3.5 text-xs space-y-1.5">
+                        <p class="font-bold text-gray-900">💾 オリジナルのプリセット作成・読み込み機能（.bp）</p>
+                        <p class="text-gray-600 leading-relaxed">
+                            設定パネル最下部の <strong>「💾 オリジナルのプリセットを作成する」</strong> を押すと、現在の大会名・URL・Bo設定・ロゴ画像・テキストボックス配置をまとめた専用ファイル（<code>.bp</code>）を保存できます。次回以降は上部の <strong>「📂 作成したプリセットを読み込む (.bp)」</strong> から一瞬で同じ設定を呼び出せます。
+                        </p>
+                    </div>
                 </div>
 
                 <!-- UIモック -->
@@ -189,6 +192,9 @@
                         <div class="border border-pink-400 bg-white rounded p-1.5 font-semibold text-gray-800 flex justify-between">
                             <span>Vic-Seekers</span><span>▼</span>
                         </div>
+                    </div>
+                    <div class="bg-white border border-pink-300 text-[#DB2777] font-bold py-1.5 px-2 rounded text-center text-[11px] shadow-sm">
+                        📂 作成したプリセットを読み込む (.bp)
                     </div>
                     <div class="pt-1 border-t border-gray-200">
                         <span class="font-semibold text-gray-700 block mb-1 text-[11px]">大会ナンバリング（半角数字）</span>
@@ -206,11 +212,11 @@
         <section id="sec-data" class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
             <div class="bg-gray-800 text-white px-6 py-3.5 flex items-center gap-3">
                 <span class="step-badge">STEP 1</span>
-                <h3 class="font-bold text-base">参加者データの取得（シードCSV または start.gg API）</h3>
+                <h3 class="font-bold text-base">参加者データの取得（start.gg API または シードCSV）</h3>
             </div>
             <div class="p-6 space-y-6">
                 <p class="text-sm text-gray-700">
-                    1プールあたり <strong>6名〜40名</strong> のトーナメントに対応しています（5名以下または41名以上のプールが含まれる場合はエラーが表示されます）。データの読み込み方法は以下の2通りから選べます。
+                    1プールあたり <strong>6名〜48名</strong> のトーナメントに対応しています（5名以下または49名以上のプールが含まれる場合はエラーが表示されます）。データの読み込み方法は以下の2通りから選べます。
                 </p>
 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -221,7 +227,7 @@
                             <span class="bg-[#DB2777] text-white text-[10px] font-bold px-2 py-0.5 rounded">自動設定対応</span>
                         </div>
                         <p class="text-xs text-gray-600 leading-relaxed">
-                            APIトークンとBracket URLを入力してボタンを押すだけで、<strong>全プールの参加者データ・トーナメント形式・通過人数・進出先フェーズ名・配信台・事前DQ</strong>まで一括で自動取得します。
+                            APIトークンとBracket URLを入力してボタンを押すだけで、<strong>全プールの参加者データ・大会名・トーナメント形式・通過人数・進出先フェーズ名・配信台・事前DQ</strong>まで一括で自動取得します。
                         </p>
                         <div class="bg-white border border-gray-200 rounded-lg p-3 space-y-2 text-xs">
                             <p class="font-bold text-gray-800">🔑 start.gg API token の取得手順（初回のみ）</p>
@@ -254,24 +260,24 @@
             </div>
         </section>
 
-        <!-- セクション3: 初期設定（手順2〜6） -->
+        <!-- セクション3: 初期設定（手順2〜6）と自動バックアップ復元 -->
         <section id="sec-settings" class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
             <div class="bg-gray-800 text-white px-6 py-3.5 flex items-center gap-3">
                 <span class="step-badge">STEP 2</span>
-                <h3 class="font-bold text-base">初期設定（手順2 〜 手順6）とブラケット描画</h3>
+                <h3 class="font-bold text-base">初期設定（手順2 〜 手順6）・描画・直前の作業状態の復元</h3>
             </div>
-            <div class="p-6 space-y-4 text-sm text-gray-700">
+            <div class="p-6 space-y-5 text-sm text-gray-700">
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
                     <div class="p-4 rounded-lg border border-gray-200 bg-gray-50 space-y-1.5">
                         <h4 class="font-bold text-gray-900 text-sm">2. トーナメント形式の選択</h4>
                         <p class="text-gray-600 leading-relaxed">
-                            <strong>ダブルエリミネーション</strong> または <strong>シングルエリミネーション</strong>（ともに6〜40名対応）を選択します。
+                            <strong>ダブルエリミネーション</strong> または <strong>シングルエリミネーション</strong>（ともに6〜48名対応）を選択します。
                         </p>
                     </div>
                     <div class="p-4 rounded-lg border border-gray-200 bg-gray-50 space-y-1.5">
-                        <h4 class="font-bold text-gray-900 text-sm">3. フェーズ通過人数の指定</h4>
+                        <h4 class="font-bold text-gray-900 text-sm">3. フェーズ通過人数の指定（最大W8 / L16対応）</h4>
                         <p class="text-gray-600 leading-relaxed">
-                            勝者側（0 / 1 / 2 / 4人）・敗者側（0 / 1 / 2 / 4 / 8人）から選択します。<br>
+                            勝者側（<strong>0 / 1 / 2 / 4 / 8人</strong>）・敗者側（<strong>0 / 1 / 2 / 4 / 8 / 16人</strong>）から選択します。<br>
                             <strong class="text-[#DB2777]">※Grand Final（シングルはFinal）まで完結させる場合は「0人」を選択してください。</strong>
                         </p>
                     </div>
@@ -284,21 +290,33 @@
                     <div class="p-4 rounded-lg border border-gray-200 bg-gray-50 space-y-1.5">
                         <h4 class="font-bold text-gray-900 text-sm">6. 通過先フェーズ名の入力</h4>
                         <p class="text-gray-600 leading-relaxed">
-                            予選通過枠の下部に印字される次フェーズ名（例：`Top 48` / `Aクラストーナメント`）を入力します（Grand Final完結時は入力不要です）。
+                            予選通過枠の下部に印字される次フェーズ名（例：`Day2 / TOP192`）を入力します（Grand Final完結時は自動で入力不要になります）。
                         </p>
                     </div>
                 </div>
-                <p class="text-xs text-center font-bold text-gray-600 pt-2">
-                    すべての項目を設定すると <span class="bg-[#DB2777] text-white px-2.5 py-1 rounded">ブラケットを描画する</span> ボタンが有効化されます！
-                </p>
+
+                <!-- 直前の作業状態を復元する機能の説明 -->
+                <div class="bg-amber-50 border border-amber-200 rounded-xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 text-xs">
+                    <div class="space-y-1">
+                        <h4 class="font-black text-amber-900 text-sm flex items-center gap-1.5">
+                            <span>🔄 直前の作業状態をワンクリックで復元</span>
+                        </h4>
+                        <p class="text-amber-800 leading-relaxed">
+                            ブラケット描画後の状態（プールデータ・事前DQ・配信台設定・ロゴ・テキストボックス等）はブラウザにリアルタイムで自動保存されます。誤ってページを再読み込みしてしまった場合でも、未描画状態のときに点灯する <strong>「🔄 直前の作業状態を復元する」</strong> ボタンを押すだけで直前の作業状態を即座に復元できます。
+                        </p>
+                    </div>
+                    <span class="shrink-0 bg-amber-100 text-amber-900 border border-amber-300 px-3 py-2 rounded font-bold">
+                        🔄 直前の作業状態を復元する
+                    </span>
+                </div>
             </div>
         </section>
 
-        <!-- セクション4: 対戦カードクリック編集（DQ・配信台） -->
+        <!-- セクション4: 対戦カードクリック編集（DQ・配信台）と一覧確認パネル -->
         <section id="sec-interactive" class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
             <div class="bg-gray-800 text-white px-6 py-3.5 flex items-center gap-3">
                 <span class="step-badge">STEP 3</span>
-                <h3 class="font-bold text-base">プレビュー上の対戦カードをクリックして個別設定（事前DQ / 配信台）</h3>
+                <h3 class="font-bold text-base">対戦カードをクリックして個別設定（事前DQ / 配信台）＆ 設定一覧パネル</h3>
             </div>
             <div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
                 <div class="space-y-3 text-xs sm:text-sm text-gray-700 leading-relaxed">
@@ -314,10 +332,10 @@
                         </ul>
                     </div>
                     <div class="space-y-2 bg-gray-50 p-4 rounded-lg border border-gray-200 text-xs">
-                        <p class="font-bold text-gray-900">📺 配信台ラベルの設定</p>
+                        <p class="font-bold text-gray-900">📺 配信台ラベルの設定 ＆ 📋 設定一覧パネル</p>
                         <ul class="list-disc list-inside space-y-1 text-gray-600">
-                            <li>「配信台に設定する」にチェックを入れ、<strong>配信チャンネル名</strong>を入力すると、モノクロ印刷でも見やすい角丸破線枠と配信ラベルが付与されます。</li>
-                            <li>CSV読み込み時・API取得時のどちらでも手動で追加・編集が可能です。</li>
+                            <li>「配信台に設定する」にチェックを入れ、<strong>配信チャンネル名</strong>を入力すると、白黒印刷でも見やすい角丸破線枠と配信ラベルが付与されます。</li>
+                            <li>「🎨 描画オプション」内の <strong>「📋 設定中のDQ・配信台一覧」</strong> パネルで全プールの設定状況を一覧確認でき、クリックすると該当プールの該当カード編集画面へ直接ジャンプできます。</li>
                         </ul>
                     </div>
                 </div>
@@ -361,42 +379,60 @@
             </div>
         </section>
 
-        <!-- セクション5: 描画オプション -->
+        <!-- セクション5: 印刷オプション・描画オプション -->
         <section id="sec-options" class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
             <div class="bg-gray-800 text-white px-6 py-3.5 flex items-center gap-3">
                 <span class="step-badge">STEP 4</span>
-                <h3 class="font-bold text-base">ロゴの追加・高機能テキストボックス</h3>
+                <h3 class="font-bold text-base">印刷オプション自動最適化・ロゴ追加・部分装飾対応テキストボックス</h3>
             </div>
-            <div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-6 text-xs sm:text-sm text-gray-700">
-                <div class="space-y-2">
-                    <h4 class="font-bold text-gray-900">🖼️ 右下にロゴを追加</h4>
+            <div class="p-6 grid grid-cols-1 md:grid-cols-3 gap-6 text-xs sm:text-sm text-gray-700">
+                <div class="space-y-2 bg-gray-50 p-4 rounded-lg border border-gray-200">
+                    <h4 class="font-bold text-gray-900">🖨️ 参加人数に応じた推奨印刷設定</h4>
                     <p class="text-xs text-gray-600 leading-relaxed">
-                        白黒（モノクロ・グレースケール）のPNG画像をアップロードすると、トーナメント用紙の右下に配置されます。縦160pxを超える画像は自動で縮小されるため、比率を気にせずそのまま読み込めます。
+                        プールの参加人数に応じて最も見やすい用紙サイズと向きが自動選択されます（手動変更も可能）。<br>
+                        ・<strong>6〜12人</strong>：A4 横向き<br>
+                        ・<strong>13〜24人</strong>：A3 横向き<br>
+                        ・<strong>25〜48人</strong>：A3 縦向き
                     </p>
                 </div>
-                <div class="space-y-2">
-                    <h4 class="font-bold text-gray-900">📝 高機能テキストボックス</h4>
+                <div class="space-y-2 bg-gray-50 p-4 rounded-lg border border-gray-200">
+                    <h4 class="font-bold text-gray-900">🖼️ 右下にモノクロロゴを追加</h4>
                     <p class="text-xs text-gray-600 leading-relaxed">
-                        大会進行上の注意事項やタイムスケジュールなどを自由な位置に配置できます。<strong>太字(B)・斜体(I)・下線(U)・1px単位のフォントサイズ変更・左/中央/右寄せ</strong>に対応しており、複数のテキストボックスが重なった場合は<strong>クリックするだけで前面と後面を入れ替えられます</strong>。
+                        白黒（モノクロ・グレースケール）のPNG画像をアップロードすると、トーナメント用紙の右下に配置されます。縦160pxを超える画像は自動で縮小されるため、そのまま読み込めます。
+                    </p>
+                </div>
+                <div class="space-y-2 bg-gray-50 p-4 rounded-lg border border-gray-200">
+                    <h4 class="font-bold text-gray-900">📝 部分装飾対応テキストボックス</h4>
+                    <p class="text-xs text-gray-600 leading-relaxed">
+                        注意事項などを自由な位置に配置できます。<strong>文字の一部をドラッグやShift+矢印で選択して、その部分だけフォントサイズ・太字(B)・斜体(I)・下線(U)を個別変更</strong>でき、重なったボックスはクリックで前後を入れ替えられます。
                     </p>
                 </div>
             </div>
         </section>
 
-        <!-- セクション6: PDF直接ダウンロード＆画像保存 -->
+        <!-- セクション6: 画面操作・PDF直接ダウンロード＆画像保存 -->
         <section id="sec-export" class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
             <div class="bg-gray-800 text-white px-6 py-3.5 flex items-center gap-3">
                 <span class="step-badge">STEP 5</span>
-                <h3 class="font-bold text-base">画像(.jpg)保存・PDFファイルの直接ダウンロード</h3>
+                <h3 class="font-bold text-base">画面操作（開閉・幅調整・視点移動）と JPG保存・PDF直接ダウンロード</h3>
             </div>
-            <div class="p-6 space-y-4 text-xs sm:text-sm text-gray-700">
+            <div class="p-6 space-y-5 text-xs sm:text-sm text-gray-700">
+                <div class="bg-pink-50/60 border border-pink-200 rounded-lg p-4 text-xs space-y-1.5">
+                    <p class="font-bold text-gray-900">🖱️ 快適なプレビュー＆設定パネル操作</p>
+                    <ul class="list-disc list-inside space-y-1 text-gray-700">
+                        <li>設定パネル右外側のピンク色の <strong>「≪ / ≫」ボタン</strong> で設定パネルをワンクリックで開閉できます。</li>
+                        <li>設定パネルとプレビュー画面の<strong>境界線を左右にドラッグ</strong>すると、設定パネルの横幅を自由に変更できます。</li>
+                        <li>プレビュー領域を<strong>マウスドラッグ（掴んで移動）</strong>することで、拡大表示中でも上下左右へ直感的にスクロールできます。</li>
+                    </ul>
+                </div>
+
                 <p class="leading-relaxed">
-                    画面左下の3つの出力ボタンから、用途に合わせて保存できます。<strong>PDF出力時はブラウザの印刷画面を開かず、直接 `.pdf` ファイルとしてダウンロード</strong>されます。
+                    設定パネル下部の3つの出力ボタンから、用途に合わせて保存できます。<strong>PDF出力時はブラウザの印刷ダイアログを開かず、軽量化された `.pdf` ファイルとして直接ダウンロード</strong>されます。
                 </p>
                 <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
                     <div class="border border-green-200 bg-green-50/50 rounded-lg p-4 space-y-1.5">
                         <div class="bg-green-600 text-white font-bold py-1.5 px-3 rounded text-center">画像として保存(.jpg)</div>
-                        <p class="text-gray-600 pt-1">現在表示しているプールを高解像度のJPG画像としてダウンロードします。SNS共有や確認用に最適です。</p>
+                        <p class="text-gray-600 pt-1">現在表示しているプールを高解像度のJPG画像としてダウンロードします。SNS共有や事前確認用に最適です。</p>
                     </div>
                     <div class="border border-orange-200 bg-orange-50/50 rounded-lg p-4 space-y-1.5">
                         <div class="bg-[#FA8534] text-white font-bold py-1.5 px-3 rounded text-center">現在のプールをPDF出力</div>
@@ -404,7 +440,7 @@
                     </div>
                     <div class="border border-pink-200 bg-pink-50/50 rounded-lg p-4 space-y-1.5">
                         <div class="bg-[#DB2777] text-white font-bold py-1.5 px-3 rounded text-center">全プールをPDF一括出力</div>
-                        <p class="text-gray-600 pt-1">読み込んだ全プール（Pool A1, A2...）を1つの複数ページPDFにまとめて直接ダウンロードします。</p>
+                        <p class="text-gray-600 pt-1">読み込んだ全プール（最大48プール等）を1つの複数ページPDFにまとめて直接ダウンロードします。</p>
                     </div>
                 </div>
             </div>
