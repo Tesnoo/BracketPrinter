@@ -323,10 +323,13 @@ const sidebarResizer = document.getElementById('sidebar-resizer');
 const sidebarToggleBtn = document.getElementById('sidebar-toggle-btn');
 
 // === サイドバーの開閉（「≪ / ≫」ボタン）およびドラッグによる横幅変更 ===
-const SIDEBAR_WIDTH_STORAGE_KEY = 'bracket_printer_sidebar_width';
-const savedSidebarWidth = parseInt(localStorage.getItem(SIDEBAR_WIDTH_STORAGE_KEY) || '', 10);
-if (sidebarPanel && !isNaN(savedSidebarWidth) && savedSidebarWidth >= 240 && savedSidebarWidth <= 640) {
-    sidebarPanel.style.width = `${savedSidebarWidth}px`;
+// デフォルト横幅は常に100%（標準幅320px / 内部パネルwidth: 100%）で起動
+localStorage.removeItem('bracket_printer_sidebar_width');
+if (sidebarWrapper) {
+    sidebarWrapper.style.width = '320px';
+}
+if (sidebarPanel) {
+    sidebarPanel.style.width = '100%';
 }
 
 if (sidebarToggleBtn && sidebarWrapper) {
@@ -340,7 +343,7 @@ if (sidebarToggleBtn && sidebarWrapper) {
     });
 }
 
-if (sidebarResizer && sidebarPanel) {
+if (sidebarResizer && sidebarWrapper) {
     let isResizingSidebar = false;
     let resizeStartX = 0;
     let resizeStartWidth = 320;
@@ -349,7 +352,7 @@ if (sidebarResizer && sidebarPanel) {
         if (e.button !== 0) return;
         isResizingSidebar = true;
         resizeStartX = e.clientX;
-        resizeStartWidth = sidebarPanel.getBoundingClientRect().width;
+        resizeStartWidth = sidebarWrapper.getBoundingClientRect().width;
         sidebarResizer.classList.add('is-resizing');
         document.body.classList.add('resizing-sidebar');
         e.preventDefault();
@@ -360,7 +363,7 @@ if (sidebarResizer && sidebarPanel) {
         if (!isResizingSidebar) return;
         const deltaX = e.clientX - resizeStartX;
         const newWidth = Math.max(240, Math.min(640, Math.round(resizeStartWidth + deltaX)));
-        sidebarPanel.style.width = `${newWidth}px`;
+        sidebarWrapper.style.width = `${newWidth}px`;
         if (typeof fitToViewport === 'function') fitToViewport();
     });
 
@@ -369,8 +372,6 @@ if (sidebarResizer && sidebarPanel) {
         isResizingSidebar = false;
         sidebarResizer.classList.remove('is-resizing');
         document.body.classList.remove('resizing-sidebar');
-        const currentW = Math.round(sidebarPanel.getBoundingClientRect().width);
-        localStorage.setItem(SIDEBAR_WIDTH_STORAGE_KEY, String(currentW));
         requestAnimationFrame(() => {
             if (typeof fitToViewport === 'function') fitToViewport();
         });
