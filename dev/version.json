@@ -1,0 +1,17 @@
+{
+"latestVersion": "1.0.0",
+"releasedAt": "2026-11-16",
+"announceEnabled": true,
+"repeatIntervalMinutes": 30,
+"showDownloadButton": true,
+"title": "Bracket Printer 最新アップデートのお知らせ",
+"shortMessage": "6〜48名プール＆最大W8/L16通過に完全対応しました！Windowsデスクトップ版(.exe)もご利用いただけます。",
+"message": "いつも Bracket Printer をご利用いただきありがとうございます。\n最新アップデートにて以下の機能が追加・改善されました。",
+"highlights": [
+"1プールあたり 6名〜48名 のダブル / シングルエリミネーションに完全対応",
+"フェーズ通過人数が最大 勝者側8人 / 敗者側16人 (W8 / L16) まで対応",
+"設定画面の開閉ボタン（≪ / ≫）および横幅ドラッグ調整（315px〜630px）を追加",
+"オリジナルプリセット (.bp) の作成・読み込み機能と、直前の作業状態のワンクリック復元機能を追加"
+],
+"downloadUrl": "https://github.com/Tesnoo/BracketPrinter/releases"
+}
