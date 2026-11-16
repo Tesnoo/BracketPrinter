@@ -1953,7 +1953,6 @@ function buildBracketSheetContent(poolName, bracketContainerEl, rosterContainerE
     const wColsCount = wContainer.children.length;
     const lColsCount = (!isSingle && (isGfMode || lCountNum > 0)) ? lContainer.children.length : 0;
 
-    // 進出先フェーズ枠（二股・単一）の寸法パラメータ（W8L16等の高密度時の文字衝突防止）
     let qualBranchGapPx = 56;
     let qualSlotHeightPx = 24;
     let qualTopFontPx = 11;
@@ -1962,7 +1961,6 @@ function buildBracketSheetContent(poolName, bracketContainerEl, rosterContainerE
     let qualBotOffsetPx = -15;
 
     if (effW >= 8 && isFinalWLoserDirectQual) {
-        // W8 / L16 等で勝者側最終ラウンドから8組（計16枠）の二股通過枠が並ぶ場合
         qualBranchGapPx = 22;
         qualSlotHeightPx = 17;
         qualTopFontPx = 9.5;
@@ -2091,7 +2089,7 @@ function buildBracketSheetContent(poolName, bracketContainerEl, rosterContainerE
         totalCanvasHeight = Math.round(totalCanvasWidth / Math.SQRT2);
     }
 
-    const qualBoxTotalH = qualSlotHeightPx + 8; // 上下4px二重線ボーダー分
+    const qualBoxTotalH = qualSlotHeightPx + 8;
     const qualBranchHalfPx = Math.round((qualBranchGapPx + qualBoxTotalH) / 2);
 
     targetSheetEl.style.setProperty('--match-box-h', `${boxHeightPx}px`);
