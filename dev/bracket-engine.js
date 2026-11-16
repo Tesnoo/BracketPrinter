@@ -1,6 +1,6 @@
 // =========================================================================
 // 🏆 Bracket Printer - ブラケット描画・レイアウト計算エンジン (bracket-engine.js)
-//    6〜48名（ダブルエリミ / シングルエリミ）のDOM構築・DQ自動進行・用紙収まり計算
+//    6〜48名（ダブルエリミ / シングルエリミ / W8・L16通過対応）のDOM構築・DQ自動進行・用紙収まり計算
 // =========================================================================
 
 const SLOT_HEIGHT_24 = 80;
@@ -109,13 +109,15 @@ function renderCheckinRosterToContainer(rosterList, targetContainer) {
     targetContainer.appendChild(table);
 }
 
-// === フェーズ通過までに実際に存在するラウンド一覧を算出する関数（6〜48名対応） ===
+// === フェーズ通過までに実際に存在するラウンド一覧を算出する関数（6〜48名・W8/L16対応） ===
 function computeActiveRounds(playerCount, isSingle, wCountNum, lCountNum) {
     const isGfMode = (!isSingle && wCountNum === 0 && lCountNum === 0) || (isSingle && wCountNum === 0);
 
     let winnersRounds = [];
     if (playerCount >= 33) {
-        if (wCountNum === 4) {
+        if (wCountNum >= 8) {
+            winnersRounds = ['Winners Round 1', 'Winners Round 2', 'Winners Round 3'];
+        } else if (wCountNum === 4) {
             winnersRounds = ['Winners Round 1', 'Winners Round 2', 'Winners Round 3', 'Winners Quarter-Final'];
         } else if (wCountNum === 2) {
             winnersRounds = ['Winners Round 1', 'Winners Round 2', 'Winners Round 3', 'Winners Quarter-Final', 'Winners Semi-Final'];
@@ -123,7 +125,9 @@ function computeActiveRounds(playerCount, isSingle, wCountNum, lCountNum) {
             winnersRounds = ['Winners Round 1', 'Winners Round 2', 'Winners Round 3', 'Winners Quarter-Final', 'Winners Semi-Final', 'Winners Final'];
         }
     } else if (playerCount >= 17) {
-        if (wCountNum === 4) {
+        if (wCountNum >= 8) {
+            winnersRounds = ['Winners Round 1', 'Winners Round 2'];
+        } else if (wCountNum === 4) {
             winnersRounds = ['Winners Round 1', 'Winners Round 2', 'Winners Quarter-Final'];
         } else if (wCountNum === 2) {
             winnersRounds = ['Winners Round 1', 'Winners Round 2', 'Winners Quarter-Final', 'Winners Semi-Final'];
@@ -131,7 +135,7 @@ function computeActiveRounds(playerCount, isSingle, wCountNum, lCountNum) {
             winnersRounds = ['Winners Round 1', 'Winners Round 2', 'Winners Quarter-Final', 'Winners Semi-Final', 'Winners Final'];
         }
     } else if (playerCount >= 9) {
-        if (wCountNum === 4) {
+        if (wCountNum >= 4) {
             winnersRounds = ['Winners Round 1', 'Winners Quarter-Final'];
         } else if (wCountNum === 2) {
             winnersRounds = ['Winners Round 1', 'Winners Quarter-Final', 'Winners Semi-Final'];
@@ -162,6 +166,24 @@ function computeActiveRounds(playerCount, isSingle, wCountNum, lCountNum) {
     let losersRounds = [];
 
     if (playerCount >= 33) {
+        if (effW >= 8) {
+            if (isFinalWLoserDirectQual) {
+                return { winnersRounds, losersRounds: ['Losers Round 1', 'Losers Round 2'] };
+            }
+            losersRounds = ['Losers Round 1', 'Losers Round 2', 'Losers Round 3'];
+            if (targetLosersBracketQuals >= 8) return { winnersRounds, losersRounds };
+            losersRounds.push('Losers Round 4');
+            if (targetLosersBracketQuals >= 4) return { winnersRounds, losersRounds };
+            losersRounds.push('Losers Round 6');
+            if (targetLosersBracketQuals >= 2) return { winnersRounds, losersRounds };
+            losersRounds.push('Losers Semi-Final');
+            return { winnersRounds, losersRounds };
+        }
+
+        if (targetLosersBracketQuals >= 8) {
+            return { winnersRounds, losersRounds: ['Losers Round 1', 'Losers Round 2', 'Losers Round 3'] };
+        }
+
         losersRounds = ['Losers Round 1', 'Losers Round 2', 'Losers Round 3', 'Losers Round 4'];
         const rNames = {
             wqfDrop: 'Losers Round 5',
@@ -192,6 +214,33 @@ function computeActiveRounds(playerCount, isSingle, wCountNum, lCountNum) {
         losersRounds.push(rNames.wfDrop);
         return { winnersRounds, losersRounds };
     } else if (playerCount >= 17) {
+        if (playerCount >= 25 && effW >= 8) {
+            if (isFinalWLoserDirectQual) {
+                return { winnersRounds, losersRounds: ['Losers Round 1'] };
+            }
+            losersRounds = ['Losers Round 1', 'Losers Round 2'];
+            if (targetLosersBracketQuals >= 8) return { winnersRounds, losersRounds };
+            losersRounds.push('Losers Round 3');
+            if (targetLosersBracketQuals >= 4) return { winnersRounds, losersRounds };
+            losersRounds.push('Losers Round 5');
+            if (targetLosersBracketQuals >= 2) return { winnersRounds, losersRounds };
+            losersRounds.push('Losers Semi-Final');
+            return { winnersRounds, losersRounds };
+        } else if (playerCount < 25 && effW >= 8) {
+            losersRounds = ['Losers Round 1'];
+            if (isFinalWLoserDirectQual || targetLosersBracketQuals >= 8) return { winnersRounds, losersRounds };
+            losersRounds.push('Losers Round 2');
+            if (targetLosersBracketQuals >= 4) return { winnersRounds, losersRounds };
+            losersRounds.push('Losers Round 4');
+            if (targetLosersBracketQuals >= 2) return { winnersRounds, losersRounds };
+            losersRounds.push('Losers Semi-Final');
+            return { winnersRounds, losersRounds };
+        }
+
+        if (playerCount >= 25 && targetLosersBracketQuals >= 8) {
+            return { winnersRounds, losersRounds: ['Losers Round 1', 'Losers Round 2'] };
+        }
+
         losersRounds = (playerCount >= 25)
             ? ['Losers Round 1', 'Losers Round 2', 'Losers Round 3']
             : ['Losers Round 1', 'Losers Round 2'];
@@ -284,7 +333,7 @@ function computeActiveRounds(playerCount, isSingle, wCountNum, lCountNum) {
     }
 }
 
-// === 特定のPoolのブラケットDOM一式を構築するコア関数（6〜48名・ダブル/シングル両対応） ===
+// === 特定のPoolのブラケットDOM一式を構築するコア関数（6〜48名・ダブル/シングル・W8/L16対応） ===
 function buildBracketSheetContent(poolName, bracketContainerEl, rosterContainerEl, targetSheetEl = previewArea) {
     const currentPool = poolsData[poolName];
     if (!currentPool) return { canvasWidth: 2362, canvasHeight: 1670, boxHeightPx: 48 };
@@ -371,7 +420,6 @@ function buildBracketSheetContent(poolName, bracketContainerEl, rosterContainerE
         return wrapper;
     };
 
-    // ★重要修正：41〜48人の時は敗者側（LR1）も最大16試合になるため、losersSlots = 16 として勝者側と1:1で高さを配分する
     let winnersSlots = 8;
     let losersSlots = 4;
     let wSlotUnit = SLOT_HEIGHT_24;
@@ -512,40 +560,47 @@ function buildBracketSheetContent(poolName, bracketContainerEl, rosterContainerE
         const wr3Labels = [0, 1, 2, 3, 4, 5, 6, 7].map(() => nextMatchLabel());
         wr3Labels.forEach(l => wr3.appendChild(createInteractiveMatchNode(l, '', '', '', '', 'branch', '', '', 'W')));
 
-        const wqf = createRoundColumn(`Winners Quarter-Final ${getBoStringForRound('W', 'Winners Quarter-Final', playerCount)}`);
-        const wqfLabels = [0, 1, 2, 3].map(() => nextMatchLabel());
-        wqfLabels.forEach(l => wqf.appendChild(createInteractiveMatchNode(l, '', '', '', '', 'branch', '', '', 'W')));
+        wContainer.append(wr1, wr2, wr3);
 
-        wContainer.append(wr1, wr2, wr3, wqf);
-
+        let wqfLabels = [];
         let wsfLabels = [];
         let wfLabel = '';
 
-        if (effW === 4) {
-            appendWinnersStopQualifiers(wqfLabels);
-            currentMatchIdx += 5;
+        if (effW >= 8) {
+            appendWinnersStopQualifiers(wr3Labels);
+            currentMatchIdx += 9;
         } else {
-            const wsf = createRoundColumn(`Winners Semi-Final ${getBoStringForRound('W', 'Winners Semi-Final', playerCount)}`);
-            wsfLabels = [0, 1].map(() => nextMatchLabel());
-            wsfLabels.forEach(l => wsf.appendChild(createInteractiveMatchNode(l, '', '', '', '', 'branch', '', '', 'W')));
-            wContainer.appendChild(wsf);
+            const wqf = createRoundColumn(`Winners Quarter-Final ${getBoStringForRound('W', 'Winners Quarter-Final', playerCount)}`);
+            wqfLabels = [0, 1, 2, 3].map(() => nextMatchLabel());
+            wqfLabels.forEach(l => wqf.appendChild(createInteractiveMatchNode(l, '', '', '', '', 'branch', '', '', 'W')));
+            wContainer.appendChild(wqf);
 
-            if (effW === 2) {
-                appendWinnersStopQualifiers(wsfLabels);
-                currentMatchIdx += 3;
+            if (effW === 4) {
+                appendWinnersStopQualifiers(wqfLabels);
+                currentMatchIdx += 5;
             } else {
-                const wf = createRoundColumn(`Winners Final ${getBoStringForRound('W', 'Winners Final', playerCount)}`);
-                wfLabel = nextMatchLabel();
-                wfMatchLabelForGf = wfLabel;
-                wf.appendChild(createInteractiveMatchNode(wfLabel, '', '', '', '', 'branch', '', '', 'W'));
-                wContainer.appendChild(wf);
+                const wsf = createRoundColumn(`Winners Semi-Final ${getBoStringForRound('W', 'Winners Semi-Final', playerCount)}`);
+                wsfLabels = [0, 1].map(() => nextMatchLabel());
+                wsfLabels.forEach(l => wsf.appendChild(createInteractiveMatchNode(l, '', '', '', '', 'branch', '', '', 'W')));
+                wContainer.appendChild(wsf);
 
-                if (!isGfMode) {
-                    appendWinnersStopQualifiers([wfLabel]);
+                if (effW === 2) {
+                    appendWinnersStopQualifiers(wsfLabels);
+                    currentMatchIdx += 3;
+                } else {
+                    const wf = createRoundColumn(`Winners Final ${getBoStringForRound('W', 'Winners Final', playerCount)}`);
+                    wfLabel = nextMatchLabel();
+                    wfMatchLabelForGf = wfLabel;
+                    wf.appendChild(createInteractiveMatchNode(wfLabel, '', '', '', '', 'branch', '', '', 'W'));
+                    wContainer.appendChild(wf);
+
+                    if (!isGfMode) {
+                        appendWinnersStopQualifiers([wfLabel]);
+                    }
+                    reservedGfLabel = indexToMatchLabel(currentMatchIdx);
+                    reservedGfResetLabel = indexToMatchLabel(currentMatchIdx + 1);
+                    currentMatchIdx += 2;
                 }
-                reservedGfLabel = indexToMatchLabel(currentMatchIdx);
-                reservedGfResetLabel = indexToMatchLabel(currentMatchIdx + 1);
-                currentMatchIdx += 2;
             }
         }
 
@@ -553,8 +608,6 @@ function buildBracketSheetContent(poolName, bracketContainerEl, rosterContainerE
         if (!isSingle && (isGfMode || lCountNum > 0)) {
             const lr1 = createRoundColumn(`Losers Round 1 ${getBoStringForRound('L', 'Losers Round 1', playerCount)}`);
             const lr2 = createRoundColumn(`Losers Round 2 ${getBoStringForRound('L', 'Losers Round 2', playerCount)}`);
-            const lr3 = createRoundColumn(`Losers Round 3 ${getBoStringForRound('L', 'Losers Round 3', playerCount)}`);
-            const lr4 = createRoundColumn(`Losers Round 4 ${getBoStringForRound('L', 'Losers Round 4', playerCount)}`);
 
             const lr1TopActive = new Array(8).fill(null);
             const lr1BotActive = new Array(8).fill(null);
@@ -601,67 +654,46 @@ function buildBracketSheetContent(poolName, bracketContainerEl, rosterContainerE
                 }
             }
 
-            const wr3DropOrder = [
-                wr3Labels[3], wr3Labels[2], wr3Labels[1], wr3Labels[0],
-                wr3Labels[7], wr3Labels[6], wr3Labels[5], wr3Labels[4]
-            ];
-            const lr3Labels = [0, 1, 2, 3, 4, 5, 6, 7].map(() => nextMatchLabel());
-            lr3Labels.forEach((l, i) => {
-                lr3.appendChild(createInteractiveMatchNode(l, '', '', '', '', 'straight', `Loser of ${wr3DropOrder[i]}`, '', 'L'));
-            });
+            lContainer.append(lr1, lr2);
 
-            const lr4Labels = [0, 1, 2, 3].map(() => nextMatchLabel());
-            lr4Labels.forEach(l => lr4.appendChild(createInteractiveMatchNode(l, '', '', '', '', 'branch', '', '', 'L')));
-
-            lContainer.append(lr1, lr2, lr3, lr4);
-
-            const wqfDropCol = () => createRoundColumn(`Losers Round 5 ${getBoStringForRound('L', 'Losers Round 5', playerCount)}`);
-            const consolidate2Col = () => createRoundColumn(`Losers Round 6 ${getBoStringForRound('L', 'Losers Round 6', playerCount)}`);
-            const wsfDropCol = () => createRoundColumn(`Losers Quarter-Final ${getBoStringForRound('L', 'Losers Quarter-Final', playerCount)}`);
-            const consolidate1Col = () => createRoundColumn(`Losers Semi-Final ${getBoStringForRound('L', 'Losers Semi-Final', playerCount)}`);
-            const wfDropCol = () => createRoundColumn(`Losers Final ${getBoStringForRound('L', 'Losers Final', playerCount)}`);
-
-            if (effW === 4 && isFinalWLoserDirectQual) {
-                appendLosersQualifiersColumn(lr4Labels);
+            if (effW >= 8 && isFinalWLoserDirectQual) {
+                appendLosersQualifiersColumn(lr2Labels);
             } else {
-                const colWqfDrop = wqfDropCol();
-                const wqfDropOrder = [wqfLabels[2], wqfLabels[3], wqfLabels[0], wqfLabels[1]];
-                const afterWqfDropLabels = [0, 1, 2, 3].map(() => nextMatchLabel());
-                afterWqfDropLabels.forEach((l, i) => {
-                    colWqfDrop.appendChild(createInteractiveMatchNode(l, '', '', '', '', 'straight', `Loser of ${wqfDropOrder[i]}`, '', 'L'));
+                const lr3 = createRoundColumn(`Losers Round 3 ${getBoStringForRound('L', 'Losers Round 3', playerCount)}`);
+                const wr3DropOrder = [
+                    wr3Labels[3], wr3Labels[2], wr3Labels[1], wr3Labels[0],
+                    wr3Labels[7], wr3Labels[6], wr3Labels[5], wr3Labels[4]
+                ];
+                const lr3Labels = [0, 1, 2, 3, 4, 5, 6, 7].map(() => nextMatchLabel());
+                lr3Labels.forEach((l, i) => {
+                    lr3.appendChild(createInteractiveMatchNode(l, '', '', '', '', 'straight', `Loser of ${wr3DropOrder[i]}`, '', 'L'));
                 });
-                lContainer.appendChild(colWqfDrop);
+                lContainer.appendChild(lr3);
 
-                if (targetLosersBracketQuals >= 4) {
-                    appendLosersQualifiersColumn(afterWqfDropLabels);
+                if (targetLosersBracketQuals >= 8) {
+                    appendLosersQualifiersColumn(lr3Labels);
                 } else {
-                    const colCons2 = consolidate2Col();
-                    const cons2Labels = [0, 1].map(() => nextMatchLabel());
-                    cons2Labels.forEach(l => colCons2.appendChild(createInteractiveMatchNode(l, '', '', '', '', 'branch', '', '', 'L')));
-                    lContainer.appendChild(colCons2);
+                    const lr4 = createRoundColumn(`Losers Round 4 ${getBoStringForRound('L', 'Losers Round 4', playerCount)}`);
+                    const lr4Labels = [0, 1, 2, 3].map(() => nextMatchLabel());
+                    lr4Labels.forEach(l => lr4.appendChild(createInteractiveMatchNode(l, '', '', '', '', 'branch', '', '', 'L')));
+                    lContainer.appendChild(lr4);
 
-                    if ((effW === 2 && isFinalWLoserDirectQual) || (effW === 4 && targetLosersBracketQuals === 2)) {
-                        appendLosersQualifiersColumn(cons2Labels);
-                    } else if (effW === 4 && targetLosersBracketQuals === 1) {
-                        const colCons1 = consolidate1Col();
-                        const cons1Lbl = nextMatchLabel();
-                        colCons1.appendChild(createInteractiveMatchNode(cons1Lbl, '', '', '', '', 'branch', '', '', 'L'));
-                        lContainer.appendChild(colCons1);
-                        appendLosersQualifiersColumn([cons1Lbl]);
-                    } else {
-                        const colWsfDrop = wsfDropCol();
-                        const wsfDropOrder = [wsfLabels[0], wsfLabels[1]];
-                        const afterWsfDropLabels = [0, 1].map(() => nextMatchLabel());
-                        afterWsfDropLabels.forEach((l, i) => {
-                            colWsfDrop.appendChild(createInteractiveMatchNode(l, '', '', '', '', 'straight', `Loser of ${wsfDropOrder[i]}`, '', 'L'));
-                        });
-                        lContainer.appendChild(colWsfDrop);
+                    const wqfDropCol = () => createRoundColumn(`Losers Round 5 ${getBoStringForRound('L', 'Losers Round 5', playerCount)}`);
+                    const consolidate2Col = () => createRoundColumn(`Losers Round 6 ${getBoStringForRound('L', 'Losers Round 6', playerCount)}`);
+                    const wsfDropCol = () => createRoundColumn(`Losers Quarter-Final ${getBoStringForRound('L', 'Losers Quarter-Final', playerCount)}`);
+                    const consolidate1Col = () => createRoundColumn(`Losers Semi-Final ${getBoStringForRound('L', 'Losers Semi-Final', playerCount)}`);
+                    const wfDropCol = () => createRoundColumn(`Losers Final ${getBoStringForRound('L', 'Losers Final', playerCount)}`);
 
-                        if (effW === 2 && targetLosersBracketQuals === 2) {
-                            appendLosersQualifiersColumn(afterWsfDropLabels);
-                        } else if (effW === 1 && isFinalWLoserDirectQual) {
+                    if (effW >= 8) {
+                        if (targetLosersBracketQuals >= 4) {
+                            appendLosersQualifiersColumn(lr4Labels);
+                        } else {
+                            const colCons2 = consolidate2Col();
+                            const cons2Labels = [0, 1].map(() => nextMatchLabel());
+                            cons2Labels.forEach(l => colCons2.appendChild(createInteractiveMatchNode(l, '', '', '', '', 'branch', '', '', 'L')));
+                            lContainer.appendChild(colCons2);
                             if (targetLosersBracketQuals >= 2) {
-                                appendLosersQualifiersColumn(afterWsfDropLabels);
+                                appendLosersQualifiersColumn(cons2Labels);
                             } else {
                                 const colCons1 = consolidate1Col();
                                 const cons1Lbl = nextMatchLabel();
@@ -669,22 +701,73 @@ function buildBracketSheetContent(poolName, bracketContainerEl, rosterContainerE
                                 lContainer.appendChild(colCons1);
                                 appendLosersQualifiersColumn([cons1Lbl]);
                             }
-                        } else {
-                            const colCons1 = consolidate1Col();
-                            const cons1Lbl = nextMatchLabel();
-                            colCons1.appendChild(createInteractiveMatchNode(cons1Lbl, '', '', '', '', 'branch', '', '', 'L'));
-                            lContainer.appendChild(colCons1);
+                        }
+                    } else if (effW === 4 && isFinalWLoserDirectQual) {
+                        appendLosersQualifiersColumn(lr4Labels);
+                    } else {
+                        const colWqfDrop = wqfDropCol();
+                        const wqfDropOrder = [wqfLabels[2], wqfLabels[3], wqfLabels[0], wqfLabels[1]];
+                        const afterWqfDropLabels = [0, 1, 2, 3].map(() => nextMatchLabel());
+                        afterWqfDropLabels.forEach((l, i) => {
+                            colWqfDrop.appendChild(createInteractiveMatchNode(l, '', '', '', '', 'straight', `Loser of ${wqfDropOrder[i]}`, '', 'L'));
+                        });
+                        lContainer.appendChild(colWqfDrop);
 
-                            if (effW === 2 && targetLosersBracketQuals === 1) {
+                        if (targetLosersBracketQuals >= 4) {
+                            appendLosersQualifiersColumn(afterWqfDropLabels);
+                        } else {
+                            const colCons2 = consolidate2Col();
+                            const cons2Labels = [0, 1].map(() => nextMatchLabel());
+                            cons2Labels.forEach(l => colCons2.appendChild(createInteractiveMatchNode(l, '', '', '', '', 'branch', '', '', 'L')));
+                            lContainer.appendChild(colCons2);
+
+                            if ((effW === 2 && isFinalWLoserDirectQual) || (effW === 4 && targetLosersBracketQuals === 2)) {
+                                appendLosersQualifiersColumn(cons2Labels);
+                            } else if (effW === 4 && targetLosersBracketQuals === 1) {
+                                const colCons1 = consolidate1Col();
+                                const cons1Lbl = nextMatchLabel();
+                                colCons1.appendChild(createInteractiveMatchNode(cons1Lbl, '', '', '', '', 'branch', '', '', 'L'));
+                                lContainer.appendChild(colCons1);
                                 appendLosersQualifiersColumn([cons1Lbl]);
                             } else {
-                                const colWfDrop = wfDropCol();
-                                const lfLbl = nextMatchLabel();
-                                lfMatchLabelForGf = lfLbl;
-                                colWfDrop.appendChild(createInteractiveMatchNode(lfLbl, '', '', '', '', 'straight', `Loser of ${wfLabel}`, '', 'L'));
-                                lContainer.appendChild(colWfDrop);
-                                if (!isGfMode) {
-                                    appendLosersQualifiersColumn([lfLbl]);
+                                const colWsfDrop = wsfDropCol();
+                                const wsfDropOrder = [wsfLabels[0], wsfLabels[1]];
+                                const afterWsfDropLabels = [0, 1].map(() => nextMatchLabel());
+                                afterWsfDropLabels.forEach((l, i) => {
+                                    colWsfDrop.appendChild(createInteractiveMatchNode(l, '', '', '', '', 'straight', `Loser of ${wsfDropOrder[i]}`, '', 'L'));
+                                });
+                                lContainer.appendChild(colWsfDrop);
+
+                                if (effW === 2 && targetLosersBracketQuals === 2) {
+                                    appendLosersQualifiersColumn(afterWsfDropLabels);
+                                } else if (effW === 1 && isFinalWLoserDirectQual) {
+                                    if (targetLosersBracketQuals >= 2) {
+                                        appendLosersQualifiersColumn(afterWsfDropLabels);
+                                    } else {
+                                        const colCons1 = consolidate1Col();
+                                        const cons1Lbl = nextMatchLabel();
+                                        colCons1.appendChild(createInteractiveMatchNode(cons1Lbl, '', '', '', '', 'branch', '', '', 'L'));
+                                        lContainer.appendChild(colCons1);
+                                        appendLosersQualifiersColumn([cons1Lbl]);
+                                    }
+                                } else {
+                                    const colCons1 = consolidate1Col();
+                                    const cons1Lbl = nextMatchLabel();
+                                    colCons1.appendChild(createInteractiveMatchNode(cons1Lbl, '', '', '', '', 'branch', '', '', 'L'));
+                                    lContainer.appendChild(colCons1);
+
+                                    if (effW === 2 && targetLosersBracketQuals === 1) {
+                                        appendLosersQualifiersColumn([cons1Lbl]);
+                                    } else {
+                                        const colWfDrop = wfDropCol();
+                                        const lfLbl = nextMatchLabel();
+                                        lfMatchLabelForGf = lfLbl;
+                                        colWfDrop.appendChild(createInteractiveMatchNode(lfLbl, '', '', '', '', 'straight', `Loser of ${wfLabel}`, '', 'L'));
+                                        lContainer.appendChild(colWfDrop);
+                                        if (!isGfMode) {
+                                            appendLosersQualifiersColumn([lfLbl]);
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -754,40 +837,47 @@ function buildBracketSheetContent(poolName, bracketContainerEl, rosterContainerE
             wr2.appendChild(createInteractiveMatchNode(lbl, p1Name, p2Name, s1, s2, lineType, '', '', 'W'));
         });
 
-        const wr3 = createRoundColumn(`Winners Quarter-Final ${getBoStringForRound('W', 'Winners Quarter-Final', playerCount)}`);
-        const wqfLabels = [0, 1, 2, 3].map(() => nextMatchLabel());
-        wqfLabels.forEach(l => wr3.appendChild(createInteractiveMatchNode(l, '', '', '', '', 'branch', '', '', 'W')));
+        wContainer.append(wr1, wr2);
 
-        wContainer.append(wr1, wr2, wr3);
-
+        let wqfLabels = [];
         let wsfLabels = [];
         let wfLabel = '';
 
-        if (effW === 4) {
-            appendWinnersStopQualifiers(wqfLabels);
-            currentMatchIdx += 5;
+        if (effW >= 8) {
+            appendWinnersStopQualifiers(wr2Labels);
+            currentMatchIdx += 9;
         } else {
-            const wr4 = createRoundColumn(`Winners Semi-Final ${getBoStringForRound('W', 'Winners Semi-Final', playerCount)}`);
-            wsfLabels = [0, 1].map(() => nextMatchLabel());
-            wsfLabels.forEach(l => wr4.appendChild(createInteractiveMatchNode(l, '', '', '', '', 'branch', '', '', 'W')));
-            wContainer.appendChild(wr4);
+            const wr3 = createRoundColumn(`Winners Quarter-Final ${getBoStringForRound('W', 'Winners Quarter-Final', playerCount)}`);
+            wqfLabels = [0, 1, 2, 3].map(() => nextMatchLabel());
+            wqfLabels.forEach(l => wr3.appendChild(createInteractiveMatchNode(l, '', '', '', '', 'branch', '', '', 'W')));
+            wContainer.appendChild(wr3);
 
-            if (effW === 2) {
-                appendWinnersStopQualifiers(wsfLabels);
-                currentMatchIdx += 3;
+            if (effW === 4) {
+                appendWinnersStopQualifiers(wqfLabels);
+                currentMatchIdx += 5;
             } else {
-                const wr5 = createRoundColumn(`Winners Final ${getBoStringForRound('W', 'Winners Final', playerCount)}`);
-                wfLabel = nextMatchLabel();
-                wfMatchLabelForGf = wfLabel;
-                wr5.appendChild(createInteractiveMatchNode(wfLabel, '', '', '', '', 'branch', '', '', 'W'));
-                wContainer.appendChild(wr5);
+                const wr4 = createRoundColumn(`Winners Semi-Final ${getBoStringForRound('W', 'Winners Semi-Final', playerCount)}`);
+                wsfLabels = [0, 1].map(() => nextMatchLabel());
+                wsfLabels.forEach(l => wr4.appendChild(createInteractiveMatchNode(l, '', '', '', '', 'branch', '', '', 'W')));
+                wContainer.appendChild(wr4);
 
-                if (!isGfMode) {
-                    appendWinnersStopQualifiers([wfLabel]);
+                if (effW === 2) {
+                    appendWinnersStopQualifiers(wsfLabels);
+                    currentMatchIdx += 3;
+                } else {
+                    const wr5 = createRoundColumn(`Winners Final ${getBoStringForRound('W', 'Winners Final', playerCount)}`);
+                    wfLabel = nextMatchLabel();
+                    wfMatchLabelForGf = wfLabel;
+                    wr5.appendChild(createInteractiveMatchNode(wfLabel, '', '', '', '', 'branch', '', '', 'W'));
+                    wContainer.appendChild(wr5);
+
+                    if (!isGfMode) {
+                        appendWinnersStopQualifiers([wfLabel]);
+                    }
+                    reservedGfLabel = indexToMatchLabel(currentMatchIdx);
+                    reservedGfResetLabel = indexToMatchLabel(currentMatchIdx + 1);
+                    currentMatchIdx += 2;
                 }
-                reservedGfLabel = indexToMatchLabel(currentMatchIdx);
-                reservedGfResetLabel = indexToMatchLabel(currentMatchIdx + 1);
-                currentMatchIdx += 2;
             }
         }
 
@@ -846,52 +936,60 @@ function buildBracketSheetContent(poolName, bracketContainerEl, rosterContainerE
                 }
             }
 
-            const wr3_32 = createRoundColumn(`Winners Quarter-Final ${getBoStringForRound('W', 'Winners Quarter-Final', playerCount)}`);
-            const wqf32Labels = [0, 1, 2, 3].map(() => nextMatchLabel());
-            wqf32Labels.forEach(l => wr3_32.appendChild(createInteractiveMatchNode(l, '', '', '', '', 'branch', '', '', 'W')));
-            wqfLabels.splice(0, 4, ...wqf32Labels);
+            wContainer.append(wr1_32, wr2_32);
 
-            wContainer.append(wr1_32, wr2_32, wr3_32);
-
-            if (effW === 4) {
-                appendWinnersStopQualifiers(wqfLabels);
-                currentMatchIdx += 5;
+            if (effW >= 8) {
+                appendWinnersStopQualifiers(wr2_32Labels);
+                currentMatchIdx += 9;
             } else {
-                const wr4_32 = createRoundColumn(`Winners Semi-Final ${getBoStringForRound('W', 'Winners Semi-Final', playerCount)}`);
-                wsfLabels = [0, 1].map(() => nextMatchLabel());
-                wsfLabels.forEach(l => wr4_32.appendChild(createInteractiveMatchNode(l, '', '', '', '', 'branch', '', '', 'W')));
-                wContainer.appendChild(wr4_32);
+                const wr3_32 = createRoundColumn(`Winners Quarter-Final ${getBoStringForRound('W', 'Winners Quarter-Final', playerCount)}`);
+                const wqf32Labels = [0, 1, 2, 3].map(() => nextMatchLabel());
+                wqf32Labels.forEach(l => wr3_32.appendChild(createInteractiveMatchNode(l, '', '', '', '', 'branch', '', '', 'W')));
+                wqfLabels.splice(0, 4, ...wqf32Labels);
+                wContainer.appendChild(wr3_32);
 
-                if (effW === 2) {
-                    appendWinnersStopQualifiers(wsfLabels);
-                    currentMatchIdx += 3;
+                if (effW === 4) {
+                    appendWinnersStopQualifiers(wqfLabels);
+                    currentMatchIdx += 5;
                 } else {
-                    const wr5_32 = createRoundColumn(`Winners Final ${getBoStringForRound('W', 'Winners Final', playerCount)}`);
-                    wfLabel = nextMatchLabel();
-                    wfMatchLabelForGf = wfLabel;
-                    wr5_32.appendChild(createInteractiveMatchNode(wfLabel, '', '', '', '', 'branch', '', '', 'W'));
-                    wContainer.appendChild(wr5_32);
+                    const wr4_32 = createRoundColumn(`Winners Semi-Final ${getBoStringForRound('W', 'Winners Semi-Final', playerCount)}`);
+                    wsfLabels = [0, 1].map(() => nextMatchLabel());
+                    wsfLabels.forEach(l => wr4_32.appendChild(createInteractiveMatchNode(l, '', '', '', '', 'branch', '', '', 'W')));
+                    wContainer.appendChild(wr4_32);
 
-                    if (!isGfMode) {
-                        appendWinnersStopQualifiers([wfLabel]);
+                    if (effW === 2) {
+                        appendWinnersStopQualifiers(wsfLabels);
+                        currentMatchIdx += 3;
+                    } else {
+                        const wr5_32 = createRoundColumn(`Winners Final ${getBoStringForRound('W', 'Winners Final', playerCount)}`);
+                        wfLabel = nextMatchLabel();
+                        wfMatchLabelForGf = wfLabel;
+                        wr5_32.appendChild(createInteractiveMatchNode(wfLabel, '', '', '', '', 'branch', '', '', 'W'));
+                        wContainer.appendChild(wr5_32);
+
+                        if (!isGfMode) {
+                            appendWinnersStopQualifiers([wfLabel]);
+                        }
+                        reservedGfLabel = indexToMatchLabel(currentMatchIdx);
+                        reservedGfResetLabel = indexToMatchLabel(currentMatchIdx + 1);
+                        currentMatchIdx += 2;
                     }
-                    reservedGfLabel = indexToMatchLabel(currentMatchIdx);
-                    reservedGfResetLabel = indexToMatchLabel(currentMatchIdx + 1);
-                    currentMatchIdx += 2;
                 }
             }
 
             if (!isSingle && (isGfMode || lCountNum > 0)) {
                 const lr1_32 = createRoundColumn(`Losers Round 1 ${getBoStringForRound('L', 'Losers Round 1', playerCount)}`);
-                const lr2_32 = createRoundColumn(`Losers Round 2 ${getBoStringForRound('L', 'Losers Round 2', playerCount)}`);
-                const lr3_32 = createRoundColumn(`Losers Round 3 ${getBoStringForRound('L', 'Losers Round 3', playerCount)}`);
-
                 const lr1Active32 = new Array(8).fill(null);
+
                 for (let i = 0; i < 8; i++) {
                     if (wr1TopLabels[i] !== null) {
                         const lbl = nextMatchLabel();
                         lr1Active32[i] = lbl;
                         lr1_32.appendChild(createInteractiveMatchNode(lbl, '', '', '', '', 'none', `Loser of ${wr1TopLabels[i]}`, `Loser of ${wr1BotLabels[i]}`, 'L'));
+                    } else if (effW >= 8 && isFinalWLoserDirectQual) {
+                        const lbl = nextMatchLabel();
+                        lr1Active32[i] = lbl;
+                        lr1_32.appendChild(createInteractiveMatchNode(lbl, '', '', '', '', 'none', '', `Loser of ${wr1BotLabels[i]}`, 'L'));
                     } else {
                         const wrapper = createElement('div', 'match-wrapper');
                         wrapper.appendChild(createElement('div', 'dummy-spacer-box'));
@@ -899,31 +997,228 @@ function buildBracketSheetContent(poolName, bracketContainerEl, rosterContainerE
                     }
                 }
 
-                const lr2Labels32 = [];
-                for (let i = 0; i < 8; i++) {
-                    const lbl = nextMatchLabel();
-                    lr2Labels32.push(lbl);
-                    const wr2Loser = wr2_32Labels[7 - i];
-                    if (lr1Active32[i] !== null) {
-                        lr2_32.appendChild(createInteractiveMatchNode(lbl, '', '', '', '', 'straight', `Loser of ${wr2Loser}`, '', 'L'));
+                lContainer.appendChild(lr1_32);
+
+                if (effW >= 8 && isFinalWLoserDirectQual) {
+                    appendLosersQualifiersColumn(lr1Active32);
+                } else {
+                    const lr2_32 = createRoundColumn(`Losers Round 2 ${getBoStringForRound('L', 'Losers Round 2', playerCount)}`);
+                    const lr2Labels32 = [];
+                    for (let i = 0; i < 8; i++) {
+                        const lbl = nextMatchLabel();
+                        lr2Labels32.push(lbl);
+                        const wr2Loser = wr2_32Labels[7 - i];
+                        if (lr1Active32[i] !== null) {
+                            lr2_32.appendChild(createInteractiveMatchNode(lbl, '', '', '', '', 'straight', `Loser of ${wr2Loser}`, '', 'L'));
+                        } else {
+                            lr2_32.appendChild(createInteractiveMatchNode(lbl, '', '', '', '', 'none', `Loser of ${wr2Loser}`, `Loser of ${wr1BotLabels[i]}`, 'L'));
+                        }
+                    }
+                    lContainer.appendChild(lr2_32);
+
+                    if (targetLosersBracketQuals >= 8) {
+                        appendLosersQualifiersColumn(lr2Labels32);
                     } else {
-                        lr2_32.appendChild(createInteractiveMatchNode(lbl, '', '', '', '', 'none', `Loser of ${wr2Loser}`, `Loser of ${wr1BotLabels[i]}`, 'L'));
+                        const lr3_32 = createRoundColumn(`Losers Round 3 ${getBoStringForRound('L', 'Losers Round 3', playerCount)}`);
+                        const lr3Labels32 = [0, 1, 2, 3].map(() => nextMatchLabel());
+                        lr3Labels32.forEach(l => lr3_32.appendChild(createInteractiveMatchNode(l, '', '', '', '', 'branch', '', '', 'L')));
+                        lContainer.appendChild(lr3_32);
+
+                        const wqfDropCol = () => createRoundColumn(`Losers Round 4 ${getBoStringForRound('L', 'Losers Round 4', playerCount)}`);
+                        const consolidate2Col = () => createRoundColumn(`Losers Round 5 ${getBoStringForRound('L', 'Losers Round 5', playerCount)}`);
+                        const wsfDropCol = () => createRoundColumn(`Losers Quarter-Final ${getBoStringForRound('L', 'Losers Quarter-Final', playerCount)}`);
+                        const consolidate1Col = () => createRoundColumn(`Losers Semi-Final ${getBoStringForRound('L', 'Losers Semi-Final', playerCount)}`);
+                        const wfDropCol = () => createRoundColumn(`Losers Final ${getBoStringForRound('L', 'Losers Final', playerCount)}`);
+
+                        if (effW >= 8) {
+                            if (targetLosersBracketQuals >= 4) {
+                                appendLosersQualifiersColumn(lr3Labels32);
+                            } else {
+                                const colCons2 = consolidate2Col();
+                                const cons2Labels = [0, 1].map(() => nextMatchLabel());
+                                cons2Labels.forEach(l => colCons2.appendChild(createInteractiveMatchNode(l, '', '', '', '', 'branch', '', '', 'L')));
+                                lContainer.appendChild(colCons2);
+                                if (targetLosersBracketQuals >= 2) {
+                                    appendLosersQualifiersColumn(cons2Labels);
+                                } else {
+                                    const colCons1 = consolidate1Col();
+                                    const cons1Lbl = nextMatchLabel();
+                                    colCons1.appendChild(createInteractiveMatchNode(cons1Lbl, '', '', '', '', 'branch', '', '', 'L'));
+                                    lContainer.appendChild(colCons1);
+                                    appendLosersQualifiersColumn([cons1Lbl]);
+                                }
+                            }
+                        } else if (effW === 4 && isFinalWLoserDirectQual) {
+                            appendLosersQualifiersColumn(lr3Labels32);
+                        } else {
+                            const colWqfDrop = wqfDropCol();
+                            const wqfDropOrder = [wqfLabels[1], wqfLabels[0], wqfLabels[3], wqfLabels[2]];
+                            const afterWqfDropLabels = [0, 1, 2, 3].map(() => nextMatchLabel());
+                            afterWqfDropLabels.forEach((l, i) => {
+                                colWqfDrop.appendChild(createInteractiveMatchNode(l, '', '', '', '', 'straight', `Loser of ${wqfDropOrder[i]}`, '', 'L'));
+                            });
+                            lContainer.appendChild(colWqfDrop);
+
+                            if (targetLosersBracketQuals >= 4) {
+                                appendLosersQualifiersColumn(afterWqfDropLabels);
+                            } else {
+                                const colCons2 = consolidate2Col();
+                                const cons2Labels = [0, 1].map(() => nextMatchLabel());
+                                cons2Labels.forEach(l => colCons2.appendChild(createInteractiveMatchNode(l, '', '', '', '', 'branch', '', '', 'L')));
+                                lContainer.appendChild(colCons2);
+
+                                if ((effW === 2 && isFinalWLoserDirectQual) || (effW === 4 && targetLosersBracketQuals === 2)) {
+                                    appendLosersQualifiersColumn(cons2Labels);
+                                } else if (effW === 4 && targetLosersBracketQuals === 1) {
+                                    const colCons1 = consolidate1Col();
+                                    const cons1Lbl = nextMatchLabel();
+                                    colCons1.appendChild(createInteractiveMatchNode(cons1Lbl, '', '', '', '', 'branch', '', '', 'L'));
+                                    lContainer.appendChild(colCons1);
+                                    appendLosersQualifiersColumn([cons1Lbl]);
+                                } else {
+                                    const colWsfDrop = wsfDropCol();
+                                    const wsfDropOrder = [wsfLabels[1], wsfLabels[0]];
+                                    const afterWsfDropLabels = [0, 1].map(() => nextMatchLabel());
+                                    afterWsfDropLabels.forEach((l, i) => {
+                                        colWsfDrop.appendChild(createInteractiveMatchNode(l, '', '', '', '', 'straight', `Loser of ${wsfDropOrder[i]}`, '', 'L'));
+                                    });
+                                    lContainer.appendChild(colWsfDrop);
+
+                                    if (effW === 2 && targetLosersBracketQuals === 2) {
+                                        appendLosersQualifiersColumn(afterWsfDropLabels);
+                                    } else if (effW === 1 && isFinalWLoserDirectQual) {
+                                        if (targetLosersBracketQuals >= 2) {
+                                            appendLosersQualifiersColumn(afterWsfDropLabels);
+                                        } else {
+                                            const colCons1 = consolidate1Col();
+                                            const cons1Lbl = nextMatchLabel();
+                                            colCons1.appendChild(createInteractiveMatchNode(cons1Lbl, '', '', '', '', 'branch', '', '', 'L'));
+                                            lContainer.appendChild(colCons1);
+                                            appendLosersQualifiersColumn([cons1Lbl]);
+                                        }
+                                    } else {
+                                        const colCons1 = consolidate1Col();
+                                        const cons1Lbl = nextMatchLabel();
+                                        colCons1.appendChild(createInteractiveMatchNode(cons1Lbl, '', '', '', '', 'branch', '', '', 'L'));
+                                        lContainer.appendChild(colCons1);
+
+                                        if (effW === 2 && targetLosersBracketQuals === 1) {
+                                            appendLosersQualifiersColumn([cons1Lbl]);
+                                        } else {
+                                            const colWfDrop = wfDropCol();
+                                            const lfLbl = nextMatchLabel();
+                                            lfMatchLabelForGf = lfLbl;
+                                            colWfDrop.appendChild(createInteractiveMatchNode(lfLbl, '', '', '', '', 'straight', `Loser of ${wfLabel}`, '', 'L'));
+                                            lContainer.appendChild(colWfDrop);
+                                            if (!isGfMode) {
+                                                appendLosersQualifiersColumn([lfLbl]);
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        } else if (!isSingle && (isGfMode || lCountNum > 0)) {
+            const lr1 = createRoundColumn(`Losers Round 1 ${getBoStringForRound('L', 'Losers Round 1', playerCount)}`);
+            const lr2 = createRoundColumn(`Losers Round 2 ${getBoStringForRound('L', 'Losers Round 2', playerCount)}`);
+
+            const lr1Direct8Labels = [];
+            if (effW >= 8 && (isFinalWLoserDirectQual || targetLosersBracketQuals >= 8)) {
+                for (let idx = 0; idx < 8; idx++) {
+                    const lbl = nextMatchLabel();
+                    lr1Direct8Labels.push(lbl);
+                    const wr2Loser = wr2Labels[7 - idx];
+                    const wr1Loser = wr1ActiveLabels[idx];
+                    const topLbl = isFinalWLoserDirectQual ? '' : `Loser of ${wr2Loser}`;
+                    const botLbl = wr1Loser ? `Loser of ${wr1Loser}` : '';
+                    lr1.appendChild(createInteractiveMatchNode(lbl, '', '', '', '', 'none', topLbl, botLbl, 'L'));
+                }
+                lContainer.appendChild(lr1);
+                appendLosersQualifiersColumn(lr1Direct8Labels);
+            } else {
+                for (let p = 0; p < 4; p++) {
+                    const pairGroup = createElement('div', 'pair-group');
+                    const i0 = 2 * p;
+                    const i1 = 2 * p + 1;
+                    const activeIndices = [i0, i1].filter(idx => wr1ActiveLabels[idx] !== null);
+
+                    if (activeIndices.length === 2) {
+                        activeIndices.forEach(idx => {
+                            const lbl = nextMatchLabel();
+                            const wr2Loser = wr2Labels[7 - idx];
+                            const wr1Loser = wr1ActiveLabels[idx];
+                            pairGroup.appendChild(createInteractiveMatchNode(lbl, '', '', '', '', 'none', `Loser of ${wr2Loser}`, `Loser of ${wr1Loser}`, 'L'));
+                        });
+                    } else if (activeIndices.length === 1) {
+                        const idx = activeIndices[0];
+                        const lbl = nextMatchLabel();
+                        const wr2Loser = wr2Labels[7 - idx];
+                        const wr1Loser = wr1ActiveLabels[idx];
+                        pairGroup.appendChild(createInteractiveMatchNode(lbl, '', '', '', '', 'none', `Loser of ${wr2Loser}`, `Loser of ${wr1Loser}`, 'L'));
+                    } else {
+                        const wrapper = createElement('div', 'match-wrapper');
+                        wrapper.appendChild(createElement('div', 'dummy-spacer-box'));
+                        pairGroup.appendChild(wrapper);
+                    }
+                    lr1.appendChild(pairGroup);
+                }
+
+                const lr2Labels = [];
+                for (let p = 0; p < 4; p++) {
+                    const lbl = nextMatchLabel();
+                    lr2Labels.push(lbl);
+                    const i0 = 2 * p;
+                    const i1 = 2 * p + 1;
+                    const activeIndices = [i0, i1].filter(idx => wr1ActiveLabels[idx] !== null);
+
+                    if (activeIndices.length === 2) {
+                        lr2.appendChild(createInteractiveMatchNode(lbl, '', '', '', '', 'branch', '', '', 'L'));
+                    } else if (activeIndices.length === 1) {
+                        const emptyIdx = (activeIndices[0] === i0) ? i1 : i0;
+                        const byeWr2Loser = wr2Labels[7 - emptyIdx];
+                        if (emptyIdx === i0) {
+                            lr2.appendChild(createInteractiveMatchNode(lbl, '', '', '', '', 'straight', `Loser of ${byeWr2Loser}`, '', 'L'));
+                        } else {
+                            lr2.appendChild(createInteractiveMatchNode(lbl, '', '', '', '', 'straight', '', `Loser of ${byeWr2Loser}`, 'L'));
+                        }
+                    } else {
+                        const topLoser = wr2Labels[7 - i0];
+                        const botLoser = wr2Labels[7 - i1];
+                        lr2.appendChild(createInteractiveMatchNode(lbl, '', '', '', '', 'none', `Loser of ${topLoser}`, `Loser of ${botLoser}`, 'L'));
                     }
                 }
 
-                const lr3Labels32 = [0, 1, 2, 3].map(() => nextMatchLabel());
-                lr3Labels32.forEach(l => lr3_32.appendChild(createInteractiveMatchNode(l, '', '', '', '', 'branch', '', '', 'L')));
+                lContainer.append(lr1, lr2);
 
-                lContainer.append(lr1_32, lr2_32, lr3_32);
-
-                const wqfDropCol = () => createRoundColumn(`Losers Round 4 ${getBoStringForRound('L', 'Losers Round 4', playerCount)}`);
-                const consolidate2Col = () => createRoundColumn(`Losers Round 5 ${getBoStringForRound('L', 'Losers Round 5', playerCount)}`);
+                const wqfDropCol = () => createRoundColumn(`Losers Round 3 ${getBoStringForRound('L', 'Losers Round 3', playerCount)}`);
+                const consolidate2Col = () => createRoundColumn(`Losers Round 4 ${getBoStringForRound('L', 'Losers Round 4', playerCount)}`);
                 const wsfDropCol = () => createRoundColumn(`Losers Quarter-Final ${getBoStringForRound('L', 'Losers Quarter-Final', playerCount)}`);
                 const consolidate1Col = () => createRoundColumn(`Losers Semi-Final ${getBoStringForRound('L', 'Losers Semi-Final', playerCount)}`);
                 const wfDropCol = () => createRoundColumn(`Losers Final ${getBoStringForRound('L', 'Losers Final', playerCount)}`);
 
-                if (effW === 4 && isFinalWLoserDirectQual) {
-                    appendLosersQualifiersColumn(lr3Labels32);
+                if (effW >= 8) {
+                    if (targetLosersBracketQuals >= 4) {
+                        appendLosersQualifiersColumn(lr2Labels);
+                    } else {
+                        const colCons2 = consolidate2Col();
+                        const cons2Labels = [0, 1].map(() => nextMatchLabel());
+                        cons2Labels.forEach(l => colCons2.appendChild(createInteractiveMatchNode(l, '', '', '', '', 'branch', '', '', 'L')));
+                        lContainer.appendChild(colCons2);
+                        if (targetLosersBracketQuals >= 2) {
+                            appendLosersQualifiersColumn(cons2Labels);
+                        } else {
+                            const colCons1 = consolidate1Col();
+                            const cons1Lbl = nextMatchLabel();
+                            colCons1.appendChild(createInteractiveMatchNode(cons1Lbl, '', '', '', '', 'branch', '', '', 'L'));
+                            lContainer.appendChild(colCons1);
+                            appendLosersQualifiersColumn([cons1Lbl]);
+                        }
+                    }
+                } else if (effW === 4 && isFinalWLoserDirectQual) {
+                    appendLosersQualifiersColumn(lr2Labels);
                 } else {
                     const colWqfDrop = wqfDropCol();
                     const wqfDropOrder = [wqfLabels[1], wqfLabels[0], wqfLabels[3], wqfLabels[2]];
@@ -987,140 +1282,6 @@ function buildBracketSheetContent(poolName, bracketContainerEl, rosterContainerE
                                     if (!isGfMode) {
                                         appendLosersQualifiersColumn([lfLbl]);
                                     }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        } else if (!isSingle && (isGfMode || lCountNum > 0)) {
-            const lr1 = createRoundColumn(`Losers Round 1 ${getBoStringForRound('L', 'Losers Round 1', playerCount)}`);
-            const lr2 = createRoundColumn(`Losers Round 2 ${getBoStringForRound('L', 'Losers Round 2', playerCount)}`);
-
-            for (let p = 0; p < 4; p++) {
-                const pairGroup = createElement('div', 'pair-group');
-                const i0 = 2 * p;
-                const i1 = 2 * p + 1;
-                const activeIndices = [i0, i1].filter(idx => wr1ActiveLabels[idx] !== null);
-
-                if (activeIndices.length === 2) {
-                    activeIndices.forEach(idx => {
-                        const lbl = nextMatchLabel();
-                        const wr2Loser = wr2Labels[7 - idx];
-                        const wr1Loser = wr1ActiveLabels[idx];
-                        pairGroup.appendChild(createInteractiveMatchNode(lbl, '', '', '', '', 'none', `Loser of ${wr2Loser}`, `Loser of ${wr1Loser}`, 'L'));
-                    });
-                } else if (activeIndices.length === 1) {
-                    const idx = activeIndices[0];
-                    const lbl = nextMatchLabel();
-                    const wr2Loser = wr2Labels[7 - idx];
-                    const wr1Loser = wr1ActiveLabels[idx];
-                    pairGroup.appendChild(createInteractiveMatchNode(lbl, '', '', '', '', 'none', `Loser of ${wr2Loser}`, `Loser of ${wr1Loser}`, 'L'));
-                } else {
-                    const wrapper = createElement('div', 'match-wrapper');
-                    wrapper.appendChild(createElement('div', 'dummy-spacer-box'));
-                    pairGroup.appendChild(wrapper);
-                }
-                lr1.appendChild(pairGroup);
-            }
-
-            const lr2Labels = [];
-            for (let p = 0; p < 4; p++) {
-                const lbl = nextMatchLabel();
-                lr2Labels.push(lbl);
-                const i0 = 2 * p;
-                const i1 = 2 * p + 1;
-                const activeIndices = [i0, i1].filter(idx => wr1ActiveLabels[idx] !== null);
-
-                if (activeIndices.length === 2) {
-                    lr2.appendChild(createInteractiveMatchNode(lbl, '', '', '', '', 'branch', '', '', 'L'));
-                } else if (activeIndices.length === 1) {
-                    const emptyIdx = (activeIndices[0] === i0) ? i1 : i0;
-                    const byeWr2Loser = wr2Labels[7 - emptyIdx];
-                    if (emptyIdx === i0) {
-                        lr2.appendChild(createInteractiveMatchNode(lbl, '', '', '', '', 'straight', `Loser of ${byeWr2Loser}`, '', 'L'));
-                    } else {
-                        lr2.appendChild(createInteractiveMatchNode(lbl, '', '', '', '', 'straight', '', `Loser of ${byeWr2Loser}`, 'L'));
-                    }
-                } else {
-                    const topLoser = wr2Labels[7 - i0];
-                    const botLoser = wr2Labels[7 - i1];
-                    lr2.appendChild(createInteractiveMatchNode(lbl, '', '', '', '', 'none', `Loser of ${topLoser}`, `Loser of ${botLoser}`, 'L'));
-                }
-            }
-
-            lContainer.append(lr1, lr2);
-
-            const wqfDropCol = () => createRoundColumn(`Losers Round 3 ${getBoStringForRound('L', 'Losers Round 3', playerCount)}`);
-            const consolidate2Col = () => createRoundColumn(`Losers Round 4 ${getBoStringForRound('L', 'Losers Round 4', playerCount)}`);
-            const wsfDropCol = () => createRoundColumn(`Losers Quarter-Final ${getBoStringForRound('L', 'Losers Quarter-Final', playerCount)}`);
-            const consolidate1Col = () => createRoundColumn(`Losers Semi-Final ${getBoStringForRound('L', 'Losers Semi-Final', playerCount)}`);
-            const wfDropCol = () => createRoundColumn(`Losers Final ${getBoStringForRound('L', 'Losers Final', playerCount)}`);
-
-            if (effW === 4 && isFinalWLoserDirectQual) {
-                appendLosersQualifiersColumn(lr2Labels);
-            } else {
-                const colWqfDrop = wqfDropCol();
-                const wqfDropOrder = [wqfLabels[1], wqfLabels[0], wqfLabels[3], wqfLabels[2]];
-                const afterWqfDropLabels = [0, 1, 2, 3].map(() => nextMatchLabel());
-                afterWqfDropLabels.forEach((l, i) => {
-                    colWqfDrop.appendChild(createInteractiveMatchNode(l, '', '', '', '', 'straight', `Loser of ${wqfDropOrder[i]}`, '', 'L'));
-                });
-                lContainer.appendChild(colWqfDrop);
-
-                if (targetLosersBracketQuals >= 4) {
-                    appendLosersQualifiersColumn(afterWqfDropLabels);
-                } else {
-                    const colCons2 = consolidate2Col();
-                    const cons2Labels = [0, 1].map(() => nextMatchLabel());
-                    cons2Labels.forEach(l => colCons2.appendChild(createInteractiveMatchNode(l, '', '', '', '', 'branch', '', '', 'L')));
-                    lContainer.appendChild(colCons2);
-
-                    if ((effW === 2 && isFinalWLoserDirectQual) || (effW === 4 && targetLosersBracketQuals === 2)) {
-                        appendLosersQualifiersColumn(cons2Labels);
-                    } else if (effW === 4 && targetLosersBracketQuals === 1) {
-                        const colCons1 = consolidate1Col();
-                        const cons1Lbl = nextMatchLabel();
-                        colCons1.appendChild(createInteractiveMatchNode(cons1Lbl, '', '', '', '', 'branch', '', '', 'L'));
-                        lContainer.appendChild(colCons1);
-                        appendLosersQualifiersColumn([cons1Lbl]);
-                    } else {
-                        const colWsfDrop = wsfDropCol();
-                        const wsfDropOrder = [wsfLabels[1], wsfLabels[0]];
-                        const afterWsfDropLabels = [0, 1].map(() => nextMatchLabel());
-                        afterWsfDropLabels.forEach((l, i) => {
-                            colWsfDrop.appendChild(createInteractiveMatchNode(l, '', '', '', '', 'straight', `Loser of ${wsfDropOrder[i]}`, '', 'L'));
-                        });
-                        lContainer.appendChild(colWsfDrop);
-
-                        if (effW === 2 && targetLosersBracketQuals === 2) {
-                            appendLosersQualifiersColumn(afterWsfDropLabels);
-                        } else if (effW === 1 && isFinalWLoserDirectQual) {
-                            if (targetLosersBracketQuals >= 2) {
-                                appendLosersQualifiersColumn(afterWsfDropLabels);
-                            } else {
-                                const colCons1 = consolidate1Col();
-                                const cons1Lbl = nextMatchLabel();
-                                colCons1.appendChild(createInteractiveMatchNode(cons1Lbl, '', '', '', '', 'branch', '', '', 'L'));
-                                lContainer.appendChild(colCons1);
-                                appendLosersQualifiersColumn([cons1Lbl]);
-                            }
-                        } else {
-                            const colCons1 = consolidate1Col();
-                            const cons1Lbl = nextMatchLabel();
-                            colCons1.appendChild(createInteractiveMatchNode(cons1Lbl, '', '', '', '', 'branch', '', '', 'L'));
-                            lContainer.appendChild(colCons1);
-
-                            if (effW === 2 && targetLosersBracketQuals === 1) {
-                                appendLosersQualifiersColumn([cons1Lbl]);
-                            } else {
-                                const colWfDrop = wfDropCol();
-                                const lfLbl = nextMatchLabel();
-                                lfMatchLabelForGf = lfLbl;
-                                colWfDrop.appendChild(createInteractiveMatchNode(lfLbl, '', '', '', '', 'straight', `Loser of ${wfLabel}`, '', 'L'));
-                                lContainer.appendChild(colWfDrop);
-                                if (!isGfMode) {
-                                    appendLosersQualifiersColumn([lfLbl]);
                                 }
                             }
                         }
@@ -1204,7 +1365,7 @@ function buildBracketSheetContent(poolName, bracketContainerEl, rosterContainerE
         let wsfLabels = [];
         let wfLabel = '';
 
-        if (effW === 4) {
+        if (effW >= 4) {
             appendWinnersStopQualifiers(wqfLabels);
             currentMatchIdx += 5;
         } else {
@@ -1288,9 +1449,9 @@ function buildBracketSheetContent(poolName, bracketContainerEl, rosterContainerE
                 wfDropCol = () => createRoundColumn(`Losers Final ${getBoStringForRound('L', 'Losers Final', playerCount)}`);
             }
 
-            if ((effW === 2 && isFinalWLoserDirectQual) || (effW === 4 && targetLosersBracketQuals >= 2)) {
+            if ((effW === 2 && isFinalWLoserDirectQual) || (effW >= 4 && targetLosersBracketQuals >= 2)) {
                 appendLosersQualifiersColumn(current2Labels);
-            } else if (effW === 4 && targetLosersBracketQuals === 1) {
+            } else if (effW >= 4 && targetLosersBracketQuals === 1) {
                 const colCons1 = consolidate1Col();
                 const cons1Lbl = nextMatchLabel();
                 colCons1.appendChild(createInteractiveMatchNode(cons1Lbl, '', '', '', '', 'branch', '', '', 'L'));
@@ -1794,7 +1955,6 @@ function buildBracketSheetContent(poolName, bracketContainerEl, rosterContainerE
 
     if (isPortraitMode) {
         if (playerCount >= 41 && lColsCount > 0) {
-            // ★41〜48人ダブルエリミ：勝者16段＋敗者16段（計32段）をA3縦1枚に余裕をもって収める専用設定
             boxHeightPx = 39;
             colWidthPx = 188;
             colGapPx = 14;
