@@ -316,6 +316,67 @@ const losersBoSelect = document.getElementById('losers-bo-select');
 const losersCustomInput = document.getElementById('losers-custom-input');
 const losersCustomError = document.getElementById('losers-custom-error');
 
+// サイドバー開閉＆ドラッグ幅変更用のDOM参照
+const sidebarWrapper = document.getElementById('sidebar-wrapper');
+const sidebarPanel = document.getElementById('sidebar-panel');
+const sidebarResizer = document.getElementById('sidebar-resizer');
+const sidebarToggleBtn = document.getElementById('sidebar-toggle-btn');
+
+// === サイドバーの開閉（「≪ / ≫」ボタン）およびドラッグによる横幅変更 ===
+const SIDEBAR_WIDTH_STORAGE_KEY = 'bracket_printer_sidebar_width';
+const savedSidebarWidth = parseInt(localStorage.getItem(SIDEBAR_WIDTH_STORAGE_KEY) || '', 10);
+if (sidebarPanel && !isNaN(savedSidebarWidth) && savedSidebarWidth >= 240 && savedSidebarWidth <= 640) {
+    sidebarPanel.style.width = `${savedSidebarWidth}px`;
+}
+
+if (sidebarToggleBtn && sidebarWrapper) {
+    sidebarToggleBtn.addEventListener('click', () => {
+        const isCollapsed = sidebarWrapper.classList.toggle('is-collapsed');
+        sidebarToggleBtn.textContent = isCollapsed ? '≫' : '≪';
+        sidebarToggleBtn.title = isCollapsed ? '設定画面を開く' : '設定画面を閉じる';
+        requestAnimationFrame(() => {
+            if (typeof fitToViewport === 'function') fitToViewport();
+        });
+    });
+}
+
+if (sidebarResizer && sidebarPanel) {
+    let isResizingSidebar = false;
+    let resizeStartX = 0;
+    let resizeStartWidth = 320;
+
+    sidebarResizer.addEventListener('mousedown', (e) => {
+        if (e.button !== 0) return;
+        isResizingSidebar = true;
+        resizeStartX = e.clientX;
+        resizeStartWidth = sidebarPanel.getBoundingClientRect().width;
+        sidebarResizer.classList.add('is-resizing');
+        document.body.classList.add('resizing-sidebar');
+        e.preventDefault();
+        e.stopPropagation();
+    });
+
+    window.addEventListener('mousemove', (e) => {
+        if (!isResizingSidebar) return;
+        const deltaX = e.clientX - resizeStartX;
+        const newWidth = Math.max(240, Math.min(640, Math.round(resizeStartWidth + deltaX)));
+        sidebarPanel.style.width = `${newWidth}px`;
+        if (typeof fitToViewport === 'function') fitToViewport();
+    });
+
+    window.addEventListener('mouseup', () => {
+        if (!isResizingSidebar) return;
+        isResizingSidebar = false;
+        sidebarResizer.classList.remove('is-resizing');
+        document.body.classList.remove('resizing-sidebar');
+        const currentW = Math.round(sidebarPanel.getBoundingClientRect().width);
+        localStorage.setItem(SIDEBAR_WIDTH_STORAGE_KEY, String(currentW));
+        requestAnimationFrame(() => {
+            if (typeof fitToViewport === 'function') fitToViewport();
+        });
+    });
+}
+
 // 保存済みのstart.gg APIトークンがあれば復元
 const savedToken = localStorage.getItem('bracket_printer_startgg_token');
 if (savedToken && startggTokenInput) {
@@ -1033,9 +1094,14 @@ function updateAdvanceCountConstraints() {
         if (opt.value === '4') {
             opt.disabled = (n <= 8);
             opt.textContent = (n <= 8) ? '4人（9人以上〜）' : '4人';
+        } else if (opt.value === '8') {
+            opt.disabled = (n <= 16);
+            opt.textContent = (n <= 16) ? '8人（17人以上〜）' : '8人';
         }
     });
-    if (n <= 8 && winnersAdvanceCount.value === '4') {
+    if (n <= 16 && winnersAdvanceCount.value === '8') {
+        winnersAdvanceCount.value = (n <= 8) ? '2' : '4';
+    } else if (n <= 8 && winnersAdvanceCount.value === '4') {
         winnersAdvanceCount.value = '2';
     }
 
@@ -1043,9 +1109,14 @@ function updateAdvanceCountConstraints() {
         if (opt.value === '8') {
             opt.disabled = (n <= 16);
             opt.textContent = (n <= 16) ? '8人（17人以上〜）' : '8人';
+        } else if (opt.value === '16') {
+            opt.disabled = (n <= 24);
+            opt.textContent = (n <= 24) ? '16人（25人以上〜）' : '16人';
         }
     });
-    if (n <= 16 && losersAdvanceCount.value === '8') {
+    if (n <= 24 && losersAdvanceCount.value === '16') {
+        losersAdvanceCount.value = (n <= 16) ? '4' : '8';
+    } else if (n <= 16 && losersAdvanceCount.value === '8') {
         losersAdvanceCount.value = '4';
     }
 }
@@ -2186,7 +2257,7 @@ async function populatePoolsFromStartggPhase(phaseObj, targetGroupId = null) {
         }
         if (perPoolAdvance > 0) {
             if (getEffectiveElimFormat() === 'single') {
-                if (['1', '2', '4'].includes(String(perPoolAdvance))) {
+                if (['1', '2', '4', '8'].includes(String(perPoolAdvance))) {
                     winnersAdvanceCount.value = String(perPoolAdvance);
                     autoMessages.push(`通過人数: W${perPoolAdvance}`);
                 }
@@ -2198,7 +2269,9 @@ async function populatePoolsFromStartggPhase(phaseObj, targetGroupId = null) {
                     4: { w: '2', l: '2' },
                     6: { w: '2', l: '4' },
                     8: { w: '4', l: '4' },
-                    12: { w: '4', l: '8' }
+                    12: { w: '4', l: '8' },
+                    16: { w: '8', l: '8' },
+                    24: { w: '8', l: '16' }
                 };
                 if (splitMap[perPoolAdvance]) {
                     winnersAdvanceCount.value = splitMap[perPoolAdvance].w;
