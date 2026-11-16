@@ -76,13 +76,13 @@
             height: 0;
         }
 
-        /* サイドバー外枠・リサイズハンドル・外側開閉ボタン */
+        /* サイドバー外枠・リサイズハンドル・外側開閉ボタン（デフォルト490px / 最小315px / 最大630px） */
         #sidebar-wrapper {
             position: relative;
             display: flex;
-            width: 640px;
-            min-width: 280px;
-            max-width: 840px;
+            width: 490px;
+            min-width: 315px;
+            max-width: 630px;
             height: 100%;
             flex-shrink: 0;
             z-index: 30;
@@ -174,7 +174,7 @@
                 overflow: visible !important;
                 font-family: Arial, Helvetica, "Hiragino Kaku Gothic ProN", "Hiragino Sans", Meiryo, sans-serif !important;
             }
-            #sidebar-wrapper, #sidebar-panel, #sidebar-toggle-btn, #match-edit-modal {
+            #sidebar-wrapper, #sidebar-panel, #sidebar-toggle-btn, #match-edit-modal, #update-announce-toast, #update-announce-modal {
                 display: none !important;
             }
             #preview-viewport {
@@ -771,6 +771,57 @@
         </button>
     </div>
 
+    <!-- 定期アップデート・お知らせ通知トースト（右下フロート表示） -->
+    <div id="update-announce-toast" class="hidden fixed bottom-5 right-5 z-[85] bg-white border-2 border-[#DB2777] rounded-xl shadow-2xl p-4 max-w-sm w-full flex flex-col gap-2 transition-all">
+        <div class="flex items-start justify-between gap-2">
+            <div class="flex items-center gap-2">
+                <span class="bg-[#DB2777] text-white text-[10px] font-black px-2 py-0.5 rounded-full">UPDATE</span>
+                <h4 id="update-toast-title" class="font-bold text-xs text-gray-900">アップデートのお知らせ</h4>
+            </div>
+            <button id="update-toast-close-btn" type="button" class="text-gray-400 hover:text-gray-700 font-bold text-sm leading-none">&times;</button>
+        </div>
+        <p id="update-toast-body" class="text-[11px] text-gray-600 leading-relaxed whitespace-pre-line"></p>
+        <div class="flex items-center justify-end gap-2 pt-1">
+            <button id="update-toast-detail-btn" type="button" class="text-[11px] font-bold text-[#DB2777] hover:underline">
+                詳細を確認
+            </button>
+            <a id="update-toast-download-link" href="https://github.com/Tesnoo/BracketPrinter/releases" target="_blank" rel="noopener noreferrer" class="hidden bg-[#DB2777] hover:bg-pink-700 text-white text-[11px] font-bold px-3 py-1 rounded shadow-sm transition">
+                最新版を入手 ↗
+            </a>
+        </div>
+    </div>
+
+    <!-- アップデート・定期アナウンス詳細モーダル -->
+    <div id="update-announce-modal" class="hidden fixed inset-0 bg-black/55 z-[105] flex items-center justify-center p-4">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden border border-gray-200">
+            <div class="bg-[#DB2777] text-white px-4 py-3 flex justify-between items-center">
+                <h3 id="update-modal-title" class="font-bold text-sm flex items-center gap-1.5">
+                    <span>📢 Bracket Printer アップデート情報</span>
+                </h3>
+                <button id="update-modal-close-btn" type="button" class="text-pink-100 hover:text-white text-lg font-bold leading-none">&times;</button>
+            </div>
+            <div class="p-4 flex flex-col gap-3 text-xs">
+                <div class="flex items-center justify-between text-[11px] text-gray-500 border-b border-gray-200 pb-2">
+                    <span id="update-modal-version-badge" class="font-bold text-[#DB2777] bg-pink-50 border border-pink-200 px-2 py-0.5 rounded">ver 1.0.0</span>
+                    <span id="update-modal-date"></span>
+                </div>
+                <div id="update-modal-message" class="text-xs text-gray-700 leading-relaxed whitespace-pre-line max-h-60 overflow-y-auto"></div>
+                <div id="update-modal-highlights-box" class="hidden bg-gray-50 border border-gray-200 rounded-lg p-3 space-y-1">
+                    <p class="font-bold text-gray-800 text-[11px]">✨ 主な更新内容</p>
+                    <ul id="update-modal-highlights" class="list-disc list-inside text-[11px] text-gray-600 space-y-1"></ul>
+                </div>
+                <div class="flex justify-end gap-2 pt-2 border-t border-gray-200">
+                    <button id="update-modal-ok-btn" type="button" class="px-3.5 py-1.5 rounded border border-gray-300 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold">
+                        閉じる
+                    </button>
+                    <a id="update-modal-download-btn" href="https://github.com/Tesnoo/BracketPrinter/releases" target="_blank" rel="noopener noreferrer" class="px-3.5 py-1.5 rounded bg-[#DB2777] hover:bg-pink-700 text-white font-bold shadow-sm">
+                        最新版をダウンロード (.exe) ↗
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- 管理者専用：リモートメンテナンス切替モーダル（左上ロゴ5回連続クリックで起動） -->
     <div id="maintenance-admin-modal" class="hidden fixed inset-0 bg-black/60 z-[110] flex items-center justify-center p-4">
         <div class="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden border border-gray-200">
@@ -835,16 +886,21 @@
     </div>
 
     <!-- 左側：操作パネル＆外側開閉ボタン・幅変更ハンドル -->
-    <div id="sidebar-wrapper">
+    <div id="sidebar-wrapper" style="width: 490px; min-width: 315px; max-width: 630px;">
         <div id="sidebar-panel" class="shrink-0 bg-white shadow-lg overflow-y-auto z-20 h-full">
             <div class="p-5 flex flex-col gap-4">
-                <div id="app-brand-header" class="flex items-center gap-2.5 shrink-0 select-none" title="Bracket Printer">
-                    <img src="image/BracketPrinter_logo.png" onerror="this.onerror=null;this.src='../image/BracketPrinter_logo.png';" alt="Bracket Printer Logo" class="w-8 h-8 object-contain cursor-pointer shrink-0">
-                    <h1 class="text-2xl font-bold text-gray-800 truncate">Bracket Printer</h1>
+                <div id="app-brand-header" class="flex items-center justify-between gap-2 shrink-0 select-none" title="Bracket Printer">
+                    <div class="flex items-center gap-2.5 min-w-0">
+                        <img src="image/BracketPrinter_logo.png" onerror="this.onerror=null;this.src='../image/BracketPrinter_logo.png';" alt="Bracket Printer Logo" class="w-8 h-8 object-contain cursor-pointer shrink-0">
+                        <h1 class="text-2xl font-bold text-gray-800 truncate">Bracket Printer</h1>
+                    </div>
+                    <button id="open-update-info-btn" type="button" class="text-[10px] font-bold text-[#DB2777] bg-pink-50 hover:bg-pink-100 border border-pink-200 px-2 py-1 rounded transition shrink-0">
+                        📢 更新情報
+                    </button>
                 </div>
 
                 <!-- 使い方ガイドを開くボタン -->
-                <a href="https://tesnoo.github.io/BracketPrinter/how-to-use.html" target="_blank" rel="noopener noreferrer" class="w-full bg-pink-50 hover:bg-pink-100 text-[#DB2777] border border-pink-200 font-bold py-2 px-3 rounded shadow-sm transition text-xs flex items-center justify-center gap-1.5 shrink-0">
+                <a href="https://tesnoo.github.io/BracketPrinter/dev/how-to-use.html" target="_blank" rel="noopener noreferrer" class="w-full bg-pink-50 hover:bg-pink-100 text-[#DB2777] border border-pink-200 font-bold py-2 px-3 rounded shadow-sm transition text-xs flex items-center justify-center gap-1.5 shrink-0">
                     <span>📖 使い方を確認する</span>
                     <span class="text-[10px]">↗</span>
                 </a>
@@ -1231,7 +1287,7 @@
             </div>
         </div>
         <!-- ドラッグで横幅を変更するリサイズバー -->
-        <div id="sidebar-resizer" title="左右にドラッグして設定画面の横幅を変更"></div>
+        <div id="sidebar-resizer" title="左右にドラッグして設定画面の横幅を変更 (315px〜630px)"></div>
         <!-- サイドバー外側に配置された開閉ボタン -->
         <button id="sidebar-toggle-btn" type="button" title="設定画面を閉じる / 開く">≪</button>
     </div>
@@ -1338,5 +1394,223 @@
     <!-- 分割スクリプト読み込み（1: ブラケット描画エンジン / 2: メインアプリ制御） -->
     <script src="bracket-engine.js"></script>
     <script src="app.js"></script>
+
+    <!-- サイドバー幅仕様（初期490px / 最小315px / 最大630px・リロード時リセット）＆ 定期アップデートアナウンス制御 -->
+    <script>
+        (function() {
+            const DEFAULT_SIDEBAR_W = 490;
+            const MIN_SIDEBAR_W = 315;
+            const MAX_SIDEBAR_W = 630;
+            const APP_CURRENT_VERSION = '1.0.0';
+
+            const wrapper = document.getElementById('sidebar-wrapper');
+            const resizer = document.getElementById('sidebar-resizer');
+
+            // ページ読み込み（リロード）時は常に490pxへ初期化
+            localStorage.removeItem('bracket_printer_sidebar_width');
+            if (wrapper) {
+                wrapper.style.width = DEFAULT_SIDEBAR_W + 'px';
+                wrapper.style.minWidth = MIN_SIDEBAR_W + 'px';
+                wrapper.style.maxWidth = MAX_SIDEBAR_W + 'px';
+            }
+
+            if (resizer && wrapper) {
+                let activeResize = false;
+                let startX = 0;
+                let startW = DEFAULT_SIDEBAR_W;
+
+                resizer.addEventListener('mousedown', function(e) {
+                    if (e.button !== 0) return;
+                    activeResize = true;
+                    startX = e.clientX;
+                    startW = wrapper.getBoundingClientRect().width || DEFAULT_SIDEBAR_W;
+                    resizer.classList.add('is-resizing');
+                    document.body.classList.add('resizing-sidebar');
+                    e.preventDefault();
+                    e.stopPropagation();
+                }, true);
+
+                window.addEventListener('mousemove', function(e) {
+                    if (!activeResize) return;
+                    const dx = e.clientX - startX;
+                    const clampedW = Math.max(MIN_SIDEBAR_W, Math.min(MAX_SIDEBAR_W, Math.round(startW + dx)));
+                    wrapper.style.width = clampedW + 'px';
+                    if (typeof fitToViewport === 'function') fitToViewport();
+                    e.stopImmediatePropagation();
+                }, true);
+
+                window.addEventListener('mouseup', function() {
+                    if (!activeResize) return;
+                    activeResize = false;
+                    resizer.classList.remove('is-resizing');
+                    document.body.classList.remove('resizing-sidebar');
+                    requestAnimationFrame(function() {
+                        if (typeof fitToViewport === 'function') fitToViewport();
+                    });
+                }, true);
+            }
+
+            // === 定期アップデートアナウンス ＆ バージョンチェック機能 ===
+            const toastEl = document.getElementById('update-announce-toast');
+            const toastTitleEl = document.getElementById('update-toast-title');
+            const toastBodyEl = document.getElementById('update-toast-body');
+            const toastCloseBtn = document.getElementById('update-toast-close-btn');
+            const toastDetailBtn = document.getElementById('update-toast-detail-btn');
+            const toastDownloadLink = document.getElementById('update-toast-download-link');
+
+            const modalEl = document.getElementById('update-announce-modal');
+            const modalTitleEl = document.getElementById('update-modal-title');
+            const modalVerBadge = document.getElementById('update-modal-version-badge');
+            const modalDateEl = document.getElementById('update-modal-date');
+            const modalMsgEl = document.getElementById('update-modal-message');
+            const modalHighlightsBox = document.getElementById('update-modal-highlights-box');
+            const modalHighlightsList = document.getElementById('update-modal-highlights');
+            const modalCloseBtn = document.getElementById('update-modal-close-btn');
+            const modalOkBtn = document.getElementById('update-modal-ok-btn');
+            const modalDownloadBtn = document.getElementById('update-modal-download-btn');
+            const openUpdateInfoBtn = document.getElementById('open-update-info-btn');
+
+            let latestVersionInfo = null;
+            let periodicTimerId = null;
+
+            function compareSemver(v1, v2) {
+                const p1 = String(v1 || '0.0.0').replace(/^v/i, '').split('.').map(Number);
+                const p2 = String(v2 || '0.0.0').replace(/^v/i, '').split('.').map(Number);
+                for (let i = 0; i < 3; i++) {
+                    const a = p1[i] || 0;
+                    const b = p2[i] || 0;
+                    if (a > b) return 1;
+                    if (a < b) return -1;
+                }
+                return 0;
+            }
+
+            function populateUpdateUI(info) {
+                if (!info) return;
+                const verStr = info.latestVersion || APP_CURRENT_VERSION;
+                const hasNewerVersion = compareSemver(verStr, APP_CURRENT_VERSION) > 0;
+                const dlUrl = info.downloadUrl || 'https://github.com/Tesnoo/BracketPrinter/releases';
+
+                if (toastTitleEl) {
+                    toastTitleEl.textContent = info.title || (hasNewerVersion ? `新バージョン (v${verStr}) が利用可能です` : 'アップデートのお知らせ');
+                }
+                if (toastBodyEl) {
+                    toastBodyEl.textContent = info.shortMessage || info.message || '';
+                }
+                if (toastDownloadLink) {
+                    toastDownloadLink.href = dlUrl;
+                    toastDownloadLink.classList.toggle('hidden', !hasNewerVersion && !info.showDownloadButton);
+                }
+
+                if (modalTitleEl) {
+                    modalTitleEl.textContent = `📢 ${info.title || 'Bracket Printer アップデート情報'}`;
+                }
+                if (modalVerBadge) {
+                    modalVerBadge.textContent = `ver ${verStr}`;
+                }
+                if (modalDateEl) {
+                    modalDateEl.textContent = info.releasedAt || '';
+                }
+                if (modalMsgEl) {
+                    modalMsgEl.textContent = info.message || '';
+                }
+                if (modalHighlightsBox && modalHighlightsList) {
+                    modalHighlightsList.innerHTML = '';
+                    if (Array.isArray(info.highlights) && info.highlights.length > 0) {
+                        info.highlights.forEach(function(item) {
+                            const li = document.createElement('li');
+                            li.textContent = item;
+                            modalHighlightsList.appendChild(li);
+                        });
+                        modalHighlightsBox.classList.remove('hidden');
+                    } else {
+                        modalHighlightsBox.classList.add('hidden');
+                    }
+                }
+                if (modalDownloadBtn) {
+                    modalDownloadBtn.href = dlUrl;
+                    modalDownloadBtn.classList.toggle('hidden', !hasNewerVersion && !info.showDownloadButton);
+                }
+            }
+
+            async function checkVersionAndAnnounce(forceShowModal = false) {
+                const stamp = Date.now();
+                const candidates = [
+                    `version.json?t=${stamp}`,
+                    `../version.json?t=${stamp}`,
+                    `https://raw.githubusercontent.com/Tesnoo/BracketPrinter/main/version.json?t=${stamp}`
+                ];
+
+                for (const url of candidates) {
+                    try {
+                        const res = await fetch(url, { cache: 'no-store' });
+                        if (res.ok) {
+                            const data = await res.json();
+                            if (data && (data.latestVersion || data.title)) {
+                                latestVersionInfo = data;
+                                break;
+                            }
+                        }
+                    } catch (_) {}
+                }
+
+                if (!latestVersionInfo) return;
+                populateUpdateUI(latestVersionInfo);
+
+                if (forceShowModal && modalEl) {
+                    modalEl.classList.remove('hidden');
+                    return;
+                }
+
+                const hasNewer = compareSemver(latestVersionInfo.latestVersion, APP_CURRENT_VERSION) > 0;
+                const shouldAnnounce = Boolean(latestVersionInfo.announceEnabled || hasNewer);
+                if (shouldAnnounce && toastEl) {
+                    toastEl.classList.remove('hidden');
+                }
+
+                // 定期アナウンス間隔（分）が設定されている場合はタイマーを再スケジュール
+                const intervalMin = Number(latestVersionInfo.repeatIntervalMinutes) || 30;
+                if (periodicTimerId) clearInterval(periodicTimerId);
+                periodicTimerId = setInterval(function() {
+                    checkVersionAndAnnounce(false);
+                }, Math.max(5, intervalMin) * 60 * 1000);
+            }
+
+            if (toastCloseBtn && toastEl) {
+                toastCloseBtn.addEventListener('click', function() {
+                    toastEl.classList.add('hidden');
+                });
+            }
+            if (toastDetailBtn && modalEl) {
+                toastDetailBtn.addEventListener('click', function() {
+                    if (toastEl) toastEl.classList.add('hidden');
+                    modalEl.classList.remove('hidden');
+                });
+            }
+            if (openUpdateInfoBtn) {
+                openUpdateInfoBtn.addEventListener('click', function() {
+                    checkVersionAndAnnounce(true);
+                });
+            }
+            [modalCloseBtn, modalOkBtn].forEach(function(btn) {
+                if (btn && modalEl) {
+                    btn.addEventListener('click', function() {
+                        modalEl.classList.add('hidden');
+                    });
+                }
+            });
+            if (modalEl) {
+                modalEl.addEventListener('click', function(e) {
+                    if (e.target === modalEl) modalEl.classList.add('hidden');
+                });
+            }
+
+            window.addEventListener('DOMContentLoaded', function() {
+                setTimeout(function() {
+                    checkVersionAndAnnounce(false);
+                }, 1200);
+            });
+        })();
+    </script>
 </body>
 </html>
