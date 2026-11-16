@@ -38,6 +38,10 @@
             --checkbox-w: 27px;
             --player-font: 14.5px;
             --player-pad-x: 6px;
+            --drop-label-font: 11px;
+            --drop-label-offset: -13px;
+            --seed-label-font: 10.5px;
+            --seed-label-offset: -11px;
         }
 
         body, #preview-area, .batch-print-sheet {
@@ -279,10 +283,10 @@
         .match-box.stream-highlight::after {
             content: '';
             position: absolute;
-            top: -14px;
-            bottom: -14px;
-            left: -6px;
-            right: -6px;
+            top: -12px;
+            bottom: -12px;
+            left: -5px;
+            right: -5px;
             border: 2px dashed #666666;
             border-radius: 8px;
             pointer-events: none;
@@ -290,11 +294,11 @@
         }
         .stream-badge-tag {
             position: absolute;
-            top: -27px;
+            top: -25px;
             right: 0;
             background-color: #ffffff;
             color: #000000;
-            font-size: 10.5px;
+            font-size: 10px;
             font-weight: 700;
             line-height: 1;
             padding: 0;
@@ -328,21 +332,21 @@
 
         .drop-label-top {
             position: absolute;
-            top: -13px;
+            top: var(--drop-label-offset, -13px);
             left: calc(var(--label-w, 25px) + var(--checkbox-w, 27px));
-            font-size: 11px;
+            font-size: var(--drop-label-font, 11px);
             font-weight: 500;
-            line-height: 11px;
+            line-height: 1;
             color: #000;
             white-space: nowrap;
         }
         .drop-label-bottom {
             position: absolute;
-            bottom: -13px;
+            bottom: var(--drop-label-offset, -13px);
             left: calc(var(--label-w, 25px) + var(--checkbox-w, 27px));
-            font-size: 11px;
+            font-size: var(--drop-label-font, 11px);
             font-weight: 500;
-            line-height: 11px;
+            line-height: 1;
             color: #000;
             white-space: nowrap;
         }
@@ -377,7 +381,7 @@
             background-color: #4b5563;
             color: white;
             font-weight: 700;
-            font-size: 12.5px;
+            font-size: 11.5px;
             border: 1.5px solid #000;
             border-right: none;
             line-height: 1;
@@ -404,8 +408,8 @@
             flex-shrink: 0;
         }
         .checkbox-square {
-            width: 13px;
-            height: 13px;
+            width: 12px;
+            height: 12px;
             border: 2px solid #666;
             border-radius: 2px;
             box-sizing: border-box;
@@ -427,7 +431,7 @@
             font-size: var(--player-font, 14.5px);
             font-weight: 500;
             position: relative; 
-            line-height: 1.1;
+            line-height: 1.05;
             min-height: 0;
         }
         .player-slot:first-child { border-bottom: 1px solid #000; }
@@ -441,15 +445,15 @@
 
         .seed-label {
             position: absolute;
-            font-size: 10.5px;
+            font-size: var(--seed-label-font, 10.5px);
             font-weight: 500;
-            line-height: 10.5px;
+            line-height: 1;
             color: #000;
             text-align: left;
             left: 3px;
         }
-        .player-slot:first-child .seed-label { top: -11px; }
-        .player-slot:last-child .seed-label { bottom: -11px; }
+        .player-slot:first-child .seed-label { top: var(--seed-label-offset, -11px); }
+        .player-slot:last-child .seed-label { bottom: var(--seed-label-offset, -11px); }
 
         .score-box-area {
             display: flex;
@@ -464,7 +468,7 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 11px;
+            font-size: 10.5px;
             font-weight: 900;
             color: #000000;
             line-height: 1;
@@ -1234,132 +1238,8 @@
     <!-- 複数プールPDF一括生成用の非表示コンテナ -->
     <div id="batch-print-container" class="hidden"></div>
 
-    <!-- 初期プレビュー倍率の即時フィット ＆ 特注プリセット選択時のナンバリング欄表示保証 -->
-    <script>
-        (function () {
-            function fitPreviewImmediate() {
-                const vp = document.getElementById('preview-viewport');
-                const area = document.getElementById('preview-area');
-                const wrapper = document.getElementById('preview-scale-wrapper');
-                const slider = document.getElementById('zoom-slider');
-                const valEl = document.getElementById('zoom-value');
-                if (!vp || !area || !wrapper) return;
-
-                const availW = Math.max(300, vp.clientWidth - 48);
-                const availH = Math.max(200, vp.clientHeight - 48);
-                const contentW = area.offsetWidth || 2362;
-                const contentH = area.offsetHeight || 1670;
-
-                const pct = Math.min(100, Math.max(20, Math.floor(Math.min(availW / contentW, availH / contentH) * 100)));
-                const scale = pct / 100;
-                wrapper.style.transform = 'scale(' + scale + ')';
-                wrapper.style.width = Math.round(contentW * scale) + 'px';
-                wrapper.style.height = Math.round(contentH * scale) + 'px';
-                if (slider) slider.value = String(pct);
-                if (valEl) valEl.textContent = pct + '%';
-            }
-
-            function bindPresetUIImmediate() {
-                const presetSel = document.getElementById('preset-select');
-                const numWrap = document.getElementById('preset-number-wrapper');
-                const numInput = document.getElementById('preset-number-input');
-                const kuroWrap = document.getElementById('kurobra-game-wrapper');
-                const kuroSel = document.getElementById('kurobra-game-select');
-                const testFormatWrap = document.getElementById('test-preset-format-wrapper');
-                const testFormatSel = document.getElementById('test-preset-format-select');
-                const tNameLabel = document.getElementById('tournament-name-label');
-                const tNameInput = document.getElementById('tournament-name-input');
-                const urlInput = document.getElementById('startgg-url-input');
-                const csvInput = document.getElementById('csv-upload');
-                if (!presetSel || !numWrap) return;
-
-                function syncPresetFields() {
-                    const val = presetSel.value;
-                    const isTest = (val === 'テスト用');
-                    if (tNameLabel) {
-                        tNameLabel.textContent = isTest ? '大会名（固定）' : '大会名（任意）';
-                    }
-                    if (tNameInput) {
-                        tNameInput.readOnly = isTest;
-                        tNameInput.classList.toggle('bg-gray-100', isTest);
-                        tNameInput.classList.toggle('text-gray-500', isTest);
-                        tNameInput.classList.toggle('cursor-not-allowed', isTest);
-                    }
-                    if (urlInput) {
-                        urlInput.readOnly = isTest;
-                        urlInput.disabled = isTest;
-                        urlInput.classList.toggle('bg-gray-100', isTest);
-                        urlInput.classList.toggle('text-gray-500', isTest);
-                        urlInput.classList.toggle('cursor-not-allowed', isTest);
-                        urlInput.classList.toggle('select-none', isTest);
-                    }
-                    if (csvInput) {
-                        csvInput.disabled = isTest;
-                        csvInput.classList.toggle('bg-gray-100', isTest);
-                        csvInput.classList.toggle('opacity-50', isTest);
-                        csvInput.classList.toggle('cursor-not-allowed', isTest);
-                    }
-
-                    if (!val) {
-                        numWrap.classList.add('hidden');
-                        if (kuroWrap) kuroWrap.classList.add('hidden');
-                        if (testFormatWrap) testFormatWrap.classList.add('hidden');
-                        return;
-                    }
-                    if (isTest) {
-                        numWrap.classList.add('hidden');
-                        if (kuroWrap) kuroWrap.classList.add('hidden');
-                        if (testFormatWrap) testFormatWrap.classList.remove('hidden');
-                        if (tNameInput) tNameInput.value = 'Bracket Printer Test Page';
-                        const tFmt = testFormatSel ? testFormatSel.value : 'double';
-                        if (urlInput) {
-                            urlInput.value = (tFmt === 'single')
-                                ? 'https://www.start.gg/tournament/bracket-printer-test-page/event/6-48-single-elimination'
-                                : 'https://www.start.gg/tournament/bracket-printer-test-page/event/6-48-double-elimination';
-                        }
-                        return;
-                    }
-
-                    if (testFormatWrap) testFormatWrap.classList.add('hidden');
-                    numWrap.classList.remove('hidden');
-                    if (kuroWrap) {
-                        kuroWrap.classList.toggle('hidden', val !== 'クロブラ');
-                    }
-                    const n = numInput ? numInput.value.trim().replace(/[^0-9]/g, '') : '';
-                    if (numInput && numInput.value !== n) numInput.value = n;
-
-                    if (val === 'Vic-Seekers') {
-                        if (tNameInput) tNameInput.value = n ? ('Vic-Seekers #' + n) : 'Vic-Seekers';
-                        if (urlInput) urlInput.value = n ? ('https://www.start.gg/tournament/vic-seekers-' + n + '/event/ultimate-singles') : '';
-                    } else if (val === 'クロブラ') {
-                        const mode = kuroSel ? kuroSel.value : 'sp';
-                        if (tNameInput) tNameInput.value = n ? ('第' + n + '回クロブラ') : 'クロブラ';
-                        if (urlInput) {
-                            urlInput.value = n
-                                ? ('https://www.start.gg/tournament/' + n + '-kurobra' + n + '/event/kurobra-' + (mode === 'dx' ? 'dx' : 'sp') + '-1on1')
-                                : '';
-                        }
-                    } else if (val === 'IMPACT MAJOR') {
-                        if (tNameInput) tNameInput.value = n ? ('IMPACT MAJOR#' + n) : 'IMPACT MAJOR';
-                        if (urlInput) urlInput.value = n ? ('https://www.start.gg/tournament/impact-major-' + n + '/event/singles-tournament') : '';
-                    }
-                }
-
-                presetSel.addEventListener('change', function () {
-                    syncPresetFields();
-                    if (presetSel.value && presetSel.value !== 'テスト用' && numInput) numInput.focus();
-                });
-                if (numInput) numInput.addEventListener('input', syncPresetFields);
-                if (kuroSel) kuroSel.addEventListener('change', syncPresetFields);
-                if (testFormatSel) testFormatSel.addEventListener('change', syncPresetFields);
-            }
-
-            fitPreviewImmediate();
-            bindPresetUIImmediate();
-            window.addEventListener('load', fitPreviewImmediate);
-            window.addEventListener('resize', fitPreviewImmediate);
-        })();
-    </script>
+    <!-- 分割スクリプト読み込み（1: ブラケット描画エンジン / 2: メインアプリ制御） -->
+    <script src="bracket-engine.js"></script>
     <script src="app.js"></script>
 </body>
 </html>
