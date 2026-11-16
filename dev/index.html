@@ -1406,7 +1406,6 @@
             const wrapper = document.getElementById('sidebar-wrapper');
             const resizer = document.getElementById('sidebar-resizer');
 
-            // ページ読み込み（リロード）時は常に490pxへ初期化
             localStorage.removeItem('bracket_printer_sidebar_width');
             if (wrapper) {
                 wrapper.style.width = DEFAULT_SIDEBAR_W + 'px';
@@ -1535,11 +1534,17 @@
 
             async function checkVersionAndAnnounce(forceShowModal = false) {
                 const stamp = Date.now();
-                const candidates = [
-                    `version.json?t=${stamp}`,
-                    `../version.json?t=${stamp}`,
-                    `https://raw.githubusercontent.com/Tesnoo/BracketPrinter/main/version.json?t=${stamp}`
-                ];
+                const isFileProto = window.location.protocol === 'file:';
+                const candidates = isFileProto
+                    ? [
+                        `https://raw.githubusercontent.com/Tesnoo/BracketPrinter/main/version.json?t=${stamp}`,
+                        'version.json'
+                    ]
+                    : [
+                        `version.json?t=${stamp}`,
+                        `../version.json?t=${stamp}`,
+                        `https://raw.githubusercontent.com/Tesnoo/BracketPrinter/main/version.json?t=${stamp}`
+                    ];
 
                 for (const url of candidates) {
                     try {
@@ -1568,7 +1573,6 @@
                     toastEl.classList.remove('hidden');
                 }
 
-                // 定期アナウンス間隔（分）が設定されている場合はタイマーを再スケジュール
                 const intervalMin = Number(latestVersionInfo.repeatIntervalMinutes) || 30;
                 if (periodicTimerId) clearInterval(periodicTimerId);
                 periodicTimerId = setInterval(function() {
