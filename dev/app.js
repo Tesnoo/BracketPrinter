@@ -342,7 +342,6 @@ if (startggTokenInput) {
         }
     });
 
-    // 「テスト用」プリセット選択時はトークン欄のコピー・切り取り・右クリック・全選択を完全に禁止
     ['copy', 'cut', 'contextmenu', 'dragstart', 'selectstart'].forEach(evName => {
         startggTokenInput.addEventListener(evName, (e) => {
             if (presetSelect && presetSelect.value === 'テスト用') {
@@ -560,6 +559,66 @@ function loadPresetLogo(presetConfig, presetKey) {
     tryLoadNext(0);
 }
 
+// === 「テスト用」プリセット選択時にPool 6〜48データを自動ロードする関数 ===
+async function ensureTestPresetPoolsLoaded() {
+    const isTestPreset = (presetSelect && presetSelect.value === 'テスト用');
+    if (!isTestPreset) return;
+
+    const fmt = (testPresetFormatSelect && testPresetFormatSelect.value === 'single') ? 'single' : 'double';
+    const testProfile = BUILTIN_BP_PROFILES['テスト用'] || {};
+    const primaryCsv = (fmt === 'single')
+        ? (testProfile.csvFallbackSingle || 'dev/single_elimination.csv')
+        : (testProfile.csvFallbackDouble || 'dev/double_elimination.csv');
+
+    const candidateUrls = (fmt === 'single')
+        ? [primaryCsv, `../${primaryCsv}`, 'dev/6-48-single-elimination.csv', '../dev/6-48-single-elimination.csv']
+        : [primaryCsv, `../${primaryCsv}`, 'dev/6-48-double-elimination.csv', '../dev/6-48-double-elimination.csv'];
+
+    let loadedCsvText = null;
+    for (const url of candidateUrls) {
+        try {
+            const res = await fetch(url, { cache: 'no-store' });
+            if (res.ok) {
+                const text = await res.text();
+                if (text && text.includes(',')) {
+                    loadedCsvText = text;
+                    break;
+                }
+            }
+        } catch (_) {
+            // 次の候補を試行
+        }
+    }
+
+    if (loadedCsvText && window.Papa) {
+        const parsed = Papa.parse(loadedCsvText, { header: false, skipEmptyLines: true });
+        if (parsed && Array.isArray(parsed.data) && parsed.data.length >= 2) {
+            parseCsvRowsIntoPoolsData(parsed.data);
+        }
+    }
+
+    if (Object.keys(poolsData).length === 0) {
+        const syntheticRows = [
+            ['Phase', 'Wave', 'Pool', 'Phase Seed', 'Pool Seed', 'f5', 'f6', 'f7', 'f8', 'f9', 'f10', 'f11', 'Player GamerTag', 'Player Short GamerTag']
+        ];
+        let globalPhaseSeed = 1;
+        const phaseLabel = 'Bracket';
+        for (let p = 6; p <= 48; p++) {
+            for (let s = 1; s <= p; s++) {
+                syntheticRows.push([
+                    phaseLabel, '', String(p), String(globalPhaseSeed++), String(s),
+                    '', '', '', '', '', '', '',
+                    `BP｜${p}-${s}`, `${p}-${s}`
+                ]);
+            }
+        }
+        parseCsvRowsIntoPoolsData(syntheticRows);
+    }
+
+    lastAutoConfigSummary = `✨ テスト用プリセット: Pool 6〜48 (43プール) 準備完了`;
+    applyPoolsDataToUI('テスト用データ', apiStatus);
+}
+
 // === .bp プロファイルオブジェクトを現在のUI・設定に反映 ===
 function applyBpProfileObject(profile, applyBoAndNotes = true) {
     if (!profile) return;
@@ -601,6 +660,7 @@ function applyBpProfileObject(profile, applyBoAndNotes = true) {
             updateRecommendedPrintUI(true);
         }
         refreshRenderedHeaderTitle();
+        ensureTestPresetPoolsLoaded();
         updateGenerateButtonState();
         return;
     }
@@ -910,7 +970,7 @@ function refreshRenderedHeaderTitle() {
     const currentPool = poolsData[selectedPoolName];
     if (!currentPool) return;
 
-    const isSingle = elimFormatSelect.value === 'single';
+    const isSingle = getEffectiveElimFormat() === 'single';
     const elimTitle = isSingle ? 'Single Elimination' : 'Double Elimination';
     document.getElementById('pool-title').textContent = buildPoolHeaderTitle(selectedPoolName, elimTitle, currentPool.count);
 }
@@ -929,8 +989,18 @@ if (showPhaseNameCheckbox) {
     });
 }
 
+function getEffectiveElimFormat() {
+    if (elimFormatSelect && (elimFormatSelect.value === 'double' || elimFormatSelect.value === 'single')) {
+        return elimFormatSelect.value;
+    }
+    if (presetSelect && presetSelect.value === 'テスト用' && testPresetFormatSelect) {
+        return testPresetFormatSelect.value || 'double';
+    }
+    return '';
+}
+
 function isGrandFinalModeSelected() {
-    const isSingle = elimFormatSelect.value === 'single';
+    const isSingle = getEffectiveElimFormat() === 'single';
     const wVal = winnersAdvanceCount.value;
     const lVal = losersAdvanceCount.value;
     if (isSingle) {
@@ -982,7 +1052,7 @@ function updateAdvanceCountConstraints() {
 
 function updateRoundChangeDropdowns() {
     const playerCount = getCurrentPoolPlayerCount();
-    const isSingle = elimFormatSelect.value === 'single';
+    const isSingle = getEffectiveElimFormat() === 'single';
     const wCountNum = winnersAdvanceCount.value !== '' ? Number(winnersAdvanceCount.value) : 1;
     const lCountNum = isSingle ? 0 : (losersAdvanceCount.value !== '' ? Number(losersAdvanceCount.value) : 2);
 
@@ -1055,7 +1125,7 @@ function getRecommendedPrintSettings(refPlayers, elimFormat) {
 
 function updateRecommendedPrintUI(autoApply = true) {
     const targetCount = getEffectiveReferencePlayerCount();
-    const format = elimFormatSelect.value || 'double';
+    const format = getEffectiveElimFormat() || 'double';
     recommendedPrintConfig = getRecommendedPrintSettings(targetCount, format);
 
     Array.from(printSizeSelect.options).forEach(opt => {
@@ -1131,8 +1201,9 @@ function updateTargetPhaseInputState() {
 }
 
 function updateGenerateButtonState() {
-    const isSingle = elimFormatSelect.value === 'single';
-    const isFormatSelected = elimFormatSelect.value === 'double' || elimFormatSelect.value === 'single';
+    const effFormat = getEffectiveElimFormat();
+    const isSingle = effFormat === 'single';
+    const isFormatSelected = effFormat === 'double' || effFormat === 'single';
     const isWinnersSelected = winnersAdvanceCount.value !== '';
     const isLosersSelected = isSingle ? true : (losersAdvanceCount.value !== '');
     const isBaseBoReady = (baseBoSelect.value === '5' || baseBoSelect.value === '3') ||
@@ -1142,7 +1213,7 @@ function updateGenerateButtonState() {
     const isTargetPhaseFilled = (isGf || isTestPreset) ? true : (targetPhaseInput.value.trim() !== '');
 
     let isRoundChangeReady = true;
-    const isChangeMode = document.querySelector('input[name="change-mode"]:checked').value === 'yes';
+    const isChangeMode = document.querySelector('input[name="change-mode"]:checked')?.value === 'yes';
     if (isChangeMode) {
         if (winnersRoundSelect.value !== 'none' && winnersBoSelect.value === 'custom') {
             const wVal = Number(winnersCustomInput.value.trim());
@@ -1226,7 +1297,7 @@ function saveCurrentSessionToStorage() {
             kurobraGame: kurobraGameSelect ? kurobraGameSelect.value : 'sp',
             tournamentName: tournamentNameInput ? tournamentNameInput.value : '',
             startggUrl: startggUrlInput ? startggUrlInput.value : '',
-            elimFormat: elimFormatSelect ? elimFormatSelect.value : 'double',
+            elimFormat: getEffectiveElimFormat() || 'double',
             winnersAdvance: winnersAdvanceCount ? winnersAdvanceCount.value : '1',
             losersAdvance: losersAdvanceCount ? losersAdvanceCount.value : '2',
             targetPhase: targetPhaseInput ? targetPhaseInput.value : '',
@@ -1274,9 +1345,12 @@ if (restoreSessionBtn) {
 
             if (presetSelect) presetSelect.value = saved.presetValue || '';
             if (presetNumberInput) presetNumberInput.value = saved.presetNumber || '';
-            if (presetNumberWrapper) presetNumberWrapper.classList.toggle('hidden', !saved.presetValue);
+            const isTest = saved.presetValue === 'テスト用';
+            if (presetNumberWrapper) presetNumberWrapper.classList.toggle('hidden', !saved.presetValue || isTest);
             if (kurobraGameSelect) kurobraGameSelect.value = saved.kurobraGame || 'sp';
             if (kurobraGameWrapper) kurobraGameWrapper.classList.toggle('hidden', saved.presetValue !== 'クロブラ');
+            if (testPresetFormatWrapper) testPresetFormatWrapper.classList.toggle('hidden', !isTest);
+            setTestPresetLockState(isTest);
 
             if (tournamentNameInput) tournamentNameInput.value = saved.tournamentName || '';
             if (startggUrlInput) startggUrlInput.value = saved.startggUrl || '';
@@ -1521,6 +1595,7 @@ function applyPoolsDataToUI(sourceLabel = 'CSV', targetStatusEl = csvStatus) {
     maxPoolPlayerCount = Math.max(...counts);
     minPoolPlayerCount = Math.min(...counts);
 
+    const prevPoolVal = poolSelect.value;
     poolSelect.innerHTML = '';
     poolKeys.forEach(poolName => {
         const option = document.createElement('option');
@@ -1528,6 +1603,9 @@ function applyPoolsDataToUI(sourceLabel = 'CSV', targetStatusEl = csvStatus) {
         option.textContent = `Pool ${poolName} (${poolsData[poolName].count}名)`;
         poolSelect.appendChild(option);
     });
+    if (prevPoolVal && poolsData[prevPoolVal]) {
+        poolSelect.value = prevPoolVal;
+    }
 
     isCsvValid = true;
     poolSelectWrapper.classList.remove('hidden');
@@ -1578,62 +1656,7 @@ csvUpload.addEventListener('change', (e) => {
                 return;
             }
 
-            poolsData = {};
-
-            for (let i = 1; i < rows.length; i++) {
-                const row = rows[i];
-                if (row.length < 13) continue;
-
-                const rawPhase = row[0] ? String(row[0]).trim() : '';
-                const rawPool = row[2] ? String(row[2]).trim() : '';
-                if (!rawPool) continue;
-
-                const poolName = normalizePoolName(rawPool);
-                const phaseSeed = parseInt(row[3], 10);
-                let poolSeed = parseInt(row[4], 10);
-                if (isNaN(poolSeed)) {
-                    poolSeed = phaseSeed;
-                }
-
-                const colM = row[12] ? String(row[12]).trim() : '';
-                const colN = row.length > 13 && row[13] ? String(row[13]).trim() : '';
-                const colL = row[11] ? String(row[11]).trim() : '';
-
-                const fullGamerTag = colM || colN || colL;
-                let shortGamerTag = colN;
-                if (!shortGamerTag) {
-                    if (colM && colM.includes('|')) {
-                        const parts = colM.split('|');
-                        shortGamerTag = parts[parts.length - 1].trim();
-                    } else {
-                        shortGamerTag = colM || colL;
-                    }
-                }
-
-                if (!poolsData[poolName]) {
-                    poolsData[poolName] = {
-                        phaseName: rawPhase,
-                        playersByPoolSeed: {},
-                        rosterList: [],
-                        apiStreamByRoundIndex: {},
-                        apiDqByMatchLabel: {},
-                        count: 0
-                    };
-                } else if (!poolsData[poolName].phaseName && rawPhase) {
-                    poolsData[poolName].phaseName = rawPhase;
-                }
-
-                if (!isNaN(poolSeed)) {
-                    poolsData[poolName].playersByPoolSeed[poolSeed] = shortGamerTag;
-                    poolsData[poolName].rosterList.push({
-                        seed: poolSeed,
-                        phaseSeed: !isNaN(phaseSeed) ? phaseSeed : poolSeed,
-                        fullGamerTag: fullGamerTag
-                    });
-                    poolsData[poolName].count++;
-                }
-            }
-
+            parseCsvRowsIntoPoolsData(rows);
             applyPoolsDataToUI('CSV', csvStatus);
         }
     });
@@ -1697,7 +1720,7 @@ function parseCsvRowsIntoPoolsData(rows) {
     }
 }
 
-// === API取得エラー時の dev/ フォルダ内CSV自動フォールバック（ダブルマークナル機能） ===
+// === API取得エラー時の dev/ フォルダ内CSV自動フォールバック ===
 async function fallbackToDevCsvOnApiError(errorObj) {
     console.warn('APIエラー発生のためCSV自動フォールバックを開始します:', errorObj);
     showInlineInfo(apiStatus, '⚠️ 読み込みエラーが発生しました。CSVでのデータ取得に切り替えます...');
@@ -1705,7 +1728,7 @@ async function fallbackToDevCsvOnApiError(errorObj) {
     const isTestPreset = (presetSelect && presetSelect.value === 'テスト用');
     const fmt = (isTestPreset && testPresetFormatSelect)
         ? testPresetFormatSelect.value
-        : (elimFormatSelect.value === 'single' ? 'single' : 'double');
+        : (getEffectiveElimFormat() === 'single' ? 'single' : 'double');
 
     const testProfile = BUILTIN_BP_PROFILES['テスト用'] || {};
     const primaryCsv = (fmt === 'single')
@@ -1761,13 +1784,12 @@ async function fallbackToDevCsvOnApiError(errorObj) {
         }
     }
 
-    // 万が一 dev/ 内にCSVファイルが未配置の場合でも、Pool 6〜48 (1,161名) のデータを自動生成して完全復旧
     if (Object.keys(poolsData).length === 0) {
         const syntheticRows = [
             ['Phase', 'Wave', 'Pool', 'Phase Seed', 'Pool Seed', 'f5', 'f6', 'f7', 'f8', 'f9', 'f10', 'f11', 'Player GamerTag', 'Player Short GamerTag']
         ];
         let globalPhaseSeed = 1;
-        const phaseLabel = fmt === 'single' ? '6-48 Single Elimination' : '6-48 Double Elimination';
+        const phaseLabel = 'Bracket';
         for (let p = 6; p <= 48; p++) {
             for (let s = 1; s <= p; s++) {
                 syntheticRows.push([
@@ -2144,7 +2166,7 @@ async function populatePoolsFromStartggPhase(phaseObj, targetGroupId = null) {
 
     if (isTestPresetActive && perPoolAdvance === 0) {
         if (winnersAdvanceCount.value === '') winnersAdvanceCount.value = '0';
-        if (elimFormatSelect.value !== 'single' && losersAdvanceCount.value === '') {
+        if (getEffectiveElimFormat() !== 'single' && losersAdvanceCount.value === '') {
             losersAdvanceCount.value = '0';
         }
         if (isGrandFinalModeSelected()) {
@@ -2153,7 +2175,7 @@ async function populatePoolsFromStartggPhase(phaseObj, targetGroupId = null) {
         autoMessages.push('通過人数: W0 / L0 (デフォルト)');
     } else if ((isFinalPhase && totalGroupsCount === 1) || (perPoolAdvance === 0 && isFinalPhase)) {
         winnersAdvanceCount.value = '0';
-        if (elimFormatSelect.value !== 'single') {
+        if (getEffectiveElimFormat() !== 'single') {
             losersAdvanceCount.value = '0';
         }
         targetPhaseInput.value = '';
@@ -2163,7 +2185,7 @@ async function populatePoolsFromStartggPhase(phaseObj, targetGroupId = null) {
             targetPhaseInput.value = nextPhaseObj.name || '';
         }
         if (perPoolAdvance > 0) {
-            if (elimFormatSelect.value === 'single') {
+            if (getEffectiveElimFormat() === 'single') {
                 if (['1', '2', '4'].includes(String(perPoolAdvance))) {
                     winnersAdvanceCount.value = String(perPoolAdvance);
                     autoMessages.push(`通過人数: W${perPoolAdvance}`);
@@ -2413,7 +2435,7 @@ elimFormatSelect.addEventListener('change', (e) => {
         losersAdvanceWrapper.classList.remove('hidden');
         losersRoundChangeBlock.classList.remove('hidden');
         if (losersAdvanceCount.value === '0' && winnersAdvanceCount.value !== '0') {
-            losersAdvanceCount.value = '';
+            losersAdvanceCount.value = '1';
         }
     }
     updateAdvanceCountConstraints();
@@ -2425,9 +2447,10 @@ elimFormatSelect.addEventListener('change', (e) => {
 
 // === 手順3: 通過人数の選択 ===
 winnersAdvanceCount.addEventListener('change', () => {
-    if (elimFormatSelect.value === 'double' && winnersAdvanceCount.value === '0') {
+    const isDouble = getEffectiveElimFormat() === 'double';
+    if (isDouble && winnersAdvanceCount.value === '0') {
         losersAdvanceCount.value = '0';
-    } else if (elimFormatSelect.value === 'double' && losersAdvanceCount.value === '0' && winnersAdvanceCount.value !== '0') {
+    } else if (isDouble && (losersAdvanceCount.value === '0' || losersAdvanceCount.value === '') && winnersAdvanceCount.value !== '0') {
         losersAdvanceCount.value = '1';
     }
     updateTargetPhaseInputState();
@@ -2436,9 +2459,10 @@ winnersAdvanceCount.addEventListener('change', () => {
 });
 
 losersAdvanceCount.addEventListener('change', () => {
-    if (elimFormatSelect.value === 'double' && losersAdvanceCount.value === '0') {
+    const isDouble = getEffectiveElimFormat() === 'double';
+    if (isDouble && losersAdvanceCount.value === '0') {
         winnersAdvanceCount.value = '0';
-    } else if (elimFormatSelect.value === 'double' && winnersAdvanceCount.value === '0' && losersAdvanceCount.value !== '0') {
+    } else if (isDouble && (winnersAdvanceCount.value === '0' || winnersAdvanceCount.value === '') && losersAdvanceCount.value !== '0') {
         winnersAdvanceCount.value = '1';
     }
     updateTargetPhaseInputState();
@@ -2579,7 +2603,7 @@ function getBoStringForRound(side, roundName, poolPlayerCount = null) {
 
     if (isChangeMode) {
         const effCount = poolPlayerCount || getCurrentPoolPlayerCount();
-        const isSingle = elimFormatSelect.value === 'single';
+        const isSingle = getEffectiveElimFormat() === 'single';
         const wCountNum = winnersAdvanceCount.value !== '' ? Number(winnersAdvanceCount.value) : 1;
         const lCountNum = isSingle ? 0 : (losersAdvanceCount.value !== '' ? Number(losersAdvanceCount.value) : 2);
         const { winnersRounds, losersRounds } = computeActiveRounds(effCount, isSingle, wCountNum, lCountNum);
@@ -3275,7 +3299,7 @@ generateBtn.addEventListener('click', () => {
     document.getElementById('preview-header').classList.remove('hidden');
     document.getElementById('main-sheet-body').classList.remove('hidden');
 
-    const isSingle = elimFormatSelect.value === 'single';
+    const isSingle = getEffectiveElimFormat() === 'single';
     const wCount = winnersAdvanceCount.value;
     const lCount = isSingle ? '0' : losersAdvanceCount.value;
     const isGfMode = isGrandFinalModeSelected();
@@ -3445,7 +3469,7 @@ async function downloadPoolsAsPdfDirect(targetPoolNames, triggerBtn) {
         A5: { long: 210, short: 148 }
     };
 
-    const isSingle = elimFormatSelect.value === 'single';
+    const isSingle = getEffectiveElimFormat() === 'single';
     const wCount = winnersAdvanceCount.value;
     const lCount = isSingle ? '0' : losersAdvanceCount.value;
     const isGfMode = isGrandFinalModeSelected();
@@ -3477,7 +3501,7 @@ async function downloadPoolsAsPdfDirect(targetPoolNames, triggerBtn) {
             let orientation = printOrientationSelect.value;
             if (!isCustomPrintSetting) {
                 const effPoolRefCount = getEffectiveReferencePlayerCount(poolObj.count);
-                const recForPool = getRecommendedPrintSettings(effPoolRefCount, elimFormatSelect.value || 'double');
+                const recForPool = getRecommendedPrintSettings(effPoolRefCount, getEffectiveElimFormat() || 'double');
                 size = recForPool.size;
                 orientation = recForPool.orientation;
             }
