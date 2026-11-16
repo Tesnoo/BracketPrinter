@@ -54,6 +54,37 @@
             display: inline-block;
         }
 
+        /* サイドバーリサイズハンドル＆開閉制御 */
+        #sidebar-panel {
+            width: 320px;
+            min-width: 240px;
+            max-width: 640px;
+            position: relative;
+            transition: margin-left 0.2s ease;
+        }
+        #sidebar-panel.is-collapsed {
+            display: none !important;
+        }
+        #sidebar-resizer {
+            position: absolute;
+            top: 0;
+            right: 0;
+            bottom: 0;
+            width: 6px;
+            cursor: col-resize;
+            z-index: 40;
+            background-color: transparent;
+            transition: background-color 0.15s ease;
+        }
+        #sidebar-resizer:hover,
+        #sidebar-resizer.is-resizing {
+            background-color: rgba(219, 39, 119, 0.45);
+        }
+        body.resizing-sidebar {
+            cursor: col-resize !important;
+            user-select: none !important;
+        }
+
         /* プレビュー画面：横スクロールバーを非表示にしドラッグ視点移動に対応 */
         #preview-viewport {
             overflow-x: hidden;
@@ -85,7 +116,7 @@
                 overflow: visible !important;
                 font-family: Arial, Helvetica, "Hiragino Kaku Gothic ProN", "Hiragino Sans", Meiryo, sans-serif !important;
             }
-            #sidebar-panel, #match-edit-modal {
+            #sidebar-panel, #sidebar-expand-btn, #match-edit-modal {
                 display: none !important;
             }
             #preview-viewport {
@@ -646,7 +677,7 @@
 
     <style id="dynamic-print-style"></style>
 </head>
-<body class="bg-gray-200 h-screen flex overflow-hidden">
+<body class="bg-gray-200 h-screen flex overflow-hidden relative">
     <!-- 一般公開用：全面メンテナンスロック画面（enabled: true の時に表示） -->
     <div id="maintenance-overlay" class="hidden fixed inset-0 bg-gray-900/95 z-[100] flex flex-col items-center justify-center p-6 text-center select-none">
         <div class="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-8 border-t-8 border-[#DB2777] flex flex-col items-center gap-4">
@@ -745,12 +776,23 @@
         </div>
     </div>
 
+    <!-- サイドバー閉じた状態での展開ボタン（「≫」） -->
+    <button id="sidebar-expand-btn" type="button" title="設定画面を開く" class="hidden fixed top-3 left-3 z-40 bg-white hover:bg-pink-50 text-gray-800 hover:text-[#DB2777] border border-gray-300 hover:border-pink-300 shadow-lg rounded-lg px-2.5 py-2 font-black text-sm transition flex items-center gap-1.5">
+        <span>≫</span>
+        <span class="text-xs font-bold">設定</span>
+    </button>
+
     <!-- 左側：操作パネル -->
-    <div id="sidebar-panel" class="w-80 shrink-0 bg-white shadow-lg overflow-y-auto z-20 h-full">
+    <div id="sidebar-panel" class="shrink-0 bg-white shadow-lg overflow-y-auto z-20 h-full">
         <div class="p-5 flex flex-col gap-4">
-            <div id="app-brand-header" class="flex items-center gap-2.5 shrink-0 select-none" title="Bracket Printer">
-                <img src="image/BracketPrinter_logo.png" onerror="this.onerror=null;this.src='../image/BracketPrinter_logo.png';" alt="Bracket Printer Logo" class="w-8 h-8 object-contain cursor-pointer">
-                <h1 class="text-2xl font-bold text-gray-800">Bracket Printer</h1>
+            <div class="flex items-center justify-between gap-2 shrink-0">
+                <div id="app-brand-header" class="flex items-center gap-2.5 select-none min-w-0" title="Bracket Printer">
+                    <img src="image/BracketPrinter_logo.png" onerror="this.onerror=null;this.src='../image/BracketPrinter_logo.png';" alt="Bracket Printer Logo" class="w-8 h-8 object-contain cursor-pointer shrink-0">
+                    <h1 class="text-2xl font-bold text-gray-800 truncate">Bracket Printer</h1>
+                </div>
+                <button id="sidebar-collapse-btn" type="button" title="設定画面を閉じる" class="bg-gray-100 hover:bg-pink-50 text-gray-600 hover:text-[#DB2777] border border-gray-300 hover:border-pink-300 rounded px-2 py-1 text-xs font-black transition shrink-0">
+                    ≪
+                </button>
             </div>
 
             <!-- 使い方ガイドを開くボタン -->
@@ -883,6 +925,7 @@
                                 <option value="1">1人</option>
                                 <option value="2">2人</option>
                                 <option value="4">4人</option>
+                                <option value="8">8人</option>
                             </select>
                         </div>
                         <div id="losers-advance-wrapper">
@@ -894,6 +937,7 @@
                                 <option value="2">2人</option>
                                 <option value="4">4人</option>
                                 <option value="8">8人</option>
+                                <option value="16">16人</option>
                             </select>
                         </div>
                     </div>
@@ -1137,6 +1181,8 @@
                 <p id="export-error-msg" class="text-[11px] text-red-600 font-bold hidden whitespace-pre-line leading-relaxed"></p>
             </div>
         </div>
+        <!-- ドラッグで横幅を変更するリサイズバー -->
+        <div id="sidebar-resizer" title="ドラッグして設定画面の横幅を変更"></div>
     </div>
 
     <!-- 右側：プレビュー＆描画領域 -->
